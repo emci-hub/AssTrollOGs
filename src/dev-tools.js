@@ -7,9 +7,8 @@
 import { engine } from './engine.js';
 import { switchView, renderActiveStep } from './profile-builder.js';
 import { hydrateDashboardViews } from './dashboard.js';
-import { defaultGameData, saveGameData, updateStreak, migrateGameData, MILESTONE_LABELS } from './state.js';
+import { defaultGameData, saveGameData, updateStreak, migrateGameData, MILESTONE_LABELS, todayLocal } from './state.js';
 import { initPet, awardPetGrowth } from './pet.js';
-import { generateSaveCode, verifySaveCode } from './save-code.js';
 import { cloudSave } from './supabase.js';
 
 const DEV_PASSWORD = 'Calgary1!';
@@ -99,7 +98,8 @@ export function devForceDashboard() {
     tempAnswers: window.AppState.tempAnswers,
     gameData: window.AppState.gameData,
     currentStep: 12,
-    cachedDate: new Date().toISOString().split('T')[0]
+    cachedDate: todayLocal(),
+    lastSavedAt: new Date().toISOString()
   };
 
   localStorage.setItem('persistent_profile_data', JSON.stringify(storagePayload));
@@ -192,12 +192,19 @@ export function devSimulateDayAdvance() {
   const yesterday = (() => {
     const d = new Date();
     d.setDate(d.getDate() - 1);
-    return d.toISOString().split('T')[0];
+    return todayLocal(d);
   })();
 
   if (gd.streak?.lastOpenDate) gd.streak.lastOpenDate = yesterday;
   if (gd.mood?.lastChecked) gd.mood.lastChecked = yesterday;
   gd.mood.today = null;
+  if (gd.dailyq?.lastAnswered) gd.dailyq.lastAnswered = yesterday;
+  // Roll the weekly check-in gate back a day too so it can be tested
+  if (gd.checkin?.lastCheckin) {
+    const d = new Date(gd.checkin.lastCheckin);
+    d.setDate(d.getDate() - 1);
+    gd.checkin.lastCheckin = todayLocal(d);
+  }
 
   // Reset daily growth caps to yesterday so games can award again today
   if (gd.petGrowthLog) {
@@ -280,7 +287,7 @@ export function devRefreshInspector() {
   const gd = window.AppState.gameData;
   const up = window.AppState.userProfile;
   const pp = window.AppState.partnerProfile;
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayLocal();
 
   const lines = [
     `Mode:        ${window.AppState.soloMode ? 'Solo' : 'Partner'}`,
@@ -299,7 +306,9 @@ export function devRefreshInspector() {
     ``,
     `Trivia:      ${gd.trivia?.correct || 0}/${gd.trivia?.total || 0} correct`,
     `WYR:         ${gd.wyr?.answered || 0} answered`,
-    `Memory:      ${gd.memory?.completed || 0} wins (best: ${gd.memory?.bestMoves ?? '—'} moves)`,
+    `Duo guesses: ${gd.duo?.correctGuesses || 0}/${gd.duo?.guesses || 0} right`,
+    `Daily Q:     ${gd.dailyq?.answered || 0} answered`,
+    `Check-ins:   ${gd.checkin?.entries?.length || 0} done`,
     `QuickTakes:  ${gd.quicktakes?.sessionCount || 0} sessions`,
     ``,
     `Milestones:  ${(gd.milestones || []).length} / ${Object.keys(MILESTONE_LABELS).length}`,
@@ -331,49 +340,32 @@ export function clearProfileCache() {
 }
 
 // ─── Save Code Tools ──────────────────────────────────────────────────────────
+// The code is a permanent random key, never regenerated — dev tools can only
+// display it and force a cloud re-sync under it.
 
-export async function devRegenerateSaveCode() {
+export function devShowSaveCode() {
+  const el = document.getElementById('dev-savecode-status');
+  const code = window.AppState.saveCode || localStorage.getItem('vibeSaveCode');
+  if (el) {
+    el.textContent = code ? `Code: ${code}` : 'No code yet — finish onboarding first.';
+    el.style.color = code ? 'var(--success-color)' : '#f87171';
+  }
+}
+
+export function devForceCloudSync() {
+  const el = document.getElementById('dev-savecode-status');
   const raw = localStorage.getItem('persistent_profile_data');
   if (!raw) {
-    const el = document.getElementById('dev-savecode-status');
     if (el) { el.textContent = 'No profile saved yet.'; el.style.color = '#f87171'; }
     return;
   }
   try {
     const parsed = JSON.parse(raw);
-    const code = await generateSaveCode(parsed);
-    localStorage.setItem('vibeSaveCode', code);
-    window.AppState.saveCode = code;
+    parsed.lastSavedAt = new Date().toISOString();
+    localStorage.setItem('persistent_profile_data', JSON.stringify(parsed));
+    const code = window.AppState.saveCode || localStorage.getItem('vibeSaveCode');
     cloudSave(parsed, code);
-    if (typeof window.refreshSaveCodeDisplay === 'function') window.refreshSaveCodeDisplay();
-    devRefreshInspector();
-    const el = document.getElementById('dev-savecode-status');
-    if (el) { el.textContent = `Generated: ${code}`; el.style.color = 'var(--success-color)'; }
-  } catch (e) {
-    const el = document.getElementById('dev-savecode-status');
-    if (el) { el.textContent = `Error: ${e.message}`; el.style.color = '#f87171'; }
-  }
-}
-
-export async function devVerifySaveCode() {
-  const code = window.AppState.saveCode || localStorage.getItem('vibeSaveCode');
-  const el = document.getElementById('dev-savecode-status');
-  if (!code) {
-    if (el) { el.textContent = 'No code to verify.'; el.style.color = '#f87171'; }
-    return;
-  }
-  const raw = localStorage.getItem('persistent_profile_data');
-  if (!raw) {
-    if (el) { el.textContent = 'No profile data.'; el.style.color = '#f87171'; }
-    return;
-  }
-  try {
-    const parsed = JSON.parse(raw);
-    const valid = await verifySaveCode(code, parsed);
-    if (el) {
-      el.textContent = valid ? `PASS — ${code}` : `FAIL — code does not match profile`;
-      el.style.color = valid ? 'var(--success-color)' : '#f87171';
-    }
+    if (el) { el.textContent = `Synced${code ? ` under ${code}` : ''}.`; el.style.color = 'var(--success-color)'; }
   } catch (e) {
     if (el) { el.textContent = `Error: ${e.message}`; el.style.color = '#f87171'; }
   }

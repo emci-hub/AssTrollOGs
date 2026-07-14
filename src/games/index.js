@@ -14,19 +14,21 @@
  */
 
 import { triviaGame } from './trivia.js';
-import { memoryGame } from './memory.js';
 import { wyrGame } from './wyr.js';
 import { sparksGame } from './bingo.js';
 import { moodGame } from './mood.js';
 import { quickTakesGame } from './quicktakes.js';
+import { dailyqGame } from './dailyq.js';
+import { checkinGame } from './checkin.js';
 
 const GAMES = [
   triviaGame,
-  memoryGame,
   wyrGame,
   sparksGame,
   moodGame,
-  quickTakesGame
+  quickTakesGame,
+  dailyqGame,
+  checkinGame
 ];
 
 const _byId = {};

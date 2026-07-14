@@ -21,14 +21,45 @@ import { toggleDeveloperPanel, devJumpStep, devForceDashboard, syncDevInputs, cl
          devLogin, devLogout, devForceSolo, devForcePartner,
          devSimulateDayAdvance, devAwardPetGrowthManual, devUnlockAllMilestones,
          devExportProfile, devImportProfile, devRefreshInspector,
-         devRegenerateSaveCode, devVerifySaveCode } from './dev-tools.js';
+         devShowSaveCode, devForceCloudSync } from './dev-tools.js';
 import { gameRegistry } from './games/index.js';
 import { initPet, renderPetSection, refreshPetAffirmation } from './pet.js';
-import { updateStreak, migrateGameData } from './state.js';
-import { cloudLoad } from './supabase.js';
+import { updateStreak, migrateGameData, todayLocal } from './state.js';
+import { cloudLoad, cloudLoadByCode } from './supabase.js';
 
 // Bind all game window handlers
 gameRegistry.bindAll();
+
+// ── PWA: cache-shell service worker (production only) ────────────────────────
+if ('serviceWorker' in navigator && !import.meta.env.DEV) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+
+// ── Keyboard accessibility for card-style controls ───────────────────────────
+// The app renders interactive divs via innerHTML everywhere, so focusability
+// is patched in centrally: any re-render gets tabindex/role, and Enter/Space
+// activates whatever card has focus.
+document.addEventListener('keydown', (e) => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target instanceof HTMLElement &&
+      e.target.matches('.interactive-card, .sparks-cell, [role="button"]:not(button)')) {
+    e.preventDefault();
+    e.target.click();
+  }
+});
+new MutationObserver(() => {
+  document.querySelectorAll('.interactive-card:not([tabindex]), .sparks-cell:not([tabindex])').forEach(el => {
+    el.setAttribute('tabindex', '0');
+    if (!el.getAttribute('role')) el.setAttribute('role', 'button');
+  });
+}).observe(document.documentElement, { childList: true, subtree: true });
+
+// Freshness key for competing save packages. lastSavedAt is a full ISO
+// timestamp; cachedDate (day-granularity) is the fallback for older saves.
+function packageFreshness(pkg) {
+  return pkg?.lastSavedAt || pkg?.cachedDate || '';
+}
 
 // Init: restore cached profile or show onboarding
 window.addEventListener('DOMContentLoaded', async () => {
@@ -40,21 +71,29 @@ window.addEventListener('DOMContentLoaded', async () => {
     try { cachedPackage = JSON.parse(localRaw); } catch (_) {}
   }
 
-  // Try cloud load — use whichever is newer
+  // Newest-wins across three sources: local, this device's cloud row, and —
+  // when a save code exists — the newest row from ANY device sharing that
+  // code. The last one is what keeps two devices on one code in sync.
   try {
-    const cloudData = await cloudLoad();
-    if (cloudData && cloudData.userProfile) {
-      const localUpdated = cachedPackage?.cachedDate || '';
-      const cloudUpdated = cloudData.cachedDate || '';
-      if (!cachedPackage || cloudUpdated > localUpdated) {
-        cachedPackage = cloudData;
-        localStorage.setItem('persistent_profile_data', JSON.stringify(cloudData));
+    const storedCodeEarly = localStorage.getItem('vibeSaveCode');
+    const [cloudData, codeResult] = await Promise.all([
+      cloudLoad(),
+      storedCodeEarly ? cloudLoadByCode(storedCodeEarly) : Promise.resolve(null)
+    ]);
+    const candidates = [cloudData, codeResult?.profileData]
+      .filter(p => p && p.userProfile);
+    for (const candidate of candidates) {
+      if (!cachedPackage || packageFreshness(candidate) > packageFreshness(cachedPackage)) {
+        cachedPackage = candidate;
       }
+    }
+    if (cachedPackage && localRaw !== JSON.stringify(cachedPackage)) {
+      localStorage.setItem('persistent_profile_data', JSON.stringify(cachedPackage));
     }
   } catch (_) {}
 
   if (cachedPackage) {
-    const currentCalendarDay = new Date().toISOString().split('T')[0];
+    const currentCalendarDay = todayLocal();
 
     window.AppState.userProfile = cachedPackage.userProfile;
     window.AppState.partnerProfile = cachedPackage.partnerProfile;
@@ -66,7 +105,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     // Reset today's mood if it was checked on a previous day
     const gd = window.AppState.gameData;
-    if (gd.mood?.lastChecked && gd.mood.lastChecked !== new Date().toISOString().split('T')[0]) {
+    if (gd.mood?.lastChecked && gd.mood.lastChecked !== todayLocal()) {
       gd.mood.today = null;
     }
 
@@ -139,8 +178,8 @@ window.initPet = initPet;
 window.toggleSaveCodeEntry = toggleSaveCodeEntry;
 window.formatSaveCodeInput = formatSaveCodeInput;
 window.submitSaveCode = submitSaveCode;
-window.devRegenerateSaveCode = devRegenerateSaveCode;
-window.devVerifySaveCode = devVerifySaveCode;
+window.devShowSaveCode = devShowSaveCode;
+window.devForceCloudSync = devForceCloudSync;
 window.migrateGameData = migrateGameData;
 window.updateStreak = updateStreak;
 
@@ -158,7 +197,7 @@ window.loadSavedProfile = () => {
 
     // Reset today's mood if it was checked on a previous day
     const gd = window.AppState.gameData;
-    if (gd.mood?.lastChecked && gd.mood.lastChecked !== new Date().toISOString().split('T')[0]) {
+    if (gd.mood?.lastChecked && gd.mood.lastChecked !== todayLocal()) {
       gd.mood.today = null;
     }
 

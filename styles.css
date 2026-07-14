@@ -21,6 +21,16 @@
   padding: 0;
 }
 
+/* Keyboard focus — card-style controls get tabindex via app.js */
+.interactive-card:focus-visible,
+.choice-btn:focus-visible,
+.sparks-cell:focus-visible,
+button:focus-visible,
+.mood-btn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
 body {
   background-color: var(--bg-dark);
   color: var(--text-primary);

@@ -8,7 +8,9 @@
 
 A mobile-first personality + relationship dashboard (430px max-width app container). Users build a personality profile during onboarding; the dashboard then surfaces daily insights, games, a virtual pet companion, and live behavioral metrics. Works in solo mode (self-discovery) or partner mode (relationship alignment).
 
-**Stack:** Vanilla JS ES modules, Vite bundler, Supabase (no auth, device UUID as key), localStorage as primary persistence.
+**Stack:** Vanilla JS ES modules, Vite bundler, Supabase (no auth, device UUID as key, reads via SECURITY DEFINER RPCs only), localStorage as primary persistence. PWA (manifest + minimal cache-shell service worker in `public/`).
+
+**Date rule:** ALL "what day is it" logic uses `todayLocal()` / `isToday()` / `daysBetween()` from `state.js` — never `toISOString().split('T')[0]` (UTC rolls the day over mid-evening for anyone west of Greenwich).
 
 ---
 
@@ -19,22 +21,24 @@ A mobile-first personality + relationship dashboard (430px max-width app contain
 | `index.html` | Single page shell. All screens live here. Dev panel (gear icon) top-right. |
 | `styles.css` | All styles. CSS variables in `:root`. Key classes: `.screen`, `.card`, `.choice-btn`, `.sparks-cell`, `.mood-btn`, `.qt-choice-btn`, `.memory-card` |
 | `src/app.js` | Entry point. Imports all modules, binds window globals, handles init (cloud+local load, profile restore). |
-| `src/state.js` | `window.AppState`, `defaultGameData()`, `migrateGameData()`, `saveGameData()`, `updateStreak()`, `checkMilestones()`, `canAwardPetGrowthToday()`, `recordPetGrowthToday()`. `SCHEMA_VERSION = 2`. |
-| `src/supabase.js` | Supabase client singleton, `getDeviceId()`, `cloudSave()`, `cloudLoad()`, `cloudLoadByCode()`. No auth — device UUID key. |
-| `src/save-code.js` | Hash-verified save code system. `generateSaveCode()`, `verifySaveCode()`, `formatCode()`, `stripFormatting()`. Code is a SHA-256 hash of identity fields only (`userProfile`, `partnerProfile`, `soloMode`, `vibeSeed`) — never game data. Used for cross-device restore. |
+| `src/state.js` | `window.AppState`, `defaultGameData()`, `migrateGameData()`, `saveGameData()`, `updateStreak()`, `checkMilestones()`, `canAwardPetGrowthToday()`, `recordPetGrowthToday()`, local-date helpers `todayLocal()`/`isToday()`/`daysBetween()`. `SCHEMA_VERSION = 3`. |
+| `src/supabase.js` | Supabase client singleton, `getDeviceId()`, `cloudSave()`, `cloudLoad()`, `cloudLoadByCode()`. No auth — device UUID key. Reads go through RPCs (`get_session_by_device` / `get_session_by_code`); the table has NO open SELECT policy. |
+| `src/save-code.js` | Save code system. `generateSaveCode()` (random, `crypto.getRandomValues`), `formatCode()`, `stripFormatting()`. The code is a PERMANENT opaque key minted once at onboarding — never regenerated, never derived from profile data. Pure cloud lookup key for cross-device restore + ongoing sync. |
+| `src/growth.js` | Growth Compass. `computeGrowthCompass()` (one strength + one growth edge; live signals — duo accuracy, streaks, mood trends, trivia blind spots — beat static trait reads), `renderGrowthCard()` (dashboard), `renderGrowthDrawer()` (four-area breakdown: connection/communication/conflict/self-care from `GROWTH_AREAS`). |
 | `src/profile-builder.js` | Onboarding wizard (steps 0–12 for partner, 0–7 for solo). `finalizeEngineData()` writes `userProfile` + `partnerProfile`. Labels use plain language ("Your full name", "Your city or region"). |
 | `src/dashboard.js` | `hydrateDashboardViews()` — main render entry. Updates header, metrics bar, spotlight tips, Day at a Glance, games section titles. |
 | `src/drawers.js` | All overlay drawers (insight types, sandbox, games, profile settings, pet). `openDrawer(type)` / `closeDrawer()`. `window.saveProfileSettings` writes to correct tempAnswers keys: `attachment`, `conflict`, `expression`. |
 | `src/engine.js` | `computeDeterministicSeed()`, `calculateLiveMetrics()`, `generateDuoName()`, `generateSoloVibeName()` (returns "Alex Soleil" style), `deriveWyrPersonalityLabel()`. |
-| `src/insights.js` | `insights.generateDeepInsight(type, profiles, gameData, now, offset)` — content for groove/journey/decoder/vibe drawers. `generateChronicleScenario()`. `assembleMbtiFlavor()` composes short MBTI-flavored lines from `MBTI_FRAGMENTS`. Decoder now reflects both partners' love languages in partner mode. |
-| `src/content-bank.js` | Large arrays of insight content indexed by profile keys, plus `MBTI_FRAGMENTS` (small per-letter pool assembled combinatorially, not a full 16-type pool). |
+| `src/insights.js` | `insights.generateDeepInsight(type, profiles, gameData, now, offset)` — content for groove/journey/decoder/vibe drawers. `generateChronicleScenario()`. `assembleMbtiFlavor()`. `fillTemplate()` interpolates `{name}`/`{partner}`/`{mbti}`/`{streak}`/`{city}` tokens inside pool sentences. `analyzeMoodTrend()`/`analyzeWyrLean()` turn stored history into trend content. Daily glance rotates in `COMBO_INSIGHTS` + `ATTACHMENT_PAIRINGS`; groove wires conflict styles; decoder covers both love languages; journey echoes reflections + mood trends. |
+| `src/content-bank.js` | Large arrays of insight content indexed by profile keys. Trait-combination banks: `COMBO_INSIGHTS` (attachment×loveLanguage), `ATTACHMENT_PAIRINGS` (4×4, keyed `user_partner`, order matters), `CONFLICT_PAIRINGS` (keyed by SORTED pair `a|b`, order-neutral text), `CONFLICT_SOLO`, `GROWTH_AREAS`. Plus `MBTI_FRAGMENTS`. Pool strings may contain `{name}`-style tokens (filled by `insights.fillTemplate`). |
 | `src/questions.js` | `PSYCH_QUESTIONS` array (5 questions: loveLanguage, attachment, conflict, expression, mbti). `MBTI_TYPES` array. Question/title/desc copy is plain and warm — `value` fields are lookup keys used throughout the app and must never change. |
 | `src/pet.js` | `initPet()`, `renderPetSection()`, `awardPetGrowth(n)`, `renderPetDrawer()`, `refreshPetAffirmation()`. SVG-based virtual pets. Mood synced from `gd.mood.today`. Color/ear-shape/pattern derived deterministically from profile (`derivePetVisuals()`); body silhouette varies per stage (`STAGE_SHAPE`). Solo Legendary pets get a bonus weapon accessory. Couple pet (`gd.pet.couple`) has independent persisted growth and a shiny gradient+sparkle treatment at stage 5. `pickPetReaction()` reacts to today's actual mood/game/streak activity before falling back to `pickAffirmation()`'s shuffle-bag-rotated pool; partner-mode affirmation label now names the actual person it's about. |
 | `src/dev-tools.js` | Dev panel: jump steps, force dashboard, clear cache. |
 | `src/games/index.js` | Game registry. `gameRegistry.get(id)` / `gameRegistry.bindAll()`. All games registered here. |
 | `src/games/trivia.js` | 5-question quiz (solo self-knowledge or partner trivia). Awards pet growth on round complete (daily cap). |
-| `src/games/memory.js` | 6-pair memory match. Awards pet growth on win (daily cap). |
-| `src/games/wyr.js` | Would You Rather. Updates `wyr.preferences`. Awards pet growth every 5th answer (daily cap). |
+| `src/games/wyr.js` | Would You Rather (solo) / **Guess & Reveal** (partner, pass-the-phone: user guesses partner's pick → handoff → partner answers for real → reveal). Guess accuracy fills `gd.duo`; preferences update from the partner's ACTUAL answer. Question pool = local bank + `WYR_BONUS_QUESTIONS`. Pet growth every 5th answer (daily cap). |
+| `src/games/dailyq.js` | Daily Duo (partner, both answer the same question + compare) / Daily Reflection (solo, one deeper question a day → `gd.reflection.entries`, echoed by journey drawer + Growth Compass). One per local day. Pet growth daily cap id `dailyq`. Replaced the old Vibe Match memory game. |
+| `src/games/checkin.js` | Weekly Check-In ritual (once per 7 days): appreciation/friction/experiment (partner, friction options keyed to conflict style) or win/struggle/intention (solo) + optional note. Last week's third answer echoed at the next check-in. `gd.checkin.entries` (last 12). |
 | `src/games/bingo.js` | Personality Sparks (solo) / Couple's Hot Takes (partner). Awards pet growth on full board (9 cells, daily cap). |
 | `src/games/mood.js` | Daily Mood Check. One tap per day. Updates `gd.mood.today` (affects pet facial expression). Awards pet growth (daily cap). |
 | `src/games/quicktakes.js` | 3-question rapid-fire round. Updates `wyr.preferences`. Awards pet growth per session (daily cap). |
@@ -65,13 +69,17 @@ window.AppState = {
 }
 ```
 
-## gameData Schema (SCHEMA_VERSION = 2)
+## gameData Schema (SCHEMA_VERSION = 3)
 
 ```js
 {
-  schemaVersion: 2,
+  schemaVersion: 3,
   trivia:     { correct, total, lastPlayed, categoryAccuracy: { mbti, loveLanguage, attachment, conflict, expression } },
-  memory:     { completed, bestMoves, lastPlayed },
+  memory:     { completed, bestMoves, lastPlayed },   // legacy — game removed, key kept for old saves
+  duo:        { rounds, guesses, correctGuesses, lastPlayed, history: [{type:'wyr'|'dailyq', ...}] },  // real dyadic data
+  dailyq:     { answered, lastAnswered /* local date */, lastPlayed },
+  reflection: { entries: [{date, question, answer}] /* last 30 */, lastAnswered },
+  checkin:    { entries: [{date, mode, answers:[a,b,c], note}] /* last 12 */, lastCheckin /* local date */, lastPlayed },
   wyr:        { answered, lastPlayed, history: [{questionIndex, choice, textChosen}], preferences: {adventurous, homebody, planner, spontaneous, deep, lighthearted, independent, connected} },
   bingo:      { checked, lastPlayed, checkedCells: [] },
   sparks:     { checkedItems: [], lastPlayed },
@@ -95,7 +103,7 @@ window.AppState = {
 **Pet growth sources:**
 - Daily visit: +2 (solo), +1 (partner), +1 (couple pet, partner mode only)
 - Each game win/completion: +1 (daily cap via `petGrowthLog`) — applies to user, partner, *and* couple pet simultaneously; no per-game code needed for the couple pet, it rides the same `awardPetGrowth()` call
-- Games with daily cap: `trivia`, `memory`, `wyr`, `sparks`, `mood`, `quicktakes`
+- Games with daily cap: `trivia`, `wyr`, `sparks`, `mood`, `quicktakes`, `dailyq`, `checkin`
 
 **Solo Legendary weapon:** At stage 5, a pet rendered with `isSolo: true` (true solo mode only — never partner-mode individual pets, even at stage 5) additionally renders a weapon accessory alongside the crown.
 
@@ -127,17 +135,18 @@ window.AppState = {
 
 ## Supabase
 
-- **Table:** `user_sessions` — columns: `device_id` (text PK), `profile_data` (jsonb), `schema_version` (int), `updated_at` (timestamptz), `save_code` (text, nullable, indexed — not unique, since a code can be shared across multiple device rows once restored on a second device)
-- **RLS:** anon + authenticated read/write (`USING (true)`) — single-tenant, no auth
-- **Strategy:** localStorage is always source of truth. Cloud load on startup picks whichever is newer (by `cachedDate`). Cloud save is silent fire-and-forget in `saveGameData()`.
+- **Table:** `user_sessions` — columns: `id` (uuid PK), `device_id` (text, UNIQUE index — required by the upsert's `onConflict:'device_id'`), `profile_data` (jsonb), `schema_version` (int), `updated_at` (timestamptz), `save_code` (text, nullable, plain index — a code can be shared across multiple device rows)
+- **RLS:** writes open (insert/update `WITH CHECK (true)` — device_id is the opaque access key). **Reads are NOT open**: no SELECT policy; lookups go through `SECURITY DEFINER` RPCs `get_session_by_device(p_device_id)` and `get_session_by_code(p_code)` which return only the single row matching the exact key. No DELETE policy (app never deletes).
+- **Strategy:** localStorage is always source of truth locally, but startup is newest-wins across THREE sources: local, this device's cloud row, and the newest row sharing the save code (that last one is what keeps two devices in sync). Freshness compares `lastSavedAt` (full ISO timestamp, stamped by every save path); `cachedDate` remains day-granular for streak logic only.
 - **Device ID:** Random UUID stored in `localStorage['vibeDeviceId']`, generated once.
-- **Save code:** Generated once from identity fields (`generateSaveCode()` in `save-code.js`) on onboarding completion and on profile-settings edits — never on every gameplay save (game data changes constantly and isn't part of the hash). `cloudLoadByCode()` looks up by `save_code` and takes the most recently updated row, since the column isn't unique.
+- **Save code:** A PERMANENT random 8-char base32 key (`VIBE-XXXX-XXXX`), minted once at onboarding completion via `crypto.getRandomValues` — never regenerated, not derived from anything. Profile edits cloud-sync under the same code. Restore = `cloudLoadByCode()` → newest row. There is no hash verification (the old hash check was circular); "row found" is the verification.
+- **Migrations must be applied to the Supabase project** before shipping client changes that depend on them — the RPC-based reads fail against a DB without `20260714210000_lockdown_reads_and_fix_upsert.sql`.
 
 ---
 
 ## Milestone IDs
 
-`trivia_first`, `trivia_perfect` (≥10 total, 100%), `trivia_master` (≥15, ≥80%), `wyr_5`, `wyr_10`, `wyr_25`, `memory_first`, `memory_sharp` (≤8 moves), `bingo_3`, `bingo_row`, `streak_3`, `streak_7`, `mood_first`, `mood_consistent` (5-day mood streak), `quicktakes_first`, `quicktakes_pattern` (5 sessions), `pet_baby` (4d), `pet_adult` (20d), `pet_legendary` (40d), `pet_couple_shiny` (couple pet independently ≥40d, partner mode only)
+`trivia_first`, `trivia_perfect` (≥10 total, 100%), `trivia_master` (≥15, ≥80%), `wyr_5`, `wyr_10`, `wyr_25`, `dailyq_first`, `dailyq_7`, `duo_reader` (≥10 guesses, ≥70% right), `checkin_first`, `checkin_4`, `bingo_3`, `bingo_row`, `streak_3`, `streak_7`, `mood_first`, `mood_consistent` (5-day mood streak), `quicktakes_first`, `quicktakes_pattern` (5 sessions), `pet_baby` (4d), `pet_adult` (20d), `pet_legendary` (40d), `pet_couple_shiny` (couple pet independently ≥40d, partner mode only). Legacy (labels kept, checks removed with the memory game): `memory_first`, `memory_sharp`.
 
 New milestone IDs must be added in **three** places or the label silently regresses to the raw id: `MILESTONE_CHECKS` (state.js), `MILESTONE_LABELS` (state.js), and `getMilestoneLabel()` (insights.js) — a separate hardcoded map. This has bitten the codebase before (see Known Bugs).
 
@@ -161,11 +170,12 @@ This maps how profile values and game results flow through the system. Use this 
 ### Game Results → Profile Personalization
 | Game | Writes to | Affects |
 |---|---|---|
-| Trivia | `gd.trivia.categoryAccuracy[cat]` | `getWeakestCategoryLabel()` → spotlight DON'T tips, groove drawer |
-| WYR | `gd.wyr.preferences` | `engine.deriveWyrPersonalityLabel()` → dashboard pill + vibe drawer; nudge tips in spotlight |
-| Mood Check | `gd.mood.today` | Day at a Glance mood note; pet facial expression |
-| QuickTakes | `gd.wyr.preferences` (same object) | same as WYR above |
-| Memory | `gd.memory.bestMoves` | game insight sentences in blueprint/groove drawers |
+| Trivia | `gd.trivia.categoryAccuracy[cat]` | `getWeakestCategoryLabel()` → spotlight DON'T tips, groove drawer, Growth Compass blind spot |
+| WYR / Guess & Reveal | `gd.wyr.preferences` (from the REAL answerer) + `gd.duo` (guess accuracy) | `deriveWyrPersonalityLabel()` → pill + vibe drawer; duo accuracy → Connection metric, Growth Compass, game insights |
+| Daily Duo / Reflection | `gd.duo.history` (partner) / `gd.reflection.entries` (solo) + `gd.dailyq` | journey drawer echo, Growth Compass, Synchrony metric participation bonus |
+| Weekly Check-In | `gd.checkin.entries` | next check-in's echo, game insight sentences |
+| Mood Check | `gd.mood.today` + `gd.mood.history` | Day at a Glance mood note + 7-day trend note (`analyzeMoodTrend`); pet expression; Growth Compass recovery edge |
+| QuickTakes | `gd.wyr.preferences` + `gd.wyr.history` (same object, saves per answer) | same as WYR above |
 | Bingo | `gd.bingo.checkedCells` | game insight sentences |
 | All games | `gd.streak.current` | blueprint text, deep journey drawer, streak badge in header |
 
@@ -229,6 +239,36 @@ _Add confirmed bugs here with file:line. Mark [FIXED] when resolved._
 ---
 
 ## Changelog
+
+### 2026-07-14 — Full Overhaul: Security, Sync, Personalization Depth, Real Partner Games (SCHEMA_VERSION 3)
+
+Four-phase overhaul from the architecture review (all approved by owner; clean break allowed, Vibe Match replaced).
+
+**Phase A — data foundation**
+- `supabase/migrations/20260714210000_lockdown_reads_and_fix_upsert.sql`: dropped open SELECT/DELETE policies (anyone with the shipped anon key could enumerate every user's profile); reads now via `SECURITY DEFINER` RPCs keyed by exact device_id/save_code. Also deduped `device_id` and added the UNIQUE index that `cloudSave()`'s `onConflict:'device_id'` upsert always required — cloud saves had been silently failing without it.
+- `save-code.js`: save code is now a permanent random key minted once (was: SHA-256 of identity fields, silently churning on every profile edit and stranding written-down codes). Circular `verifySaveCode` removed. Profile-settings saves no longer regenerate anything.
+- `app.js` startup: newest-wins across local / device row / newest row sharing the save code, compared by new full-timestamp `lastSavedAt` — cross-device restore became continuous sync.
+- `state.js`: `todayLocal()`/`isToday()`/`daysBetween()`; every date key (streaks, mood reset, pet caps, pet ticks) switched from UTC to local calendar day.
+
+**Phase B — message engine (selects → computes)**
+- `content-bank.js`: `COMBO_INSIGHTS` (attachment×loveLanguage), `ATTACHMENT_PAIRINGS` (4×4 ordered), `CONFLICT_PAIRINGS` (sorted-pair keyed, order-neutral), `CONFLICT_SOLO`, `GROWTH_AREAS`. Some pool strings now carry `{name}`/`{partner}` tokens. Dead `pickFromPool`/`pickByProfile` removed.
+- `insights.js`: `fillTemplate()` applied at every generator's output; `analyzeMoodTrend()`/`analyzeWyrLean()` consume the previously-unread `mood.history` and preference counts; daily glance rotates combo + pairing bodies; groove finally uses BOTH partners' conflict styles; vibe adds the attachment pairing; journey echoes mood trends + Daily Reflections; time-of-day theme wired in (dead `getTimeGreeting` removed).
+- New `growth.js` — Growth Compass card + drawer (see File Map).
+
+**Phase C — games produce real data**
+- `wyr.js` partner mode → Guess & Reveal (pass-the-phone). `gd.duo` guess accuracy is the app's first honest dyadic measurement; preferences update from the partner's actual answers.
+- New `dailyq.js` (Daily Duo / Daily Reflection) replaces deleted `memory.js` (zero-insight filler). New `checkin.js` Weekly Check-In ritual — the one deliberately relationship-BUILDING mechanic.
+- `engine.calculateLiveMetrics`: Connection bonus = real duo accuracy once ≥5 guesses (falls back to trivia); Synchrony memory bonus → daily-question participation.
+- Chronicles (`drawers.js`) result lines scripted from both conflict styles instead of `Math.random`; unused `mbti` param dropped from `executeScenarioSimulation`.
+- Wired long-dead content: `WYR_BONUS_QUESTIONS` into the WYR pool, `EXTRA_SPARKS_*` into bingo builders. `quicktakes.js` saves per answer + logs `wyr.history`.
+- New milestones registered in all three places: `dailyq_first`, `dailyq_7`, `duo_reader`, `checkin_first`, `checkin_4`. Memory milestones = legacy labels only.
+
+**Phase D — shell + hygiene**
+- `index.html`: real title, "Getting Started" header fallback, jargon fallback tips replaced, PWA manifest/icon links, new game cards.
+- `public/manifest.json` + `public/sw.js` (network-first cache shell, never touches Supabase requests) + `public/icon.svg`; SW registered from `app.js` (prod only).
+- Keyboard a11y: MutationObserver stamps `tabindex`/`role=button` on card controls after every innerHTML render; global Enter/Space activation; `:focus-visible` outlines.
+- `dist/` untracked + gitignored; `TEST-PUSH-CHECK.md` deleted.
+- Verified end-to-end with a Playwright smoke run (solo onboarding → all drawers → all games → partner mode Guess & Reveal → reload persistence): 25/25 assertions, zero console errors.
 
 ### 2026-07-14 — Per-Profile Content Seeding (Fix Cross-User Collisions) + Bigger Knowledge Bank
 

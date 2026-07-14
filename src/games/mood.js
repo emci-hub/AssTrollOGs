@@ -4,7 +4,7 @@
  * Can only check in once per day. Awards pet growth on first check-in.
  */
 
-import { saveGameData, canAwardPetGrowthToday, recordPetGrowthToday } from '../state.js';
+import { saveGameData, canAwardPetGrowthToday, recordPetGrowthToday, todayLocal } from '../state.js';
 import { awardPetGrowth } from '../pet.js';
 
 const MOODS = [
@@ -52,7 +52,7 @@ const RESPONSES = {
 };
 
 function getTodayKey() {
-  return new Date().toISOString().split('T')[0];
+  return todayLocal();
 }
 
 function renderMoodGrid(checkedToday, currentMood) {
@@ -111,7 +111,7 @@ export const moodGame = {
       const today = getTodayKey();
       if (!gd.mood) gd.mood = { today: null, lastChecked: null, streak: 0, history: [] };
 
-      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+      const yesterday = todayLocal(new Date(Date.now() - 86400000));
       if (gd.mood.lastChecked === yesterday) {
         gd.mood.streak = (gd.mood.streak || 0) + 1;
       } else if (gd.mood.lastChecked !== today) {

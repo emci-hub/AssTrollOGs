@@ -12,6 +12,7 @@
 
 import { engine } from './engine.js';
 import { insights } from './insights.js';
+import { renderGrowthCard } from './growth.js';
 import { updateStreak, checkMilestones, MILESTONE_LABELS } from './state.js';
 
 let _fortuneOffset = 0;
@@ -123,6 +124,9 @@ export function hydrateDashboardViews(data) {
       milestoneEl.style.display = 'none';
     }
   }
+
+  // ── Growth Compass ───────────────────────────────────────────────────────
+  renderGrowthCard(profiles, gameData);
 
   // ── Solo/duo adaptive sections ───────────────────────────────────────────
   hydrateSandboxSection(solo, profiles.user?.name || 'You');
@@ -264,6 +268,28 @@ function hydrateGamesSection(solo) {
     if (titleEl) titleEl.textContent = solo ? 'Self-Knowledge Trivia' : 'Partner Trivia';
     if (bodyEl) bodyEl.textContent = solo ? 'Test how well you know yourself with a fun quiz about your own personality profile.' : 'Test how well you know each other with a fun quiz about your partner.';
   }
+
+  // Daily Question card swaps between Reflection (solo) and Duo (partner)
+  const dailyqCard = document.getElementById('dailyq-card');
+  if (dailyqCard) {
+    const titleEl = dailyqCard.querySelector('.card-title');
+    const bodyEl = dailyqCard.querySelector('.card-body');
+    if (titleEl) titleEl.textContent = solo ? 'Daily Reflection' : 'Daily Duo';
+    if (bodyEl) bodyEl.textContent = solo
+      ? 'One deeper question a day. Builds a record your future self gets to argue with.'
+      : 'One question a day — you both answer, then compare. The differences are the interesting part.';
+  }
+
+  // Would You Rather card reflects Guess & Reveal in partner mode
+  const wyrCard = [...document.querySelectorAll('.card.interactive-card')].find(el => el.getAttribute('onclick')?.includes("'wouldyou'"));
+  if (wyrCard) {
+    const titleEl = wyrCard.querySelector('.card-title');
+    const bodyEl = wyrCard.querySelector('.card-body');
+    if (titleEl) titleEl.textContent = solo ? 'Would You Rather' : 'Guess & Reveal';
+    if (bodyEl) bodyEl.textContent = solo
+      ? 'Playful dilemmas that reveal your real preferences and build your personality profile over time.'
+      : 'Guess your partner\'s pick, hand the phone over, see their real answer. Your hit rate is real data.';
+  }
 }
 
 /**
@@ -325,11 +351,13 @@ function hydrateMetricsProgress(liveMetrics, gameData, solo, userProfile) {
   let nextHint = '';
   const wyrAnswered = gameData.wyr?.answered || 0;
   const triviaTotal = gameData.trivia?.total || 0;
-  const memoryCompleted = gameData.memory?.completed || 0;
+  const dailyqAnswered = gameData.dailyq?.answered || 0;
+  const checkins = gameData.checkin?.entries?.length || 0;
 
-  if (wyrAnswered < 5) nextHint = 'Answer 5 Would You Rather questions to unlock your personality trait badge.';
+  if (wyrAnswered < 5) nextHint = solo ? 'Answer 5 Would You Rather questions to unlock your personality trait badge.' : 'Play 5 Guess & Reveal rounds to start your real compatibility read.';
+  else if (dailyqAnswered < 1) nextHint = solo ? 'Answer your first Daily Reflection to start your record.' : 'Answer your first Daily Duo question together.';
   else if (triviaTotal < 5) nextHint = solo ? 'Complete 5 trivia questions to sharpen your self-knowledge score.' : 'Complete 5 trivia questions to grow your Compatibility score.';
-  else if (memoryCompleted < 1) nextHint = 'Win your first Vibe Match game to boost your Synchrony score.';
+  else if (checkins < 1) nextHint = 'Do your first Weekly Check-In — three taps, once a week.';
   else if ((gameData.streak?.current || 0) < 3) nextHint = 'Open the app 3 days in a row to earn a streak bonus and unlock the 3-Day Streak milestone.';
   else nextHint = 'Keep exploring — deeper engagement unlocks new insight layers.';
 
