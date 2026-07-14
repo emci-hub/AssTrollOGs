@@ -39,7 +39,8 @@
       "Bash(git log *)",
       "Bash(git config *)",
       "Bash(git rebase *)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(mkdir -p /tmp/claude-0/-home-user-AssTrollOGs/118c7f3f-9ffb-5bb8-8c46-66b1334552dc/scratchpad)"
     ]
   }
 }
