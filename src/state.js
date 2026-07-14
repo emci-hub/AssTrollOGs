@@ -66,7 +66,7 @@ export function defaultGameData() {
       lastResetDate: null
     },
     milestones: [],
-    pet: { user: null, partner: null },
+    pet: { user: null, partner: null, couple: null },
     mood: { today: null, lastChecked: null, streak: 0, history: [] },
     quicktakes: { sessionCount: 0, lastPlayed: null },
     petGrowthLog: {}
@@ -214,7 +214,8 @@ export function checkMilestones() {
     { id: 'quicktakes_pattern',check: () => (gd.quicktakes?.sessionCount || 0) >= 5 },
     { id: 'pet_baby',          check: () => gd.pet?.user?.totalDays >= 4 },
     { id: 'pet_adult',         check: () => gd.pet?.user?.totalDays >= 20 },
-    { id: 'pet_legendary',     check: () => gd.pet?.user?.totalDays >= 40 }
+    { id: 'pet_legendary',     check: () => gd.pet?.user?.totalDays >= 40 },
+    { id: 'pet_couple_shiny',  check: () => gd.pet?.couple?.stage >= 5 }
   ];
 
   MILESTONE_CHECKS.forEach(m => {
@@ -246,7 +247,8 @@ export const MILESTONE_LABELS = {
   quicktakes_pattern: 'Pattern Finder',
   pet_baby:           'Baby Steps',
   pet_adult:          'Growing Up',
-  pet_legendary:      'Legendary Bond'
+  pet_legendary:      'Legendary Bond',
+  pet_couple_shiny:   'Shiny Bond'
 };
 
 /**
