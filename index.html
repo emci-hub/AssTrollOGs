@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dynamic Partnership Dashboard</title>
+    <meta name="theme-color" content="#09090b">
+    <title>Vibe — Personality &amp; Relationship Dashboard</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -118,7 +121,7 @@
 
         <!-- Sticky Navigation Header -->
         <div class="sticky-header" id="dynamic-header">
-            <span>Unified Interface State</span>
+            <span>Getting Started</span>
             <span class="vibe-id-tag">VIBE ID: <strong>INIT</strong></span>
         </div>
 
@@ -166,23 +169,23 @@
                     <div>
                         <div style="font-size: 0.7rem; font-weight: 700; color: var(--accent-primary); text-transform: uppercase; margin-bottom:4px;" id="spotlight-user-title">Your Focus</div>
                         <ul class="bullet-list dos" id="user-dos">
-                            <li>Listen completely before replying</li>
-                            <li>Acknowledge safe boundaries</li>
+                            <li>Listen all the way through before replying</li>
+                            <li>Say one specific thing you appreciate today</li>
                         </ul>
                         <ul class="bullet-list donts" id="user-donts">
-                            <li>Rush structural analysis</li>
-                            <li>Assume silent processing is disinterest</li>
+                            <li>Assume silence means something is wrong</li>
+                            <li>Let a small thing build up unspoken</li>
                         </ul>
                     </div>
                     <div id="partner-spotlight-panel">
                         <div style="font-size: 0.7rem; font-weight: 700; color: var(--accent-primary); text-transform: uppercase; margin-bottom:4px;" id="spotlight-partner-title">Partner Focus</div>
                         <ul class="bullet-list dos" id="partner-dos">
-                            <li>Hold comfortable conversational space</li>
-                            <li>Observe non-verbal harmony cues</li>
+                            <li>Give them your full attention once today</li>
+                            <li>Notice the small efforts, not just the big ones</li>
                         </ul>
                         <ul class="bullet-list donts" id="partner-donts">
-                            <li>De-prioritize focus timelines</li>
-                            <li>Forgo validating vulnerabilities</li>
+                            <li>Rush them to respond before they're ready</li>
+                            <li>Skip the check-in because the day got busy</li>
                         </ul>
                     </div>
                 </div>
@@ -193,7 +196,7 @@
                         <button class="btn btn-outline" style="font-size:0.65rem; padding:4px 10px;" onclick="refreshBlueprint()">New Read</button>
                     </div>
                     <div class="card-body" id="synergy-card-blueprint" style="font-size: 0.75rem; line-height: 1.5; color: var(--text-secondary); background: var(--bg-dark); padding: 10px; border-radius: 8px; border: 1px solid var(--border-color);">
-                        Your collective traits are designed to handle complex systemic situations smoothly.
+                        Your profile is loading — this space fills with a read built from your actual traits.
                     </div>
                 </div>
             </div>
@@ -235,8 +238,8 @@
                     <div class="card-body">Algorithmically blending your names into a fun, celebrity-style ship name.</div>
                 </div>
                 <div class="card interactive-card" onclick="openDrawer('bingo')">
-                    <div class="card-title">Strength Bingo</div>
-                    <div class="card-body">A lighthearted mix of your genuine relationship strengths and silly, low-stakes traits.</div>
+                    <div class="card-title">Personality Sparks</div>
+                    <div class="card-body">Tap the statements that feel true today and watch your patterns show up.</div>
                 </div>
                 <div class="card interactive-card" onclick="openDrawer('chronicles')">
                     <div class="card-title">Teamwork Chronicles</div>

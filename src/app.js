@@ -30,6 +30,31 @@ import { cloudLoad, cloudLoadByCode } from './supabase.js';
 // Bind all game window handlers
 gameRegistry.bindAll();
 
+// ── PWA: cache-shell service worker (production only) ────────────────────────
+if ('serviceWorker' in navigator && !import.meta.env.DEV) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+
+// ── Keyboard accessibility for card-style controls ───────────────────────────
+// The app renders interactive divs via innerHTML everywhere, so focusability
+// is patched in centrally: any re-render gets tabindex/role, and Enter/Space
+// activates whatever card has focus.
+document.addEventListener('keydown', (e) => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target instanceof HTMLElement &&
+      e.target.matches('.interactive-card, .sparks-cell, [role="button"]:not(button)')) {
+    e.preventDefault();
+    e.target.click();
+  }
+});
+new MutationObserver(() => {
+  document.querySelectorAll('.interactive-card:not([tabindex]), .sparks-cell:not([tabindex])').forEach(el => {
+    el.setAttribute('tabindex', '0');
+    if (!el.getAttribute('role')) el.setAttribute('role', 'button');
+  });
+}).observe(document.documentElement, { childList: true, subtree: true });
+
 // Freshness key for competing save packages. lastSavedAt is a full ISO
 // timestamp; cachedDate (day-granularity) is the fallback for older saves.
 function packageFreshness(pkg) {
