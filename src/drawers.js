@@ -9,6 +9,7 @@ import { insights } from './insights.js';
 import { gameRegistry } from './games/index.js';
 import { hydrateDashboardViews } from './dashboard.js';
 import { renderPetDrawer } from './pet.js';
+import { renderGrowthDrawer } from './growth.js';
 import { cloudSave } from './supabase.js';
 
 let _insightOffsets = { groove: 0, journey: 0, decoder: 0, vibe: 0 };
@@ -220,6 +221,10 @@ export function openDrawer(type) {
         <button class="btn" onclick="saveProfileSettings()">Save Changes</button>
         <div id="ps-saved-msg" style="display:none; text-align:center; color:var(--success-color); font-size:0.8rem; font-weight:700; margin-top:10px;">Profile updated!</div>
       `;
+      break;
+    }
+    case 'growth': {
+      payloadHtml = renderGrowthDrawer();
       break;
     }
     case 'pet': {

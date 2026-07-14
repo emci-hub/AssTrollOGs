@@ -64,7 +64,7 @@ export const DAILY_BODIES_SOLO = {
     "Being comfortable in your own skin doesn't mean you have everything figured out. It means you're okay with not having it all figured out. That's actually rare.",
     "You're good at reading situations because you're not panicking through them. Use that clarity today — someone around you probably needs it.",
     "Your natural ease with yourself makes you easier to be around. People feel that. Don't underestimate how much that matters.",
-    "You don't need external validation to move forward — and that's one of your quiet strengths. Trust that today.",
+    "You don't need external validation to move forward — and that's one of your quiet strengths. Trust that today, {name}.",
     "Being unbothered isn't the same as being disconnected — you feel things, you just don't let them run the show.",
     "You've built a version of stability that doesn't depend on everything going right. That's worth noticing today.",
     "The steadiness you offer other people starts with the steadiness you've built with yourself.",
@@ -72,7 +72,7 @@ export const DAILY_BODIES_SOLO = {
   anxious: [
     "The same attentiveness that sometimes makes you overthink is also what makes you deeply caring. Channel it outward today — someone will feel genuinely seen because of it.",
     "Your emotional radar picks up things others walk past. That's not a flaw — it's a sensitivity that, when aimed well, creates real connection.",
-    "You care a lot. That's not a weakness. The key is remembering to aim some of that care at yourself too.",
+    "You care a lot, {name}. That's not a weakness. The key is remembering to aim some of that care at yourself too.",
     "The fact that you notice small shifts in energy around you means you also notice when things are going well — even when you forget to acknowledge it.",
     "Today, try letting one thing just be okay without analyzing it further. Not every signal needs to be decoded.",
     "The intensity you feel isn't a malfunction — it's just more information coming in than most people process.",
@@ -85,13 +85,13 @@ export const DAILY_BODIES_SOLO = {
     "You think carefully before acting. That's not avoidance — it's deliberateness. Trust that instinct today, especially in conversations that matter.",
     "Your tendency to process quietly means your conclusions are usually solid. Share one of those conclusions with someone today.",
     "Being self-sufficient is a strength until it becomes a wall. Today, try asking for one thing — anything — and see how it feels.",
-    "Needing less from other people isn't the same as needing nothing. Let yourself want something today.",
+    "Needing less from other people isn't the same as needing nothing. Let yourself want something today, {name}.",
     "Your own company is genuinely good company. That's not a consolation prize — it's a skill.",
     "Distance can be a tool or a habit. Today, notice which one you're actually reaching for.",
   ],
   fearful: [
     "Wanting closeness and also being scared of it isn't a contradiction — it's one of the most human experiences there is. You're not broken.",
-    "The fact that you want connection at all, despite how it's felt before, shows real courage. Give yourself credit for that.",
+    "The fact that you want connection at all, despite how it's felt before, shows real courage. Give yourself credit for that, {name}.",
     "You've learned to be careful with who you trust. That means when you do open up, it actually means something — for both of you.",
     "Your self-awareness is one of your greatest strengths. Today, use it to notice one good thing about how you're showing up.",
     "Progress with closeness doesn't have to look dramatic. A small moment of honesty today counts as much as a big one.",
@@ -103,7 +103,7 @@ export const DAILY_BODIES_SOLO = {
 
 export const DAILY_BODIES_PARTNER = {
   secure: [
-    "Your natural comfort with closeness is something your partner leans on more than they say. Keep being the steady presence — it matters more than you know.",
+    "Your natural comfort with closeness is something {partner} leans on more than they say. Keep being the steady presence — it matters more than you know.",
     "You make it easy for people to feel safe around you. That's not a small thing. It's the foundation everything else is built on.",
     "Your openness to working things through keeps this connection resilient. Today's a good day to check in — not because something is wrong, but because you can.",
     "The confidence you bring to this relationship doesn't come from having all the answers. It comes from trusting that you can figure them out together.",
@@ -125,7 +125,7 @@ export const DAILY_BODIES_PARTNER = {
   avoidant: [
     "You show love through actions, and that's completely valid — but sometimes saying it out loud lands differently. Today, try both.",
     "You process privately, and that's okay. But sharing even a small piece of what's going on inside creates a kind of closeness that actions alone can't always build.",
-    "Your partner doesn't need you to be an open book. They just need occasional glimpses. A sentence today is more than enough.",
+    "{partner} doesn't need you to be an open book. They just need occasional glimpses. A sentence today is more than enough.",
     "The space you give yourself is healthy. The question is whether your partner knows you're coming back — a small signal of that goes a long way.",
     "Being present doesn't require being verbal. Sometimes just staying in the room a little longer, or looking up from your phone, says everything.",
     "Choosing to stay in the room, even quietly, is its own form of showing up.",
@@ -135,7 +135,7 @@ export const DAILY_BODIES_PARTNER = {
   fearful: [
     "You want this connection to be real and safe — and the fact that you're still in it means it's earning that trust. Let it.",
     "Moments of closeness might still trigger old patterns. That's okay. Notice the pattern, then choose what you actually want.",
-    "Your partner chose you knowing you come with complexity. That choice deserves to be believed.",
+    "{partner} chose you knowing you come with complexity. That choice deserves to be believed.",
     "Today, try letting one interaction be easy. Not every moment needs to carry the weight of everything before it.",
     "The courage it takes to stay open in a relationship is underrated. You're doing it. That counts.",
     "Every day you stay is proof that the fear doesn't get the final word.",
@@ -473,15 +473,126 @@ export const MBTI_FRAGMENTS = {
   P: ["keeps options open as long as possible", "works best with room to improvise", "prefers flexible plans over fixed ones"],
 };
 
-// ── Helper: pick from a pool by index ────────────────────────────────────────
+// ── Trait-combination insights (attachment × love language) ─────────────────
+// The single biggest personalization multiplier: messages keyed by the
+// INTERSECTION of two traits read as "how did it know that about me" where
+// single-trait content reads generic. Keys: `${attachmentStyle}_${loveLanguage}`.
 
-export function pickFromPool(pool, offset) {
-  if (!pool || pool.length === 0) return null;
-  return pool[Math.abs(offset || 0) % pool.length];
-}
+export const COMBO_INSIGHTS = {
+  secure_words:   "You're steady enough that you rarely fish for compliments — which means people forget you still like hearing them. Being low-maintenance doesn't mean no-maintenance.",
+  secure_time:    "Your calm makes shared time easy — but easy time can drift into parallel time. Presence is your love language; make some of it undivided.",
+  secure_service: "You help without keeping score, and your stability makes it look effortless. Just check that 'I've got it handled' isn't quietly becoming 'I never ask.'",
+  secure_touch:   "You're grounded, and physical closeness is how you top that up. On off days, you tend to give the reassuring touch you'd actually like to receive.",
+  secure_gifts:   "You notice what people mention wanting and quietly remember it. That thoughtfulness is your steadiness made visible — let people do the same for you.",
+  anxious_words:  "Words land deep for you — which is exactly why silence lands deeper. When it's quiet, remember: no message is usually no message, not a message.",
+  anxious_time:   "Undivided attention is how you know things are okay. Distracted time can feel like distance to you when it's often just a busy day — ask before concluding.",
+  anxious_service:"You show care by doing, and you notice every unreciprocated favor. Say the need out loud instead of doing one more thing and hoping it's noticed.",
+  anxious_touch:  "Closeness calms your whole nervous system — a hand on the shoulder does what an hour of reassurance can't. It's okay to ask for it plainly.",
+  anxious_gifts:  "Small tokens tell you that you were thought about while apart — that's the real gift. Careful not to read a forgetful week as a verdict.",
+  avoidant_words: "You'd rather show it than say it, but the people who love you can't read actions fluently forever. One direct sentence buys a week of understood silence.",
+  avoidant_time:  "You want togetherness without an agenda — side-by-side counts. Tell people that quiet company IS your version of quality time, or they'll keep filling it with talk.",
+  avoidant_service:"Doing useful things is how you say what you'd never phrase out loud. It works — as long as someone occasionally tells the people it's aimed at.",
+  avoidant_touch: "You keep distance verbally but recharge on physical closeness — a combination people misread constantly. Let one person in on the secret.",
+  avoidant_gifts: "A precise, well-chosen gift is your way of proving you pay attention without having to narrate it. The precision is the point — and it's noticed.",
+  fearful_words:  "Kind words matter enormously to you and are also the hardest to trust. Practice letting a compliment just be true for one full minute before auditing it.",
+  fearful_time:   "You crave real time together and get twitchy when you have it. Shorter, more frequent doses build the safety that marathon closeness can't.",
+  fearful_service:"You do a lot for people you're not sure will stay. Notice when helping is generosity and when it's quietly buying insurance.",
+  fearful_touch:  "Physical closeness is both the thing you want and the thing that trips the alarm. You get to set the pace — slow counts as progress.",
+  fearful_gifts:  "You remember every thoughtful thing anyone's given you — evidence, to you, that they saw the real you. Keep some of that evidence in view on doubtful days."
+};
 
-export function pickByProfile(map, key, offset) {
-  const pool = map[key];
-  if (!pool || pool.length === 0) return null;
-  return pool[Math.abs(offset || 0) % pool.length];
-}
+// ── Attachment pairing matrix (partner mode) ─────────────────────────────────
+// The couple's ACTUAL dynamic — keyed `${userAttachment}_${partnerAttachment}`,
+// order matters ("you" is always the primary user). {partner} is interpolated.
+
+export const ATTACHMENT_PAIRINGS = {
+  secure_secure:   "Two steady people. Your risk isn't conflict — it's coasting. Calm this reliable deserves to be spent on something, not just maintained.",
+  secure_anxious:  "You're the anchor; {partner} reads the water. When {partner} checks in more than usual, it isn't doubt in you — it's their radar running. A little unprompted reassurance from you goes miles.",
+  secure_avoidant: "You're comfortable close; {partner} recharges at a distance. The win condition is simple: you don't chase, and {partner} announces the retreats. Space with a return time never feels like rejection.",
+  secure_fearful:  "Your consistency is quietly rewriting what closeness feels like for {partner}. Don't rush the timeline — every uneventful week is the evidence that matters.",
+  anxious_secure:  "{partner}'s calm is real, not indifference — secure people just don't broadcast much. When your radar pings, ask instead of decoding; you'll get a straight answer.",
+  anxious_anxious: "You both feel everything and notice everything — incredible closeness, shared spirals. When one of you starts scanning for problems, the other's job is to NOT join the search party.",
+  anxious_avoidant:"The classic loop: you reach for closeness under stress, {partner} reaches for space, and each move triggers the other's. Naming which mode you're each in — out loud — breaks the cycle faster than anything else.",
+  anxious_fearful: "You pursue when worried; {partner} both wants that and braces against it. Gentle consistency beats grand reassurance here — small and steady is what actually lands.",
+  avoidant_secure: "{partner} gives you room without keeping score, which is exactly why this works. Repay it in the only currency that matters: occasionally coming back before you're asked to.",
+  avoidant_anxious:"Your silences read louder to {partner} than they feel to you. A three-word status update — 'recharging, all good' — costs you nothing and saves {partner} an evening of theories.",
+  avoidant_avoidant:"Nobody crowds anybody. The risk is two well-respected bubbles that stop touching. One of you has to be the one who reaches out each week — trade off whose turn it is.",
+  avoidant_fearful:"You withdraw to recharge; {partner} withdraws to test the water. Same move, different meanings — so say which one it is. 'I need an evening' is kindness here, not oversharing.",
+  fearful_secure:  "{partner} keeps showing up, and part of you keeps waiting for the catch. There's no catch. Let the boring, reliable weeks count as data too.",
+  fearful_anxious: "You both want proof this is safe and you both collect it differently — {partner} by drawing closer, you by stepping back to watch. Tell each other what a test looks like, so nobody fails one they didn't know they were taking.",
+  fearful_avoidant:"Push-pull squared: your guardedness reads as distance to {partner}, whose distance confirms your guardedness. Someone has to make the first small honest move — it's allowed to be you.",
+  fearful_fearful: "Two careful hearts, both braced. The good news: nobody here rushes anybody. The work: making sure 'careful' doesn't quietly become the whole relationship."
+};
+
+// ── Conflict style pairings (partner mode, groove drawer) ────────────────────
+// Keyed by the SORTED pair (`[a,b].sort().join('|')`) with order-neutral
+// phrasing, so 10 entries cover all 16 combinations.
+
+export const CONFLICT_PAIRINGS = {
+  'collaborative|collaborative': "You both want to stay in the conversation until it's actually solved. Your only trap is over-processing small stuff — some disagreements just need a shrug and dinner.",
+  'collaborative|compromising':  "One of you wants to dig to the root; the other wants a fair deal by Tuesday. Agree upfront which kind of problem this is — a dig-deep one or a split-the-difference one.",
+  'accommodating|collaborative': "One of you talks it all the way through; the other folds early to keep the peace. Watch for false agreement — 'fine' given quickly isn't the same as fine.",
+  'avoiding|collaborative':      "One of you processes by talking now, the other by cooling off first. The fix is a scheduled return: 'pause now, finish at 8' gives one of you the space and the other the certainty.",
+  'compromising|compromising':   "You two settle things fast and fair — efficient, low-drama. Just make sure the big recurring topics get one full airing eventually, instead of fifty small trades.",
+  'accommodating|compromising':  "Deals get made quickly here, but one of you may be paying more than they let on. Every so often, re-open a 'settled' topic and ask if it actually feels settled.",
+  'avoiding|compromising':       "One of you wants it resolved fast; the other wants it postponed. A short, bounded pause satisfies both: real cool-down, guaranteed landing.",
+  'accommodating|accommodating': "You'd both rather bend than battle — so nothing ever blows up, and nothing ever quite gets said. Take turns going first with the honest version.",
+  'accommodating|avoiding':      "One of you yields, the other retreats — conflict just evaporates without resolving. Pick your smallest live issue and practice finishing it on purpose.",
+  'avoiding|avoiding':           "You both step back when it gets tense, which keeps things calm and keeps things unresolved. Put a return-time on every pause, or the pause becomes the policy."
+};
+
+// Solo conflict-style lines for the groove drawer.
+export const CONFLICT_SOLO = {
+  collaborative: "In conflict you instinctively look for the version where both people win — a genuine skill. Just notice when the other person needs empathy first and solutions second.",
+  compromising:  "You settle things quickly and fairly, and people appreciate it. Once in a while, check whether 'meeting in the middle' is costing you something you actually cared about.",
+  accommodating: "You keep the peace by bending — generous, and easy to overdraw. The resentment ledger fills up quietly; say the honest thing while it's still small.",
+  avoiding:      "You need space before you can engage, and that's legitimate — cool-down produces your best conversations. Just attach a return time, so space reads as process, not exit."
+};
+
+// ── Growth Compass content ───────────────────────────────────────────────────
+// Four life areas, each keyed by the trait that best predicts the person's
+// pattern in that area. Every entry: a short read + one concrete practice.
+
+export const GROWTH_AREAS = {
+  connection: {
+    title: 'Connection',
+    keyed: 'attachmentStyle',
+    entries: {
+      secure:   { read: "Closeness comes naturally to you — you're often the emotional floor other people stand on.", practice: "Ask for support once this week before you technically need it." },
+      anxious:  { read: "You attune to people fast and deeply; the flip side is treating every quiet moment as a signal to decode.", practice: "When the radar pings this week, ask one direct question instead of running three theories." },
+      avoidant: { read: "You connect through reliability and presence more than disclosure — real, but easy for others to under-read.", practice: "Share one unpolished, in-progress thought with someone this week." },
+      fearful:  { read: "You want depth and vet it carefully — when you do let someone in, it means everything.", practice: "Let one small bid for closeness land this week without auditing it first." }
+    }
+  },
+  communication: {
+    title: 'Communication',
+    keyed: 'expressionStyle',
+    entries: {
+      direct:     { read: "People always know where you stand — rare and valuable. Delivery, not honesty, is your growth edge.", practice: "Before one hard truth this week, add a sentence of warmth first. Same message, better landing." },
+      indirect:   { read: "You communicate in context and hints — considerate, but it outsources guesswork to people who love you.", practice: "Say one need this week in plain words, no hint version first." },
+      reflective: { read: "You think before you speak, so what you say is worth hearing. The cost is people filling your silence with their guesses.", practice: "When you need time this week, say so out loud — 'still thinking, back tomorrow' — instead of going quiet." },
+      analytical: { read: "You turn messy feelings into workable structure — a superpower, mistimed as a fix-it reflex.", practice: "In one emotional conversation this week, ask 'vent or solve?' before doing either." }
+    }
+  },
+  conflict: {
+    title: 'Conflict',
+    keyed: 'conflictStyle',
+    entries: {
+      collaborative: { read: "You stay in hard conversations until they're genuinely resolved — most people can't.", practice: "Pick one small disagreement this week and deliberately let it go unresolved. Notice that nothing breaks." },
+      compromising:  { read: "You're fast to a fair deal, which keeps life moving and occasionally papers over the real issue.", practice: "Revisit one past compromise this week and check whether it still feels fair to you." },
+      accommodating: { read: "You yield to protect the relationship — kind, and habit-forming in a costly way.", practice: "State one preference this week and hold it through the first pushback." },
+      avoiding:      { read: "Your pauses genuinely produce better conversations — when they end.", practice: "Next pause you take, name the return time before you step away." }
+    }
+  },
+  selfcare: {
+    title: 'Self-Care',
+    keyed: 'loveLanguage',
+    entries: {
+      words:   { read: "You run on acknowledgment — and you're likely last in line for your own.", practice: "Write down one thing you handled well this week, in the words you'd use for a friend." },
+      time:    { read: "Undivided attention restores you — including your own. Scattered time drains you fastest.", practice: "Block 30 phone-free minutes this week that belong to nobody but you." },
+      service: { read: "You care by doing, which means your own tank empties while everyone else's gets filled.", practice: "Do one future-you favor this week with the same energy you'd spend on someone else's errand." },
+      touch:   { read: "Your body keeps the score — physical comfort regulates you more than talk does.", practice: "Build one physical reset into this week: the long shower, the walk, the early night." },
+      gifts:   { read: "Small tangible tokens of care register deeply with you — and you rarely aim that at yourself.", practice: "Get yourself the small thing you keep almost buying. It counts as maintenance, not indulgence." }
+    }
+  }
+};

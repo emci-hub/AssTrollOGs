@@ -16,7 +16,8 @@ import {
   DEEP_JOURNEY_SOLO, DEEP_JOURNEY_PARTNER,
   DEEP_DECODER_SOLO, DEEP_DECODER_PARTNER,
   DEEP_VIBE_SOLO, DEEP_VIBE_PARTNER,
-  CHRONICLE_SCENARIOS, MBTI_FRAGMENTS
+  CHRONICLE_SCENARIOS, MBTI_FRAGMENTS,
+  COMBO_INSIGHTS, ATTACHMENT_PAIRINGS, CONFLICT_PAIRINGS, CONFLICT_SOLO
 } from './content-bank.js';
 import { engine } from './engine.js';
 
@@ -25,10 +26,6 @@ export function getTimePeriod(hour) {
   if (hour >= 12 && hour <= 17) return 'afternoon';
   if (hour >= 18 && hour <= 22) return 'evening';
   return 'night';
-}
-
-export function getTimeGreeting(period) {
-  return { morning: 'Good morning', afternoon: 'Good afternoon', evening: 'Good evening', night: 'Late night' }[period] || 'Hello';
 }
 
 export function getTimeTheme(period) {
@@ -81,6 +78,101 @@ function assembleMbtiFlavor(mbti, offset) {
   return `Classic ${mbti} energy: ${first}, and ${last}.`;
 }
 
+// ── Template interpolation ────────────────────────────────────────────────────
+// Pool entries may embed {name}, {partner}, {mbti}, {streak}, {city} tokens so
+// real data lives INSIDE sentences instead of being bolted on after. Strings
+// without tokens pass through untouched.
+
+export function fillTemplate(str, ctx) {
+  if (!str || str.indexOf('{') === -1) return str;
+  return str
+    .replace(/\{name\}/g, ctx.name || 'friend')
+    .replace(/\{partner\}/g, ctx.partner || 'your partner')
+    .replace(/\{mbti\}/g, ctx.mbti || 'your type')
+    .replace(/\{streak\}/g, String(ctx.streak ?? 0))
+    .replace(/\{city\}/g, ctx.city || 'your corner of the world');
+}
+
+function templateCtx(profiles, gameData) {
+  return {
+    name: profiles.user?.name,
+    partner: profiles.partner?.name,
+    mbti: profiles.user?.mbti,
+    streak: gameData?.streak?.current || 0,
+    city: profiles.user?.location
+  };
+}
+
+// ── Behavioral trend analysis ─────────────────────────────────────────────────
+// The 30-day mood history and WYR preference counts are stored anyway —
+// these turn them into the most personal content the app can produce.
+
+const MOOD_SCORE = { glowing: 2, fired: 2, curious: 1, chill: 1, tense: -1, low: -2 };
+
+export function analyzeMoodTrend(history) {
+  const h = (history || []).slice(-7);
+  if (h.length < 3) return null;
+
+  const counts = {};
+  h.forEach(e => { counts[e.mood] = (counts[e.mood] || 0) + 1; });
+  const dominantMood = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+
+  let tenseStreak = 0;
+  for (let i = h.length - 1; i >= 0; i--) {
+    if (h[i].mood === 'tense' || h[i].mood === 'low') tenseStreak++;
+    else break;
+  }
+
+  const score = e => MOOD_SCORE[e.mood] ?? 0;
+  const recent = h.slice(-3);
+  const earlier = h.slice(0, Math.min(3, h.length - 3) || 1);
+  const avg = arr => arr.reduce((s, e) => s + score(e), 0) / arr.length;
+  const diff = avg(recent) - avg(earlier);
+  const trend = diff >= 1 ? 'lifting' : diff <= -1 ? 'dipping' : 'steady';
+
+  return { dominantMood, tenseStreak, trend, count: h.length };
+}
+
+export function analyzeWyrLean(preferences) {
+  if (!preferences) return null;
+  const pairs = [
+    { a: 'adventurous', b: 'homebody', labelA: 'adventure-seeking', labelB: 'home-loving' },
+    { a: 'planner', b: 'spontaneous', labelA: 'planning-ahead', labelB: 'spontaneous' },
+    { a: 'deep', b: 'lighthearted', labelA: 'depth-first', labelB: 'lighthearted' },
+    { a: 'connected', b: 'independent', labelA: 'connection-driven', labelB: 'independence-driven' }
+  ];
+  let best = null;
+  pairs.forEach(p => {
+    const a = preferences[p.a] || 0;
+    const b = preferences[p.b] || 0;
+    const margin = Math.abs(a - b);
+    if (a + b >= 3 && margin >= 2 && (!best || margin > best.margin)) {
+      best = { label: a >= b ? p.labelA : p.labelB, margin, total: a + b };
+    }
+  });
+  return best;
+}
+
+const TREND_NOTES = {
+  lifting: "Your last few check-ins have been trending brighter — whatever changed recently, it's working.",
+  dipping: "Your recent check-ins have been running heavier than usual. Worth naming what's been draining you lately."
+};
+
+function moodTrendNote(gameData) {
+  const trend = analyzeMoodTrend(gameData?.mood?.history);
+  if (!trend) return null;
+  if (trend.tenseStreak >= 3) {
+    return `That's ${trend.tenseStreak} tense-or-low days in a row — your pattern says protect some recovery time, don't push harder.`;
+  }
+  return TREND_NOTES[trend.trend] || null;
+}
+
+// Conflict pairings are written order-neutral and keyed by the sorted pair.
+function getConflictPairing(styleA, styleB) {
+  if (!styleA || !styleB) return null;
+  return CONFLICT_PAIRINGS[[styleA, styleB].sort().join('|')] || null;
+}
+
 function hashContentString(str) {
   let hash = 5381;
   for (let i = 0; i < str.length; i++) {
@@ -114,7 +206,7 @@ function computeCoupleSeed(userProfile, partnerProfile) {
   return computeContentSeed(userProfile) ^ computeContentSeed(partnerProfile);
 }
 
-function getWeakestCategoryLabel(categoryAccuracy) {
+export function getWeakestCategoryLabel(categoryAccuracy) {
   if (!categoryAccuracy) return null;
   let worst = null, worstRate = 1;
   Object.entries(categoryAccuracy).forEach(([key, val]) => {
@@ -165,7 +257,6 @@ function getGameInsights(gameData, solo) {
 
 export const insights = {
   getTimePeriod,
-  getTimeGreeting,
   getTimeTheme,
   getDayTheme,
   getMbtiPairing,
@@ -188,11 +279,26 @@ export const insights = {
     const headlineIdx = (baseKey + seed + (fortuneOffset || 0)) % headlines.length;
     const headline = headlines[headlineIdx];
 
-    // Rotate body from attachment-keyed bank
+    // Rotate body: generic attachment pool, the attachment×love-language combo
+    // insight, and (partner mode) the couple's actual attachment-pairing
+    // dynamic take turns — so the daily read regularly reflects trait
+    // INTERSECTIONS, not just one trait at a time.
     const bodies = solo ? DAILY_BODIES_SOLO : DAILY_BODIES_PARTNER;
     const bodyPool = bodies[attach] || bodies.secure;
-    const bodyIdx = (baseKey + seed + (fortuneOffset || 0) + 2) % bodyPool.length;
-    const body = bodyPool[bodyIdx];
+    const rotation = (baseKey + seed + (fortuneOffset || 0)) % (solo ? 3 : 4);
+    let body;
+    const comboLine = COMBO_INSIGHTS[`${attach}_${profiles.user?.loveLanguage}`];
+    const pairingLine = !solo
+      ? ATTACHMENT_PAIRINGS[`${attach}_${profiles.partner?.attachmentStyle}`]
+      : null;
+    if (rotation === 1 && comboLine) {
+      body = comboLine;
+    } else if (rotation === 3 && pairingLine) {
+      body = pairingLine;
+    } else {
+      const bodyIdx = (baseKey + seed + (fortuneOffset || 0) + 2) % bodyPool.length;
+      body = bodyPool[bodyIdx];
+    }
 
     // Append game insight if available
     const gameHints = getGameInsights(gd, solo);
@@ -220,23 +326,33 @@ export const insights = {
       fired:   'You brought real fire today — channel it somewhere that counts.'
     };
     const moodNote = moodToday ? MOOD_NOTES[moodToday] : null;
-    const withMood = moodNote ? `${finalBody} ${moodNote}` : finalBody;
+    let composed = moodNote ? `${finalBody} ${moodNote}` : finalBody;
+
+    // Mood TREND note — reflects the stored 7-day pattern, not just today.
+    const trendNote = (fortuneOffset || 0) % 2 === 1 ? moodTrendNote(gd) : null;
+    if (trendNote) composed += ` ${trendNote}`;
 
     // Occasionally sprinkle in an MBTI-flavored line for extra personality
     const mbtiFlavor = (fortuneOffset || 0) % 4 === 3 ? assembleMbtiFlavor(profiles.user?.mbti, seed + (fortuneOffset || 0)) : null;
-    const withFlavor = mbtiFlavor ? `${withMood} ${mbtiFlavor}` : withMood;
+    if (mbtiFlavor) composed += ` ${mbtiFlavor}`;
+
+    // Time-of-day theme line — morning reads differently from late night.
+    if ((fortuneOffset || 0) % 4 === 1) {
+      const theme = getTimeTheme(period);
+      composed += ` A good ${period} move: ${theme.action}.`;
+    }
 
     // Occasionally cross-pollinate with a concrete, actionable tip pulled
     // from the Spotlight pool — free extra variety since it reuses existing
     // content, and makes the message feel like real advice, not just a quote.
-    let withCrossTip = withFlavor;
     if ((fortuneOffset || 0) % 5 === 4) {
       const tipPool = SPOTLIGHT_DOS[profiles.user?.loveLanguage] || SPOTLIGHT_DOS.words;
       const tip = tipPool[(seed + (fortuneOffset || 0)) % tipPool.length];
-      if (tip) withCrossTip = `${withFlavor} Try this: ${tip}`;
+      if (tip) composed += ` Try this: ${tip}`;
     }
 
-    return { headline, body: withCrossTip };
+    const ctx = templateCtx(profiles, gd);
+    return { headline: fillTemplate(headline, ctx), body: fillTemplate(composed, ctx) };
   },
 
   generateSpotlightLists(profiles, gameData, date, focusOffset) {
@@ -327,7 +443,7 @@ export const insights = {
       if (mbtiFlavor) blueprint += ` ${mbtiFlavor}`;
     }
 
-    return blueprint;
+    return fillTemplate(blueprint, templateCtx(profiles, gd));
   },
 
   generateDeepInsight(type, profiles, gameData, date, insightOffset) {
@@ -343,19 +459,25 @@ export const insights = {
     // mode, same reasoning as the Blueprint's couple seed.
     const seed = solo ? computeContentSeed(user) : computeCoupleSeed(user, profiles.partner);
 
+    let result;
     switch (type) {
       case 'groove': {
         const pool = solo ? DEEP_GROOVE_SOLO : DEEP_GROOVE_PARTNER;
         const picked = pool[(offset + seed) % pool.length];
         let body = picked.body;
+        // Conflict style finally drives content — this drawer is the natural
+        // home for it: the couple's pairing dynamic, or the solo read.
+        if (solo) {
+          const conflictLine = CONFLICT_SOLO[user.conflictStyle];
+          if (conflictLine) body += ` ${conflictLine}`;
+        } else {
+          const pairing = getConflictPairing(user.conflictStyle, profiles.partner?.conflictStyle);
+          if (pairing) body += ` ${pairing}`;
+        }
         if (gameHints[0]) body += ` ${gameHints[0]}`;
         if (weakCat) body += ` Your quiz results suggest ${weakCat} is worth exploring deeper.`;
-        return {
-          title: picked.headline,
-          headline: picked.headline,
-          body,
-          pool: pool.map(p => ({ headline: p.headline, body: p.body }))
-        };
+        result = { picked, body, pool };
+        break;
       }
       case 'journey': {
         const pool = solo ? DEEP_JOURNEY_SOLO : DEEP_JOURNEY_PARTNER;
@@ -363,13 +485,17 @@ export const insights = {
         let body = picked.body;
         const streak = gd.streak?.current || 0;
         if (streak >= 3) body += ` Your ${streak}-day streak shows the kind of consistency that compounds.`;
+        const trendNote = moodTrendNote(gd);
+        if (trendNote) body += ` ${trendNote}`;
+        // Echo the latest Daily Reflection answer when one exists — the
+        // journey drawer is where past-self meets present-self.
+        const lastReflection = gd.reflection?.entries?.[gd.reflection.entries.length - 1];
+        if (lastReflection?.answer) {
+          body += ` Recently you reflected: "${lastReflection.answer}" — worth checking whether that still holds.`;
+        }
         if (gameHints[1]) body += ` ${gameHints[1]}`;
-        return {
-          title: picked.headline,
-          headline: picked.headline,
-          body,
-          pool: pool.map(p => ({ headline: p.headline, body: p.body }))
-        };
+        result = { picked, body, pool };
+        break;
       }
       case 'decoder': {
         const pool = solo ? DEEP_DECODER_SOLO : DEEP_DECODER_PARTNER;
@@ -378,13 +504,14 @@ export const insights = {
         const userSeed = computeContentSeed(user);
         const userDoPool = SPOTLIGHT_DOS[user.loveLanguage] || SPOTLIGHT_DOS.words;
         if (solo) {
+          // Attachment × love-language combo — how this person's closeness
+          // style and care language interact, not either trait alone.
+          const comboLine = COMBO_INSIGHTS[`${user.attachmentStyle}_${user.loveLanguage}`];
+          if (comboLine) body += ` ${comboLine}`;
           body += ` Practical tip: ${userDoPool[(offset + userSeed) % userDoPool.length]}`;
         } else {
-          // Reflects BOTH partners' love languages — previously this only
-          // ever referenced the primary user's, even though the drawer
-          // claims to cover "what makes each of you feel seen." Each side
-          // uses its own person's seed, not the shared couple seed, since
-          // this tip is specifically about that individual's love language.
+          // Reflects BOTH partners' love languages. Each side uses its own
+          // person's seed, since this tip is specifically about them.
           const partner = profiles.partner || {};
           const partnerSeed = computeContentSeed(partner);
           const partnerDoPool = SPOTLIGHT_DOS[partner.loveLanguage] || SPOTLIGHT_DOS.time;
@@ -392,12 +519,8 @@ export const insights = {
           const pName = partner.name || 'your partner';
           body += ` For ${uName}: ${userDoPool[(offset + userSeed) % userDoPool.length]} For ${pName}: ${partnerDoPool[(offset + partnerSeed + 1) % partnerDoPool.length]}`;
         }
-        return {
-          title: picked.headline,
-          headline: picked.headline,
-          body,
-          pool: pool.map(p => ({ headline: p.headline, body: p.body }))
-        };
+        result = { picked, body, pool };
+        break;
       }
       case 'vibe': {
         const pool = solo ? DEEP_VIBE_SOLO : DEEP_VIBE_PARTNER;
@@ -409,17 +532,26 @@ export const insights = {
           : getMbtiPairing(user.mbti, profiles.partner?.mbti);
         let body = picked.body;
         body += ` ${mbtiNote}`;
+        if (!solo) {
+          // The couple's actual attachment dynamic, not just MBTI first letters.
+          const pairing = ATTACHMENT_PAIRINGS[`${user.attachmentStyle}_${profiles.partner?.attachmentStyle}`];
+          if (pairing) body += ` ${pairing}`;
+        }
         if (wyrLabel) body += ` Your choices reveal a ${wyrLabel.toLowerCase()} streak.`;
         body += ` Scores: ${solo ? 'Self' : 'Connection'} ${metrics.compatibilityWeight}%, Rhythm ${metrics.synchronyFactor}%.`;
-        return {
-          title: picked.headline,
-          headline: picked.headline,
-          body,
-          pool: pool.map(p => ({ headline: p.headline, body: p.body }))
-        };
+        result = { picked, body, pool };
+        break;
       }
       default: return { title: '', headline: '', body: '', pool: [] };
     }
+
+    const ctx = templateCtx(profiles, gd);
+    return {
+      title: fillTemplate(result.picked.headline, ctx),
+      headline: fillTemplate(result.picked.headline, ctx),
+      body: fillTemplate(result.body, ctx),
+      pool: result.pool.map(p => ({ headline: fillTemplate(p.headline, ctx), body: fillTemplate(p.body, ctx) }))
+    };
   },
 
   generateChronicleScenario(profiles) {

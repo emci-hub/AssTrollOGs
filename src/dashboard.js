@@ -12,6 +12,7 @@
 
 import { engine } from './engine.js';
 import { insights } from './insights.js';
+import { renderGrowthCard } from './growth.js';
 import { updateStreak, checkMilestones, MILESTONE_LABELS } from './state.js';
 
 let _fortuneOffset = 0;
@@ -123,6 +124,9 @@ export function hydrateDashboardViews(data) {
       milestoneEl.style.display = 'none';
     }
   }
+
+  // ── Growth Compass ───────────────────────────────────────────────────────
+  renderGrowthCard(profiles, gameData);
 
   // ── Solo/duo adaptive sections ───────────────────────────────────────────
   hydrateSandboxSection(solo, profiles.user?.name || 'You');
