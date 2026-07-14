@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dynamic Partnership Dashboard</title>
-  <script type="module" crossorigin src="/assets/index-C1sZ_UXJ.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-C8LaRnvK.css">
+  <script type="module" crossorigin src="/assets/index-CnALgtEG.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-DDPmr0Qa.css">
 </head>
 <body>
 
@@ -19,28 +19,100 @@
 
         <!-- Absolute Developer Control Console -->
         <div id="dev-panel" class="dev-panel hidden">
-            <div class="dev-title">Developer Quick Console</div>
-            <div class="dev-grid-btn">
-                <button class="dev-btn-small" onclick="devJumpStep(0)">User: Step 0</button>
-                <button class="dev-btn-small" onclick="devJumpStep(1)">User: Step 0.5</button>
-                <button class="dev-btn-small" onclick="devJumpStep(2)">User: Trait Loop</button>
-                <button class="dev-btn-small" onclick="devJumpStep(7)">Partner: Trait Loop</button>
-                <button class="dev-btn-small" onclick="devJumpStep(12)">Relationship Status</button>
-                <button class="dev-btn-small" onclick="devForceDashboard()">Show Dashboard</button>
+
+            <!-- Login Screen -->
+            <div id="dev-login-screen" style="display:flex; flex-direction:column; align-items:center; gap:12px; padding:8px 0;">
+                <svg viewBox="0 0 24 24" style="width:28px; height:28px; fill:var(--accent-primary); opacity:0.8;">
+                    <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM12 17c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+                </svg>
+                <div style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); font-family:monospace; text-transform:uppercase; letter-spacing:0.1em;">Developer Access</div>
+                <input type="password" id="dev-password-input" class="input-field dev-login-input" placeholder="Password"
+                    onkeydown="if(event.key==='Enter') devLogin()">
+                <button class="dev-btn-small dev-btn-unlock" onclick="devLogin()">Unlock</button>
+                <div id="dev-login-error" style="display:none; font-size:0.65rem; color:#f87171; font-family:monospace;"></div>
             </div>
-            <div class="dev-title">Dynamic Profile Modifiers</div>
-            <div style="display:flex; flex-direction:column; gap:8px;">
-                <div class="input-group" style="margin-bottom:0;">
-                    <label style="font-size:0.6rem;">Edit User Full Name</label>
-                    <input type="text" id="dev-u-name" class="input-field" style="padding:6px; font-size:0.75rem;" oninput="syncDevInputs()">
+
+            <!-- Tools Screen -->
+            <div id="dev-tools-screen" style="display:none;">
+                <!-- Header -->
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
+                    <div style="font-size:0.75rem; font-weight:700; color:var(--accent-primary); font-family:monospace; text-transform:uppercase; letter-spacing:0.08em;">Dev Console</div>
+                    <div style="display:flex; gap:6px; align-items:center;">
+                        <span class="dev-admin-badge">ADMIN</span>
+                        <button class="dev-btn-small dev-btn-lock" onclick="devLogout()">Lock</button>
+                    </div>
                 </div>
-                <div class="input-group" style="margin-bottom:0;">
-                    <label style="font-size:0.6rem;">Edit Location</label>
-                    <input type="text" id="dev-loc" class="input-field" style="padding:6px; font-size:0.75rem;" oninput="syncDevInputs()">
+
+                <!-- Navigation -->
+                <div class="dev-title">Navigation</div>
+                <div class="dev-grid-btn">
+                    <button class="dev-btn-small" onclick="devJumpStep(0)">Step 0</button>
+                    <button class="dev-btn-small" onclick="devJumpStep(1)">Step 0.5</button>
+                    <button class="dev-btn-small" onclick="devJumpStep(2)">Trait Loop</button>
+                    <button class="dev-btn-small" onclick="devJumpStep(7)">Partner Traits</button>
+                    <button class="dev-btn-small" onclick="devJumpStep(12)">Rel. Status</button>
+                    <button class="dev-btn-small" onclick="devForceDashboard()">Dashboard</button>
                 </div>
-                <div class="input-group" style="margin-bottom:0;">
-                    <label style="font-size:0.6rem;">Simulated Time Offset (ms)</label>
-                    <input type="number" id="dev-time" class="input-field" style="padding:6px; font-size:0.75rem;" oninput="syncDevInputs()">
+
+                <!-- Profile Modifiers -->
+                <div class="dev-title">Profile Modifiers</div>
+                <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
+                    <div class="input-group" style="margin-bottom:0;">
+                        <label style="font-size:0.6rem;">User Full Name</label>
+                        <input type="text" id="dev-u-name" class="input-field" style="padding:6px; font-size:0.75rem;" oninput="syncDevInputs()">
+                    </div>
+                    <div class="input-group" style="margin-bottom:0;">
+                        <label style="font-size:0.6rem;">Location</label>
+                        <input type="text" id="dev-loc" class="input-field" style="padding:6px; font-size:0.75rem;" oninput="syncDevInputs()">
+                    </div>
+                    <div class="input-group" style="margin-bottom:0;">
+                        <label style="font-size:0.6rem;">Time Offset (ms)</label>
+                        <input type="number" id="dev-time" class="input-field" style="padding:6px; font-size:0.75rem;" oninput="syncDevInputs()">
+                    </div>
+                </div>
+
+                <!-- Mode Override -->
+                <div class="dev-title">Mode Override</div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px;">
+                    <button id="dev-force-solo-btn" class="dev-btn-small" onclick="devForceSolo()">Force Solo</button>
+                    <button id="dev-force-partner-btn" class="dev-btn-small" onclick="devForcePartner()">Force Partner</button>
+                </div>
+
+                <!-- Game Controls -->
+                <div class="dev-title">Game Controls</div>
+                <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
+                    <button id="dev-day-advance-btn" class="dev-btn-small" style="width:100%;" onclick="devSimulateDayAdvance()">Simulate Day Advance</button>
+                    <button id="dev-unlock-milestones-btn" class="dev-btn-small" style="width:100%;" onclick="devUnlockAllMilestones()">Unlock All Milestones</button>
+                    <div style="display:flex; gap:6px; align-items:center;">
+                        <input type="number" id="dev-pet-pts" class="input-field" value="5" min="1" style="padding:5px; font-size:0.75rem; width:60px;">
+                        <button id="dev-award-pet-btn" class="dev-btn-small" style="flex:1;" onclick="devAwardPetGrowthManual()">Award Pet Growth</button>
+                    </div>
+                </div>
+
+                <!-- Data Tools -->
+                <div class="dev-title">Data Tools</div>
+                <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
+                    <button id="dev-export-btn" class="dev-btn-small" style="width:100%;" onclick="devExportProfile()">Export Profile (Copy)</button>
+                    <textarea id="dev-import-json" class="dev-import-textarea" placeholder="Paste exported JSON here..."></textarea>
+                    <div id="dev-import-error" style="display:none; font-size:0.65rem; color:#f87171; font-family:monospace;"></div>
+                    <button id="dev-import-btn" class="dev-btn-small" style="width:100%;" onclick="devImportProfile()">Import (Silent)</button>
+                </div>
+
+                <!-- State Inspector -->
+                <div class="dev-title" style="display:flex; justify-content:space-between; align-items:center;">
+                    <span>State Inspector</span>
+                    <button class="dev-btn-small" style="padding:2px 8px; font-size:0.6rem; border:none; margin-bottom:0;" onclick="devRefreshInspector()">Refresh</button>
+                </div>
+                <pre id="dev-state-output" class="dev-inspector-output">—</pre>
+
+                <!-- Save Code Tools -->
+                <div class="dev-title">Save Code</div>
+                <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:4px;">
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                        <button class="dev-btn-small" onclick="devRegenerateSaveCode()">Regenerate</button>
+                        <button class="dev-btn-small" onclick="devVerifySaveCode()">Verify</button>
+                    </div>
+                    <div id="dev-savecode-status" style="font-size:0.65rem; font-family:monospace; color:var(--text-muted); min-height:1.2em;"></div>
                 </div>
             </div>
         </div>
@@ -206,6 +278,17 @@
             <div class="card interactive-card" onclick="openDrawer('profile-settings')">
                 <div class="card-title">Edit Your Profile</div>
                 <div class="card-body">Update your personality answers, name, location, or relationship details anytime.</div>
+            </div>
+
+            <!-- Save Code -->
+            <div class="section-title" style="margin-top:14px;">Save Code</div>
+            <div class="card save-code-card">
+                <div class="card-title" style="margin-bottom:6px;">Your Restore Code</div>
+                <p class="card-body" style="margin-bottom:12px;">Write this code down. Enter it on any device to restore your full profile and progress.</p>
+                <div class="save-code-display-row">
+                    <span id="save-code-value" class="save-code-value">—</span>
+                    <button id="save-code-copy-btn" class="save-code-copy-btn" onclick="copySaveCode()" style="display:none;">Copy</button>
+                </div>
             </div>
 
             <button class="btn btn-outline" onclick="clearProfileCache()" style="margin-bottom: 20px;">Reset Profile Cache</button>
