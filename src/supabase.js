@@ -42,7 +42,7 @@ export async function cloudSave(payload, saveCode) {
     const row = {
       device_id: deviceId,
       profile_data: payload,
-      schema_version: payload.schemaVersion || 1,
+      schema_version: payload.gameData?.schemaVersion || 1,
       updated_at: new Date().toISOString()
     };
     if (saveCode) row.save_code = saveCode;
@@ -84,9 +84,11 @@ export async function cloudLoadByCode(code) {
       .from('user_sessions')
       .select('profile_data, save_code')
       .or(`save_code.eq.${formatted},save_code.eq.${normalised}`)
-      .maybeSingle();
-    if (!data?.profile_data) return null;
-    return { profileData: data.profile_data, saveCode: data.save_code };
+      .order('updated_at', { ascending: false })
+      .limit(1);
+    const row = data?.[0];
+    if (!row?.profile_data) return null;
+    return { profileData: row.profile_data, saveCode: row.save_code };
   } catch (_) {
     return null;
   }

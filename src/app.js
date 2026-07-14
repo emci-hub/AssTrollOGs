@@ -28,6 +28,7 @@ import { updateStreak, migrateGameData } from './state.js';
 import { cloudLoad } from './supabase.js';
 
 // Bind all game window handlers
+gameRegistry.bindAll();
 
 // Init: restore cached profile or show onboarding
 window.addEventListener('DOMContentLoaded', async () => {

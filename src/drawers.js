@@ -9,6 +9,8 @@ import { insights } from './insights.js';
 import { gameRegistry } from './games/index.js';
 import { hydrateDashboardViews } from './dashboard.js';
 import { renderPetDrawer } from './pet.js';
+import { generateSaveCode } from './save-code.js';
+import { cloudSave } from './supabase.js';
 
 let _insightOffsets = { groove: 0, journey: 0, decoder: 0, vibe: 0 };
 
@@ -419,6 +421,13 @@ window.saveProfileSettings = function() {
       if (expr) parsed.tempAnswers.expression = expr;
     }
     localStorage.setItem('persistent_profile_data', JSON.stringify(parsed));
+
+    generateSaveCode(parsed).then(code => {
+      localStorage.setItem('vibeSaveCode', code);
+      window.AppState.saveCode = code;
+      cloudSave(parsed, code);
+      if (typeof window.refreshSaveCodeDisplay === 'function') window.refreshSaveCodeDisplay();
+    }).catch(() => cloudSave(parsed));
   }
 
   hydrateDashboardViews({

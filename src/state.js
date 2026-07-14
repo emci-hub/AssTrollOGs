@@ -16,7 +16,6 @@
 
 import { hydrateDashboardViews } from './dashboard.js';
 import { cloudSave } from './supabase.js';
-import { generateSaveCode } from './save-code.js';
 
 export const SCHEMA_VERSION = 2;
 
@@ -262,13 +261,7 @@ export function saveGameData() {
       parsed.gameData = window.AppState.gameData;
       const json = JSON.stringify(parsed);
       localStorage.setItem('persistent_profile_data', json);
-      // Generate save code fire-and-forget, then cloud save with code attached
-      generateSaveCode(parsed).then(code => {
-        localStorage.setItem('vibeSaveCode', code);
-        window.AppState.saveCode = code;
-        cloudSave(parsed, code);
-        if (typeof window.refreshSaveCodeDisplay === 'function') window.refreshSaveCodeDisplay();
-      }).catch(() => cloudSave(parsed));
+      cloudSave(parsed, window.AppState.saveCode);
     } catch (_) {}
   }
   hydrateDashboardViews({

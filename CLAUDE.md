@@ -20,7 +20,8 @@ A mobile-first personality + relationship dashboard (430px max-width app contain
 | `styles.css` | All styles. CSS variables in `:root`. Key classes: `.screen`, `.card`, `.choice-btn`, `.sparks-cell`, `.mood-btn`, `.qt-choice-btn`, `.memory-card` |
 | `src/app.js` | Entry point. Imports all modules, binds window globals, handles init (cloud+local load, profile restore). |
 | `src/state.js` | `window.AppState`, `defaultGameData()`, `migrateGameData()`, `saveGameData()`, `updateStreak()`, `checkMilestones()`, `canAwardPetGrowthToday()`, `recordPetGrowthToday()`. `SCHEMA_VERSION = 2`. |
-| `src/supabase.js` | Supabase client singleton, `getDeviceId()`, `cloudSave()`, `cloudLoad()`. No auth — device UUID key. |
+| `src/supabase.js` | Supabase client singleton, `getDeviceId()`, `cloudSave()`, `cloudLoad()`, `cloudLoadByCode()`. No auth — device UUID key. |
+| `src/save-code.js` | Hash-verified save code system. `generateSaveCode()`, `verifySaveCode()`, `formatCode()`, `stripFormatting()`. Code is a SHA-256 hash of identity fields only (`userProfile`, `partnerProfile`, `soloMode`, `vibeSeed`) — never game data. Used for cross-device restore. |
 | `src/profile-builder.js` | Onboarding wizard (steps 0–12 for partner, 0–7 for solo). `finalizeEngineData()` writes `userProfile` + `partnerProfile`. Labels use plain language ("Your full name", "Your city or region"). |
 | `src/dashboard.js` | `hydrateDashboardViews()` — main render entry. Updates header, metrics bar, spotlight tips, Day at a Glance, games section titles. |
 | `src/drawers.js` | All overlay drawers (insight types, sandbox, games, profile settings, pet). `openDrawer(type)` / `closeDrawer()`. `window.saveProfileSettings` writes to correct tempAnswers keys: `attachment`, `conflict`, `expression`. |
@@ -118,10 +119,11 @@ window.AppState = {
 
 ## Supabase
 
-- **Table:** `user_sessions` — columns: `device_id` (text PK), `profile_data` (jsonb), `schema_version` (int), `updated_at` (timestamptz)
+- **Table:** `user_sessions` — columns: `device_id` (text PK), `profile_data` (jsonb), `schema_version` (int), `updated_at` (timestamptz), `save_code` (text, nullable, indexed — not unique, since a code can be shared across multiple device rows once restored on a second device)
 - **RLS:** anon + authenticated read/write (`USING (true)`) — single-tenant, no auth
 - **Strategy:** localStorage is always source of truth. Cloud load on startup picks whichever is newer (by `cachedDate`). Cloud save is silent fire-and-forget in `saveGameData()`.
 - **Device ID:** Random UUID stored in `localStorage['vibeDeviceId']`, generated once.
+- **Save code:** Generated once from identity fields (`generateSaveCode()` in `save-code.js`) on onboarding completion and on profile-settings edits — never on every gameplay save (game data changes constantly and isn't part of the hash). `cloudLoadByCode()` looks up by `save_code` and takes the most recently updated row, since the column isn't unique.
 
 ---
 
@@ -207,10 +209,39 @@ _Add confirmed bugs here with file:line. Mark [FIXED] when resolved._
 | FIXED | `dashboard.js` wrote `_cachedMetrics` into persisted game data (bloat) | `dashboard.js` |
 | FIXED | Dead import `pickFromPool` in `insights.js` | `insights.js` |
 | FIXED | Dev tool fake profiles missing `relationshipStatus` — relationship tip pool never tested | `dev-tools.js` |
+| FIXED | `gameRegistry.bindAll()` never called — no game click handler was bound to `window.*`, every game unplayable | `app.js` |
+| FIXED | `saveGameData()` regenerated the save code + cloud-synced on every gameplay action instead of only on identity changes | `state.js` |
+| FIXED | `saveProfileSettings()` edited identity fields but never regenerated the save code or synced to cloud | `drawers.js` |
+| FIXED | `cloudSave()` read `payload.schemaVersion` (doesn't exist) instead of `payload.gameData.schemaVersion` — `schema_version` column always wrote `1` | `supabase.js` |
+| FIXED | Unique index on `save_code` broke second-device sync — upsert keyed by `device_id` collided with the constraint once a code was shared across devices | `supabase/migrations/`, `supabase.js` |
 
 ---
 
 ## Changelog
+
+### 2026-07-14 — Save Code Feature Fix Pass
+
+**app.js**
+- Added the missing `gameRegistry.bindAll()` call — this had been dropped while wiring in the save-code feature, leaving every game's inline `onclick` handlers unbound (`ReferenceError` on any tap).
+
+**state.js**
+- `saveGameData()`: removed the `generateSaveCode()` call that ran on every gameplay save (trivia answer, mood tap, etc.). Now just calls `cloudSave(parsed, window.AppState.saveCode)` with the already-known code — the code is derived only from identity fields and doesn't need to change on gameplay.
+
+**drawers.js**
+- `saveProfileSettings()`: now regenerates the save code and cloud-syncs after identity fields (attachment/conflict/love language/expression) are edited — previously this path wrote straight to localStorage and never touched the code or cloud at all.
+
+**supabase.js**
+- `cloudSave()`: fixed `schema_version` to read `payload.gameData.schemaVersion` instead of the nonexistent `payload.schemaVersion` (was always writing `1`).
+- `cloudLoadByCode()`: orders by `updated_at` descending and takes the first row instead of `.maybeSingle()`, since `save_code` is no longer unique across rows.
+
+**supabase/migrations/**
+- New migration drops the unique index on `user_sessions.save_code` and replaces it with a plain index — the unique constraint made second-device restore silently fail every subsequent sync (upsert is keyed by `device_id`, so two devices sharing a save code violated uniqueness).
+
+**profile-builder.js**
+- Corrected a misleading comment on the post-restore `cloudSave()` call (it upserts the current device's own row, not the original device's row).
+
+**CLAUDE.md**
+- Added `src/save-code.js` to the File Map, documented the `save_code` column and save-code regeneration policy under Supabase.
 
 ### 2026-07-13 — Bug Fix + Deduplication Pass
 

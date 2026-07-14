@@ -528,7 +528,7 @@ export async function submitSaveCode() {
     localStorage.setItem('vibeSaveCode', codeFormatted);
     window.AppState.saveCode = codeFormatted;
 
-    // Re-attach this device_id to the same Supabase row (fire-and-forget)
+    // Upsert this device's own row, tagged with the shared save code (fire-and-forget)
     cloudSave(parsed, codeFormatted);
 
     if (typeof window.updateStreak === 'function') window.updateStreak();
