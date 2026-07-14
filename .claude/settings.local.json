@@ -38,7 +38,8 @@
       "Bash(env)",
       "Bash(git log *)",
       "Bash(git config *)",
-      "Bash(git rebase *)"
+      "Bash(git rebase *)",
+      "Bash(node -e ' *)"
     ]
   }
 }
