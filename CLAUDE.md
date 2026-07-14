@@ -230,6 +230,21 @@ _Add confirmed bugs here with file:line. Mark [FIXED] when resolved._
 
 ## Changelog
 
+### 2026-07-14 — Per-Profile Content Seeding (Fix Cross-User Collisions) + Bigger Knowledge Bank
+
+**Problem:** every rotation formula in `insights.js` was keyed only by time (day/hour) and game progress, never by profile identity. A brand-new account has `trivia.total = 0` and `wyr.answered = 0`, so two different new users with the same attachment style, checking the app in the same hour, landed on the literal same headline/body/blueprint/spotlight-tip/deep-insight — the app looked identical for different people.
+
+**insights.js**
+- Added `computeContentSeed(profile)` — a local DJB2-style hash blending name/location/mbti/attachmentStyle/loveLanguage/expressionStyle into a stable per-person number (same pattern as `pet.js`'s `computePetSeed`, kept separate/local rather than shared, matching that module's own precedent). Folded into every pool-index calculation: `generateDayAtAGlance` (headline + body), `generateSpotlightLists` (dos/donts, using the user's own seed for their side and the partner's own seed for theirs), `generateBlueprint`, and `generateDeepInsight` (all four types).
+- Added `computeCoupleSeed(userProfile, partnerProfile)` (XOR of both individual seeds) for content that represents "the two of you" jointly in partner mode (Blueprint, the four deep-insight drawers) — so different couples diverge even if they happen to share one member, while `decoder`'s per-person practical-tip picks still use each individual's own seed since that content is specifically about them.
+- Verified: two profiles with identical traits/zero game progress now get different content; the same profile reliably reproduces the same content (deterministic per-identity, not random) — matches the intent that trait-tied content can legitimately recur for people sharing that trait, it's the coincidental cross-person collisions that were the bug.
+- `generateDayAtAGlance` also occasionally cross-pollinates with a concrete Spotlight tip (`Try this: ...`) — free extra variety since it reuses existing content instead of needing new pool entries.
+
+**content-bank.js**
+- Expanded the thinnest pools: `DAILY_BODIES_SOLO`/`DAILY_BODIES_PARTNER` from 5 to 8 entries per attachment style; all four `DEEP_*_SOLO`/`DEEP_*_PARTNER` pools (groove/journey/decoder/vibe) from 5 to 7 entries each.
+
+No `SCHEMA_VERSION` bump — content-selection-only change, no `gameData` shape changed.
+
 ### 2026-07-14 — Message/Insight Tone Rewrite + Attribution Fixes + Fun Additions
 
 **questions.js**
