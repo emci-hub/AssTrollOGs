@@ -29,7 +29,7 @@ A mobile-first personality + relationship dashboard (430px max-width app contain
 | `src/insights.js` | `insights.generateDeepInsight(type, profiles, gameData, now, offset)` — content for groove/journey/decoder/vibe drawers. `generateChronicleScenario()`. |
 | `src/content-bank.js` | Large arrays of insight content indexed by profile keys. |
 | `src/questions.js` | `PSYCH_QUESTIONS` array (5 questions: loveLanguage, attachment, conflict, expression, mbti). `MBTI_TYPES` array. |
-| `src/pet.js` | `initPet()`, `renderPetSection()`, `awardPetGrowth(n)`, `renderPetDrawer()`, `refreshPetAffirmation()`. SVG-based virtual pets. Mood synced from `gd.mood.today`. |
+| `src/pet.js` | `initPet()`, `renderPetSection()`, `awardPetGrowth(n)`, `renderPetDrawer()`, `refreshPetAffirmation()`. SVG-based virtual pets. Mood synced from `gd.mood.today`. Color/ear-shape/pattern derived deterministically from profile (`derivePetVisuals()`); body silhouette varies per stage (`STAGE_SHAPE`). Solo Legendary pets get a bonus weapon accessory. Couple pet (`gd.pet.couple`) has independent persisted growth and a shiny gradient+sparkle treatment at stage 5. |
 | `src/dev-tools.js` | Dev panel: jump steps, force dashboard, clear cache. |
 | `src/games/index.js` | Game registry. `gameRegistry.get(id)` / `gameRegistry.bindAll()`. All games registered here. |
 | `src/games/trivia.js` | 5-question quiz (solo self-knowledge or partner trivia). Awards pet growth on round complete (daily cap). |
@@ -77,7 +77,7 @@ window.AppState = {
   sparks:     { checkedItems: [], lastPlayed },
   streak:     { current, lastOpenDate, longest, lastResetDate },
   milestones: [],        // string ids
-  pet:        { user: PetData, partner: PetData | null },
+  pet:        { user: PetData, partner: PetData | null, couple: CouplePetData | null },
   mood:       { today, lastChecked, streak, history: [{date, mood}] },
   quicktakes: { sessionCount, lastPlayed },
   petGrowthLog: { [gameId]: 'YYYY-MM-DD' }    // daily cap per game
@@ -86,12 +86,20 @@ window.AppState = {
 
 **PetData:** `{ name, totalDays, lastSeen, stage: 1–5, mood, _baseProfile }`
 
+**CouplePetData:** `{ totalDays, lastSeen, stage: 1–5, mood }` — no `name`; the couple's display name is always derived on the fly via `generateMergedName()`, never persisted. Only exists (non-null) in partner mode.
+
 **Pet stages:** 0d=Newborn, 4d=Baby, 10d=Growing, 20d=Adult, 40d=Legendary
 
+**Pet appearance:** Color, ear shape, and pattern overlay are derived deterministically from the profile every render (`derivePetVisuals()` in `pet.js`) — never persisted. Color comes from a per-person hue (hashed from name/location/mbti/attachmentStyle) plus an attachment-style "mood" (S/L range + hue-shift bias), not a fixed 4-color palette. MBTI's E/I picks ear shape; `loveLanguage` picks a pattern overlay (spots/stripes/band/sparkle/none). Body silhouette (proportions, limbs, aura) also varies per stage via `STAGE_SHAPE`, not just overall size.
+
 **Pet growth sources:**
-- Daily visit: +2 (solo), +1 (partner)
-- Each game win/completion: +1 (daily cap via `petGrowthLog`)
+- Daily visit: +2 (solo), +1 (partner), +1 (couple pet, partner mode only)
+- Each game win/completion: +1 (daily cap via `petGrowthLog`) — applies to user, partner, *and* couple pet simultaneously; no per-game code needed for the couple pet, it rides the same `awardPetGrowth()` call
 - Games with daily cap: `trivia`, `memory`, `wyr`, `sparks`, `mood`, `quicktakes`
+
+**Solo Legendary weapon:** At stage 5, a pet rendered with `isSolo: true` (true solo mode only — never partner-mode individual pets, even at stage 5) additionally renders a weapon accessory alongside the crown.
+
+**Couple pet — independent growth + shiny:** Unlike the two individual pets, `gd.pet.couple` is NOT derived as `min(userStage, partnerStage)` — it has its own persisted `totalDays`/`stage`, ticked once per day in partner mode (`tickCouplePet()`) and bumped by every `awardPetGrowth()` call. It can lag or lead the two individual pets. Once it independently reaches stage 5, it renders "shiny legendary": a 5-stop gradient blending both partners' actual hues (instead of the flat averaged blend used at stages 1-4) plus a static sparkle overlay, and earns the `pet_couple_shiny` milestone.
 
 **Pet mood derived from** `gd.mood.today`: glowing→excited, curious→curious, chill/low→happy, fired→excited, tense→curious. Falls back to game-based derivation if no mood check.
 
@@ -129,7 +137,9 @@ window.AppState = {
 
 ## Milestone IDs
 
-`trivia_first`, `trivia_perfect` (≥10 total, 100%), `trivia_master` (≥15, ≥80%), `wyr_5`, `wyr_10`, `wyr_25`, `memory_first`, `memory_sharp` (≤8 moves), `bingo_3`, `bingo_row`, `streak_3`, `streak_7`, `mood_first`, `mood_consistent` (5-day mood streak), `quicktakes_first`, `quicktakes_pattern` (5 sessions), `pet_baby` (4d), `pet_adult` (20d), `pet_legendary` (40d)
+`trivia_first`, `trivia_perfect` (≥10 total, 100%), `trivia_master` (≥15, ≥80%), `wyr_5`, `wyr_10`, `wyr_25`, `memory_first`, `memory_sharp` (≤8 moves), `bingo_3`, `bingo_row`, `streak_3`, `streak_7`, `mood_first`, `mood_consistent` (5-day mood streak), `quicktakes_first`, `quicktakes_pattern` (5 sessions), `pet_baby` (4d), `pet_adult` (20d), `pet_legendary` (40d), `pet_couple_shiny` (couple pet independently ≥40d, partner mode only)
+
+New milestone IDs must be added in **three** places or the label silently regresses to the raw id: `MILESTONE_CHECKS` (state.js), `MILESTONE_LABELS` (state.js), and `getMilestoneLabel()` (insights.js) — a separate hardcoded map. This has bitten the codebase before (see Known Bugs).
 
 ---
 
@@ -174,10 +184,11 @@ game completes
   → canAwardPetGrowthToday(gameId)  [state.js]
   → recordPetGrowthToday(gameId)    [state.js]
   → awardPetGrowth(1)               [pet.js]
+  → bumps gd.pet.user, gd.pet.partner (if present), AND gd.pet.couple (if present) in parallel
   → pet.totalDays++ triggers stage upgrade
   → pet stage: 0d=Newborn, 4d=Baby, 10d=Growing, 20d=Adult, 40d=Legendary
 ```
-Daily visit awards +2 (solo) or +1 (partner) automatically in `initPet()`.
+Daily visit awards +2 (solo) or +1 (partner) automatically in `initPet()`; the couple pet also gets +1/day (partner mode only) via `tickCouplePet()`. The couple pet's stage is independent of the two individual pets' stages — it renders "shiny legendary" (gradient + sparkle) once its own `stage` hits 5, regardless of where the individual pets are.
 
 ---
 
@@ -218,6 +229,26 @@ _Add confirmed bugs here with file:line. Mark [FIXED] when resolved._
 ---
 
 ## Changelog
+
+### 2026-07-14 — Procedural Pet Evolution + Solo Weapon + Shiny Couple Pet
+
+**pet.js**
+- Pet appearance is no longer a fixed 4-color palette (`PET_COLORS`) keyed only to `attachmentStyle`. Replaced with `derivePetVisuals(profile)`: a deterministic per-person hue (hashed from name/location/mbti/attachmentStyle via a new pet-local `computePetSeed()`/`hashString()`, deliberately not reusing `engine.computeDeterministicSeed()`/`AppState.vibeSeed`) combined with an attachment-style "mood" (`ATTACHMENT_PALETTE_MOOD` — S/L ranges + hue-shift bias). MBTI E/I picks ear shape (`earShapeVariant`); `loveLanguage` picks a pattern overlay (`patternType` → spots/stripes/band/sparkle/none, drawn clipped to the body via `patternOverlaySvg`).
+- Added `STAGE_SHAPE` table so all 5 growth stages change body proportions (`ryMul`), ear size (`earMul`), and add limbs (`limbsSvg`, stages 2+) and an aura glow (`auraSvg`, stage 5) — not just overall scale. `accessorySvg()` (bow tie/cape/glasses/crown/milestone extras) is unchanged and layers on top.
+- `buildPetSvg()` signature changed from `(colors, stage, mood, size, ...)` to `(visuals, stage, mood, size, milestones, isCouple, isSolo)`.
+- **Solo-only Legendary weapon**: at stage 5, a pet built with `isSolo: true` additionally renders a weapon accessory (blade/crossguard/grip/pommel) alongside the crown. Threaded from `renderPetSection()`/`renderPetDrawer()`'s existing `solo` flag — partner-mode individual pets never get it, even at stage 5.
+- **Couple pet now independently persisted**: `gd.pet.couple` (`{ totalDays, lastSeen, stage, mood }`) replaces the old `Math.min(userStage, partnerStage)` derivation. New `makeCouplePetData()`/`tickCouplePet()` (+1/day, partner mode only) mirror the existing user/partner pattern; `awardPetGrowth()` now bumps `gd.pet.couple` alongside `user`/`partner` for free — no per-game code changes needed. The couple pet can lag or lead the two individual pets.
+- **Shiny legendary**: once the couple pet's own `stage` reaches 5, `buildPetSvg()` swaps its flat `blendColors()` fill for a 5-stop gradient blending both partners' actual hues (`deriveCoupleVisuals()`'s new `shinyColors`) plus a static sparkle overlay (`shinySparkleSvg()`).
+- `migratePetData()` now also defaults/backfills `gd.pet.couple`.
+
+**state.js**
+- `defaultGameData()`'s `pet` field now includes `couple: null`.
+- New milestone `pet_couple_shiny` (couple pet independently reaches stage 5) added to `MILESTONE_CHECKS` and `MILESTONE_LABELS`.
+
+**insights.js**
+- `getMilestoneLabel()` — added `pet_couple_shiny: 'Shiny Bond'` (this map is separate from `state.js`'s `MILESTONE_LABELS`; missing an id here was a past bug, see Known Bugs).
+
+No `SCHEMA_VERSION` bump — purely additive to `gameData.pet`, defensively backfilled by `migratePetData()` exactly like prior additions (`petGrowthLog`, `quicktakes`, `sparks`). Pet appearance was never persisted, so existing users simply see a different (more unique) pet on next render — no migration needed.
 
 ### 2026-07-14 — Save Code Feature Fix Pass
 

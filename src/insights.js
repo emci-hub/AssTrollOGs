@@ -90,7 +90,8 @@ function getMilestoneLabel(id) {
     streak_3: '3-Day Streak', streak_7: '7-Day Streak',
     mood_first: 'First Mood Check', mood_consistent: 'Consistent Checker',
     quicktakes_first: 'Quick Taker', quicktakes_pattern: 'Pattern Finder',
-    pet_baby: 'Baby Steps', pet_adult: 'Growing Up', pet_legendary: 'Legendary Bond'
+    pet_baby: 'Baby Steps', pet_adult: 'Growing Up', pet_legendary: 'Legendary Bond',
+    pet_couple_shiny: 'Shiny Bond'
   })[id] || id;
 }
 

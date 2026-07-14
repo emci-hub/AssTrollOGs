@@ -2,10 +2,12 @@
  * Virtual Pet module.
  *
  * Solo:    one pet, grows 2x faster (each daily visit = 2 growth points).
- * Partner: user pet + partner pet (each 1x) + merged couple pet.
+ * Partner: user pet + partner pet (each 1x) + an independently-growing couple pet.
  *
  * Names are generated from the person's actual name + their attachment style
- * so every pet is unique to that specific user.
+ * so every pet is unique to that specific user. Appearance (color/ear shape/
+ * pattern) is derived deterministically from the profile — never persisted,
+ * always recomputed at render time.
  */
 
 import { saveGameData } from './state.js';
@@ -40,18 +42,91 @@ function generateMergedName(userName, partnerName) {
   return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
 }
 
-// ─── Colors ───────────────────────────────────────────────────────────────────
+// ─── Deterministic per-person visuals ──────────────────────────────────────────
+// Color, ear shape, and pattern are derived from the profile every render —
+// never persisted. This is a pet-local seed (name+location+mbti+attachment),
+// deliberately separate from engine.computeDeterministicSeed()/AppState.vibeSeed,
+// which is timestamp-based, shared at the couple level, and coupled to unrelated
+// compatibility-score logic.
 
-const PET_COLORS = {
-  secure:   { body: '#5eabd4', eye: '#1a6b9a', cheek: '#a8d8f0' },
-  anxious:  { body: '#c084e8', eye: '#7c3aad', cheek: '#e8c4f8' },
-  avoidant: { body: '#6abe8a', eye: '#2d7a4f', cheek: '#b4e4c4' },
-  fearful:  { body: '#f0a055', eye: '#b85c10', cheek: '#ffd4a8' }
+function clamp(n, min, max) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function hashString(str) {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function computePetSeed(profile) {
+  const name = (profile?.name || '').trim().toLowerCase();
+  const location = (profile?.location || '').trim().toLowerCase();
+  const mbti = (profile?.mbti || '').toUpperCase();
+  const attach = profile?.attachmentStyle || '';
+  return hashString(`${name}|${location}|${mbti}|${attach}`);
+}
+
+function hslToHex(h, s, l) {
+  s /= 100; l /= 100;
+  const k = n => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  const toHex = x => Math.round(255 * x).toString(16).padStart(2, '0');
+  return `#${toHex(f(0))}${toHex(f(8))}${toHex(f(4))}`;
+}
+
+// Attachment style still governs the palette's qualitative "mood" (S/L ranges
+// + a hue-shift bias) but no longer pins every user of that style to one hex.
+const ATTACHMENT_PALETTE_MOOD = {
+  secure:   { sBody: 58, lBody: 62, sEye: 62, lEye: 38, sCheek: 55, lCheek: 82, hueShift: 0   },
+  anxious:  { sBody: 78, lBody: 58, sEye: 75, lEye: 34, sCheek: 70, lCheek: 85, hueShift: 0   },
+  avoidant: { sBody: 38, lBody: 52, sEye: 42, lEye: 32, sCheek: 34, lCheek: 78, hueShift: 40  },
+  fearful:  { sBody: 68, lBody: 40, sEye: 60, lEye: 24, sCheek: 55, lCheek: 68, hueShift: -20 }
 };
+
+function deriveColors(profile) {
+  const seed = computePetSeed(profile);
+  const mood = ATTACHMENT_PALETTE_MOOD[profile?.attachmentStyle] || ATTACHMENT_PALETTE_MOOD.secure;
+  const hue = ((seed % 360) + mood.hueShift + 360) % 360;
+  const jitter = (Math.floor(seed / 360) % 11) - 5;
+  return {
+    body: hslToHex(hue, mood.sBody, clamp(mood.lBody + jitter, 20, 85)),
+    eye: hslToHex(hue, mood.sEye, clamp(mood.lEye + jitter, 15, 55)),
+    cheek: hslToHex(hue, mood.sCheek, clamp(mood.lCheek + jitter, 60, 92))
+  };
+}
+
+function earShapeVariant(profile) {
+  return (profile?.mbti || '')[0] === 'E' ? 'pointed' : 'round';
+}
+
+const PATTERN_BY_LOVE_LANGUAGE = {
+  words: 'sparkle',
+  gifts: 'sparkle',
+  time: 'band',
+  service: 'stripes',
+  touch: 'spots'
+};
+
+function patternType(profile) {
+  return PATTERN_BY_LOVE_LANGUAGE[profile?.loveLanguage] || 'none';
+}
+
+function derivePetVisuals(profile) {
+  return {
+    colors: deriveColors(profile),
+    earShape: earShapeVariant(profile),
+    pattern: patternType(profile)
+  };
+}
 
 // ─── Stages ───────────────────────────────────────────────────────────────────
 // Solo pets grow at 2 pts/day so they hit these thresholds faster.
-// Partner pets grow at 1 pt/day.
+// Partner pets grow at 1 pt/day. The couple pet grows independently (see below).
 
 const STAGES = [
   { stage: 1, minDays: 0,  label: 'Newborn',   size: 56 },
@@ -66,6 +141,15 @@ function getStage(totalDays) {
   for (const st of STAGES) { if (totalDays >= st.minDays) s = st; }
   return s;
 }
+
+// Body silhouette actually changes shape per stage (not just overall size).
+const STAGE_SHAPE = {
+  1: { ryMul: .96, earMul: .82, limbs: false, aura: false },
+  2: { ryMul: .90, earMul: 1.00, limbs: true,  aura: false },
+  3: { ryMul: .87, earMul: 1.05, limbs: true,  aura: false },
+  4: { ryMul: .83, earMul: 1.10, limbs: true,  aura: false },
+  5: { ryMul: .90, earMul: 1.15, limbs: true,  aura: true  }
+};
 
 // ─── Affirmations + Warnings ──────────────────────────────────────────────────
 
@@ -197,9 +281,97 @@ function blendColors(c1, c2) {
   return { body: hexBlend(c1.body, c2.body), eye: hexBlend(c1.eye, c2.eye), cheek: hexBlend(c1.cheek, c2.cheek) };
 }
 
+function deriveCoupleVisuals(userVisuals, partnerVisuals) {
+  return {
+    colors: blendColors(userVisuals.colors, partnerVisuals.colors),
+    earShape: (userVisuals.earShape === 'pointed' || partnerVisuals.earShape === 'pointed') ? 'pointed' : 'round',
+    pattern: 'none',
+    shinyColors: { a: userVisuals.colors, b: partnerVisuals.colors }
+  };
+}
+
+// ─── SVG body parts ────────────────────────────────────────────────────────────
+
+function earsSvg(shape, earFill, cheekColor, cx, cy, r, earMul = 1) {
+  const ex1 = cx - r * .62, ex2 = cx + r * .62;
+  const ey = cy - r * .74;
+  const rx = r * .2 * earMul, ry = r * .3 * earMul;
+  const irx = r * .1 * earMul, iry = r * .17 * earMul;
+  if (shape === 'pointed') {
+    return `
+      <polygon points="${ex1-rx},${ey+ry} ${ex1},${ey-ry} ${ex1+rx},${ey+ry}" fill="${earFill}"/>
+      <polygon points="${ex2-rx},${ey+ry} ${ex2},${ey-ry} ${ex2+rx},${ey+ry}" fill="${earFill}"/>
+      <polygon points="${ex1-irx},${ey+iry} ${ex1},${ey-iry*.4} ${ex1+irx},${ey+iry}" fill="${cheekColor}" opacity=".7"/>
+      <polygon points="${ex2-irx},${ey+iry} ${ex2},${ey-iry*.4} ${ex2+irx},${ey+iry}" fill="${cheekColor}" opacity=".7"/>
+    `;
+  }
+  return `
+    <ellipse cx="${ex1}" cy="${ey}" rx="${rx}" ry="${ry}" fill="${earFill}"/>
+    <ellipse cx="${ex2}" cy="${ey}" rx="${rx}" ry="${ry}" fill="${earFill}"/>
+    <ellipse cx="${ex1}" cy="${ey}" rx="${irx}" ry="${iry}" fill="${cheekColor}" opacity=".7"/>
+    <ellipse cx="${ex2}" cy="${ey}" rx="${irx}" ry="${iry}" fill="${cheekColor}" opacity=".7"/>
+  `;
+}
+
+function limbsSvg(colors, cx, cy, r) {
+  const fy = cy + r * .82;
+  return `
+    <ellipse cx="${cx-r*.32}" cy="${fy}" rx="${r*.14}" ry="${r*.09}" fill="${colors.body}"/>
+    <ellipse cx="${cx+r*.32}" cy="${fy}" rx="${r*.14}" ry="${r*.09}" fill="${colors.body}"/>
+  `;
+}
+
+function auraSvg(colors, cx, cy, r) {
+  return `
+    <ellipse cx="${cx}" cy="${cy}" rx="${r*1.45}" ry="${r*1.3}" fill="${colors.body}" opacity=".14"/>
+    <ellipse cx="${cx}" cy="${cy}" rx="${r*1.2}" ry="${r*1.08}" fill="${colors.cheek}" opacity=".18"/>
+  `;
+}
+
+function patternOverlaySvg(pattern, colors, cx, cy, r, ry, gid) {
+  if (pattern === 'none') return '';
+  const clipId = `clip_${gid}`;
+  let marks = '';
+  if (pattern === 'spots') {
+    const spots = [
+      { dx: -.42, dy: -.1, s: .12 }, { dx: .1, dy: .3, s: .09 },
+      { dx: .4, dy: -.2, s: .1 }, { dx: -.1, dy: -.4, s: .08 }
+    ];
+    marks = spots.map(p => `<circle cx="${cx+r*p.dx}" cy="${cy+ry*p.dy}" r="${r*p.s}" fill="${colors.eye}" opacity=".22"/>`).join('');
+  } else if (pattern === 'stripes') {
+    marks = [-.5, -.15, .2, .55].map(dx =>
+      `<rect x="${cx+r*dx}" y="${cy-ry}" width="${r*.13}" height="${ry*2}" fill="${colors.eye}" opacity=".18" transform="rotate(18 ${cx+r*dx} ${cy})"/>`
+    ).join('');
+  } else if (pattern === 'band') {
+    marks = `<rect x="${cx-r}" y="${cy-ry*.12}" width="${r*2}" height="${ry*.3}" fill="${colors.eye}" opacity=".22"/>`;
+  } else if (pattern === 'sparkle') {
+    const sparks = [{ dx: -.3, dy: -.25 }, { dx: .32, dy: -.1 }, { dx: 0, dy: .35 }];
+    marks = sparks.map(p => {
+      const x = cx + r * p.dx, y = cy + ry * p.dy, s = r * .07;
+      return `<path d="M ${x} ${y-s} L ${x+s*.3} ${y-s*.3} L ${x+s} ${y} L ${x+s*.3} ${y+s*.3} L ${x} ${y+s} L ${x-s*.3} ${y+s*.3} L ${x-s} ${y} L ${x-s*.3} ${y-s*.3} Z" fill="${colors.cheek}" opacity=".55"/>`;
+    }).join('');
+  }
+  return `
+    <clipPath id="${clipId}"><ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${ry}"/></clipPath>
+    <g clip-path="url(#${clipId})">${marks}</g>
+  `;
+}
+
+function shinySparkleSvg(cx, cy, r) {
+  const pts = [
+    { dx: -0.7, dy: -0.55, s: 0.09 }, { dx: 0.72, dy: -0.4, s: 0.07 },
+    { dx: -0.5, dy: 0.5,  s: 0.06 }, { dx: 0.55, dy: 0.62, s: 0.08 },
+    { dx: 0,    dy: -1.0, s: 0.1 }
+  ];
+  return pts.map(p => {
+    const x = cx + r * p.dx, y = cy + r * p.dy, s = r * p.s;
+    return `<path d="M ${x} ${y-s} L ${x+s*.28} ${y-s*.28} L ${x+s} ${y} L ${x+s*.28} ${y+s*.28} L ${x} ${y+s} L ${x-s*.28} ${y+s*.28} L ${x-s} ${y} L ${x-s*.28} ${y-s*.28} Z" fill="#ffffff" opacity=".85"/>`;
+  }).join('');
+}
+
 // ─── SVG accessories ──────────────────────────────────────────────────────────
 
-function accessorySvg(stage, milestones, colors, cx, cy, r) {
+function accessorySvg(stage, milestones, colors, cx, cy, r, isSolo = false) {
   const parts = [];
 
   if (stage >= 2) {
@@ -238,6 +410,18 @@ function accessorySvg(stage, milestones, colors, cx, cy, r) {
       <circle cx="${cx}" cy="${cy-r*1.14}" r="${r*.065}" fill="#40b0e8"/>
       <circle cx="${cx+r*.16}" cy="${cy-r*1.3}" r="${r*.065}" fill="#e84040"/>
     `);
+
+    // legendary weapon — solo mode only
+    if (isSolo) {
+      const wx = cx - r * .86;
+      parts.push(`
+        <rect x="${wx-r*.05}" y="${cy-r*.62}" width="${r*.1}" height="${r*.62}" fill="#c8d0da"/>
+        <polygon points="${wx-r*.05},${cy-r*.62} ${wx},${cy-r*.78} ${wx+r*.05},${cy-r*.62}" fill="#e8edf2"/>
+        <rect x="${wx-r*.14}" y="${cy-r*.02}" width="${r*.28}" height="${r*.08}" rx="${r*.02}" fill="${colors.eye}"/>
+        <rect x="${wx-r*.04}" y="${cy+r*.06}" width="${r*.08}" height="${r*.16}" fill="#7a5230"/>
+        <circle cx="${wx}" cy="${cy+r*.24}" r="${r*.05}" fill="#f5c842"/>
+      `);
+    }
   }
 
   // Milestone bonuses
@@ -262,12 +446,16 @@ function accessorySvg(stage, milestones, colors, cx, cy, r) {
 
 // ─── SVG builder ─────────────────────────────────────────────────────────────
 
-function buildPetSvg(colors, stage, mood, size, milestones = [], isCouple = false) {
+function buildPetSvg(visuals, stage, mood, size, milestones = [], isCouple = false, isSolo = false) {
+  const { colors, earShape, pattern } = visuals;
   const s = size;
   const r = s * .38;
   const cx = s / 2;
   const cy = s * .54;
-  const gid = `pg_${Math.round(r)}_${stage}`;
+  const shape = STAGE_SHAPE[stage] || STAGE_SHAPE[1];
+  const ry = r * shape.ryMul;
+  const gid = `pg_${Math.round(r)}_${stage}${isCouple ? 'c' : ''}`;
+  const shiny = isCouple && stage >= 5;
 
   const mouth =
     mood === 'excited' ? `M ${cx-r*.28} ${cy+r*.3} Q ${cx} ${cy+r*.56} ${cx+r*.28} ${cy+r*.3}` :
@@ -276,28 +464,37 @@ function buildPetSvg(colors, stage, mood, size, milestones = [], isCouple = fals
                          `M ${cx-r*.2} ${cy+r*.3} Q ${cx} ${cy+r*.44} ${cx+r*.2} ${cy+r*.3}`;
 
   const earFill = isCouple ? colors.cheek : colors.body;
-  const ears = `
-    <ellipse cx="${cx-r*.62}" cy="${cy-r*.74}" rx="${r*.2}" ry="${r*.3}" fill="${earFill}"/>
-    <ellipse cx="${cx+r*.62}" cy="${cy-r*.74}" rx="${r*.2}" ry="${r*.3}" fill="${earFill}"/>
-    <ellipse cx="${cx-r*.62}" cy="${cy-r*.74}" rx="${r*.1}" ry="${r*.17}" fill="${colors.cheek}" opacity=".7"/>
-    <ellipse cx="${cx+r*.62}" cy="${cy-r*.74}" rx="${r*.1}" ry="${r*.17}" fill="${colors.cheek}" opacity=".7"/>
-  `;
+  const ears = earsSvg(earShape, earFill, colors.cheek, cx, cy, r, shape.earMul);
+  const limbs = shape.limbs ? limbsSvg(colors, cx, cy, r) : '';
+  const aura = shape.aura ? auraSvg(colors, cx, cy, r) : '';
+  const pat = patternOverlaySvg(pattern, colors, cx, cy, r, ry, gid);
+  const sparkle = shiny ? shinySparkleSvg(cx, cy, r) : '';
 
   const coupleHeart = isCouple ? `
     <path d="M ${cx} ${cy+r*.36} C ${cx-r*.18} ${cy+r*.19} ${cx-r*.33} ${cy+r*.31} ${cx} ${cy+r*.53} C ${cx+r*.33} ${cy+r*.31} ${cx+r*.18} ${cy+r*.19} ${cx} ${cy+r*.36} Z" fill="${colors.eye}" opacity=".5"/>
   ` : '';
 
-  const accessories = accessorySvg(stage, milestones, colors, cx, cy, r);
+  const accessories = accessorySvg(stage, milestones, colors, cx, cy, r, isSolo);
 
-  return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">
-    <defs>
-      <radialGradient id="${gid}" cx="38%" cy="32%">
+  const { a, b } = visuals.shinyColors || { a: colors, b: colors };
+  const gradientDef = shiny
+    ? `<linearGradient id="${gid}" x1="15%" y1="10%" x2="85%" y2="90%">
+        <stop offset="0%" stop-color="${a.cheek}"/>
+        <stop offset="35%" stop-color="${a.body}"/>
+        <stop offset="50%" stop-color="#ffffff" stop-opacity=".55"/>
+        <stop offset="65%" stop-color="${b.body}"/>
+        <stop offset="100%" stop-color="${b.cheek}"/>
+      </linearGradient>`
+    : `<radialGradient id="${gid}" cx="38%" cy="32%">
         <stop offset="0%" stop-color="${colors.cheek}" stop-opacity=".7"/>
         <stop offset="100%" stop-color="${colors.body}"/>
-      </radialGradient>
-    </defs>
-    ${accessories}${ears}
-    <ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${r*.9}" fill="url(#${gid})"/>
+      </radialGradient>`;
+
+  return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">
+    <defs>${gradientDef}</defs>
+    ${aura}${accessories}${limbs}${ears}
+    <ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${ry}" fill="url(#${gid})"/>
+    ${pat}
     <ellipse cx="${cx-r*.43}" cy="${cy+r*.19}" rx="${r*.23}" ry="${r*.15}" fill="${colors.cheek}" opacity=".48"/>
     <ellipse cx="${cx+r*.43}" cy="${cy+r*.19}" rx="${r*.23}" ry="${r*.15}" fill="${colors.cheek}" opacity=".48"/>
     <circle cx="${cx-r*.3}" cy="${cy-r*.14}" r="${r*.14}" fill="${colors.eye}"/>
@@ -306,6 +503,7 @@ function buildPetSvg(colors, stage, mood, size, milestones = [], isCouple = fals
     <circle cx="${cx+r*.26}" cy="${cy-r*.18}" r="${r*.055}" fill="white" opacity=".85"/>
     <path d="${mouth}" stroke="${colors.eye}" stroke-width="${r*.07}" fill="none" stroke-linecap="round"/>
     ${coupleHeart}
+    ${sparkle}
   </svg>`;
 }
 
@@ -327,6 +525,10 @@ function pickAffirmation(attach, gameData, offset) {
 
 function makePetData(profile) {
   return { name: generatePetName(profile), totalDays: 0, lastSeen: null, stage: 1, mood: 'happy' };
+}
+
+function makeCouplePetData() {
+  return { totalDays: 0, lastSeen: null, stage: 1, mood: 'happy' };
 }
 
 function tickPet(petData, profile, isSolo, gameData) {
@@ -351,6 +553,17 @@ function tickPet(petData, profile, isSolo, gameData) {
   return petData;
 }
 
+function tickCouplePet(petData, gameData) {
+  const today = new Date().toISOString().split('T')[0];
+  if (petData.lastSeen !== today) {
+    petData.totalDays += 1;
+    petData.lastSeen = today;
+  }
+  petData.mood = deriveMood(gameData);
+  petData.stage = getStage(petData.totalDays).stage;
+  return petData;
+}
+
 // ─── Migrate old flat structure ───────────────────────────────────────────────
 
 function migratePetData(gd) {
@@ -359,11 +572,13 @@ function migratePetData(gd) {
     const old = gd.pet;
     gd.pet = {
       user: { name: old.name, totalDays: old.totalDays || 0, lastSeen: old.lastSeen || null, stage: old.stage || 1, mood: old.mood || 'happy' },
-      partner: null
+      partner: null,
+      couple: null
     };
   }
-  if (!gd.pet) gd.pet = { user: null, partner: null };
+  if (!gd.pet) gd.pet = { user: null, partner: null, couple: null };
   if (!gd.pet.user) gd.pet.user = null;
+  if (gd.pet.couple === undefined) gd.pet.couple = null;
 }
 
 // ─── Init (called on app load) ────────────────────────────────────────────────
@@ -382,8 +597,12 @@ export function initPet() {
   if (!solo) {
     if (!gd.pet.partner) gd.pet.partner = makePetData(partnerProfile);
     gd.pet.partner = tickPet(gd.pet.partner, partnerProfile, false, gd);
+
+    if (!gd.pet.couple) gd.pet.couple = makeCouplePetData();
+    gd.pet.couple = tickCouplePet(gd.pet.couple, gd);
   } else {
     gd.pet.partner = null;
+    gd.pet.couple = null;
   }
 
   saveGameData();
@@ -406,9 +625,9 @@ export function renderPetSection() {
 
   const userPet = gd.pet.user;
   const userAttach = window.AppState.userProfile?.attachmentStyle || 'secure';
-  const userColors = PET_COLORS[userAttach] || PET_COLORS.secure;
+  const userVisuals = derivePetVisuals(window.AppState.userProfile || {});
   const userStageInfo = getStage(userPet.totalDays);
-  const userSvg = buildPetSvg(userColors, userPet.stage, userPet.mood, userStageInfo.size, milestones);
+  const userSvg = buildPetSvg(userVisuals, userPet.stage, userPet.mood, userStageInfo.size, milestones, false, solo);
 
   const { text: affirmText, isWarning } = pickAffirmation(userAttach, gd, _affirmOffset);
   const affirmColor = isWarning ? '#f0a055' : 'var(--success-color)';
@@ -454,23 +673,22 @@ export function renderPetSection() {
   }
 
   const partnerAttach = window.AppState.partnerProfile?.attachmentStyle || 'secure';
-  const partnerColors = PET_COLORS[partnerAttach] || PET_COLORS.secure;
+  const partnerVisuals = derivePetVisuals(window.AppState.partnerProfile || {});
   const partnerStageInfo = getStage(partnerPet.totalDays);
-  const partnerSvg = buildPetSvg(partnerColors, partnerPet.stage, partnerPet.mood, partnerStageInfo.size, milestones);
+  const partnerSvg = buildPetSvg(partnerVisuals, partnerPet.stage, partnerPet.mood, partnerStageInfo.size, milestones, false, solo);
 
-  // Couple pet
-  const coupleColors = blendColors(userColors, partnerColors);
+  // Couple pet — grows independently, tracked in gd.pet.couple
+  const couplePet = gd.pet.couple || makeCouplePetData();
+  const coupleVisuals = deriveCoupleVisuals(userVisuals, partnerVisuals);
   const coupleAttachKey = `${userAttach}_${partnerAttach}`;
   const coupleMsg = COUPLE_MESSAGES[coupleAttachKey] || "Two unique energies building something only you two can.";
   const coupleName = generateMergedName(
     window.AppState.userProfile?.name || '',
     window.AppState.partnerProfile?.name || ''
   );
-  const coupleStage = Math.min(userPet.stage, partnerPet.stage); // couple stage = slower of the two
-  const coupleMood = (userPet.mood === 'excited' || partnerPet.mood === 'excited') ? 'excited' : userPet.mood;
-  const coupleTotalDays = Math.min(userPet.totalDays, partnerPet.totalDays);
-  const coupleStageInfo = getStage(coupleTotalDays);
-  const coupleSvg = buildPetSvg(coupleColors, coupleStage, coupleMood, coupleStageInfo.size, milestones, true);
+  const coupleStageInfo = getStage(couplePet.totalDays);
+  const coupleShiny = couplePet.stage >= 5;
+  const coupleSvg = buildPetSvg(coupleVisuals, couplePet.stage, couplePet.mood, coupleStageInfo.size, milestones, true, false);
 
   container.innerHTML = `
     <div class="pet-section-card">
@@ -494,7 +712,7 @@ export function renderPetSection() {
           <div style="flex:1;">
             <div style="font-size:0.92rem; font-weight:700; color:var(--text-primary); margin-bottom:5px;">${coupleName}</div>
             <div style="font-size:0.73rem; font-style:italic; color:var(--text-secondary); line-height:1.5;">"${coupleMsg}"</div>
-            <div style="font-size:0.6rem; color:var(--text-muted); margin-top:4px;">${coupleStageInfo.label} · grows with both</div>
+            <div style="font-size:0.6rem; color:var(--text-muted); margin-top:4px;">${coupleShiny ? '✦ Shiny Legendary' : coupleStageInfo.label} · grows with both · Day ${couplePet.totalDays}</div>
           </div>
         </div>
       </div>
@@ -523,6 +741,10 @@ export function awardPetGrowth(points = 1) {
     gd.pet.partner.totalDays = (gd.pet.partner.totalDays || 0) + points;
     gd.pet.partner.stage = getStage(gd.pet.partner.totalDays).stage;
   }
+  if (gd.pet?.couple) {
+    gd.pet.couple.totalDays = (gd.pet.couple.totalDays || 0) + points;
+    gd.pet.couple.stage = getStage(gd.pet.couple.totalDays).stage;
+  }
   saveGameData();
 }
 
@@ -549,12 +771,12 @@ export function renderPetDrawer() {
   const userPet = gd?.pet?.user;
   if (!userPet) return '<div class="card-body">Come back tomorrow to meet your pet!</div>';
 
-  const attach = window.AppState.userProfile?.attachmentStyle || 'secure';
-  const colors = PET_COLORS[attach] || PET_COLORS.secure;
+  const visuals = derivePetVisuals(window.AppState.userProfile || {});
   const milestones = gd?.milestones || [];
   const stageInfo = getStage(userPet.totalDays);
   const nextStage = STAGES.find(s => s.minDays > userPet.totalDays);
-  const svg = buildPetSvg(colors, userPet.stage, userPet.mood, 90, milestones);
+  const solo = window.AppState.soloMode || !window.AppState.partnerProfile?.name;
+  const svg = buildPetSvg(visuals, userPet.stage, userPet.mood, 90, milestones, false, solo);
 
   const stageBar = STAGES.map(s => {
     const cls = s.stage === userPet.stage ? 'active' : s.stage < userPet.stage ? 'past' : '';
@@ -566,11 +788,10 @@ export function renderPetDrawer() {
   if (userPet.stage >= 3) unlocked.push('Cape');
   if (userPet.stage >= 4) unlocked.push('Glasses');
   if (userPet.stage >= 5) unlocked.push('Crown');
+  if (userPet.stage >= 5 && solo) unlocked.push('Legendary Weapon');
   if (milestones.includes('trivia_master')) unlocked.push('Diploma');
   if (milestones.includes('streak_7')) unlocked.push('Halo');
   if (milestones.includes('memory_sharp') && userPet.stage < 4) unlocked.push('Crystal');
-
-  const solo = window.AppState.soloMode || !window.AppState.partnerProfile?.name;
 
   return `
     <div class="subtitle">Your Companion</div>
