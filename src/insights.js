@@ -16,7 +16,7 @@ import {
   DEEP_JOURNEY_SOLO, DEEP_JOURNEY_PARTNER,
   DEEP_DECODER_SOLO, DEEP_DECODER_PARTNER,
   DEEP_VIBE_SOLO, DEEP_VIBE_PARTNER,
-  CHRONICLE_SCENARIOS
+  CHRONICLE_SCENARIOS, MBTI_FRAGMENTS
 } from './content-bank.js';
 import { engine } from './engine.js';
 
@@ -65,6 +65,55 @@ function getMbtiSelf(mbti) {
   return `${energy} ${process}`;
 }
 
+// Assembles a short MBTI-flavored line from the small fragment bank in
+// content-bank.js — combinatorial variety from a cheap pool instead of
+// needing a full pool per type.
+function assembleMbtiFlavor(mbti, offset) {
+  if (!mbti || mbti.length !== 4) return null;
+  const pickFragment = (letter, salt) => {
+    const pool = MBTI_FRAGMENTS[letter];
+    if (!pool || pool.length === 0) return null;
+    return pool[Math.abs((offset || 0) + salt) % pool.length];
+  };
+  const first = pickFragment(mbti[0], 0);
+  const last = pickFragment(mbti[3], 5);
+  if (!first || !last) return null;
+  return `Classic ${mbti} energy: ${first}, and ${last}.`;
+}
+
+function hashContentString(str) {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+// Per-profile seed so two different people never coincidentally land on the
+// exact same rotating content just because they share one trait and check
+// the app around the same time — blends several trait fields together, so
+// variety multiplies combinatorially instead of being keyed off one field.
+function computeContentSeed(profile) {
+  if (!profile) return 0;
+  const parts = [
+    (profile.name || '').trim().toLowerCase(),
+    (profile.location || '').trim().toLowerCase(),
+    (profile.mbti || '').toUpperCase(),
+    profile.attachmentStyle || '',
+    profile.loveLanguage || '',
+    profile.expressionStyle || ''
+  ];
+  return hashContentString(parts.join('|'));
+}
+
+// For content that's meant to represent "the two of you" jointly (Blueprint,
+// deep-insight drawers) rather than either person individually — combines
+// both seeds so different couples diverge, even if they share one member.
+function computeCoupleSeed(userProfile, partnerProfile) {
+  return computeContentSeed(userProfile) ^ computeContentSeed(partnerProfile);
+}
+
 function getWeakestCategoryLabel(categoryAccuracy) {
   if (!categoryAccuracy) return null;
   let worst = null, worstRate = 1;
@@ -90,7 +139,8 @@ function getMilestoneLabel(id) {
     streak_3: '3-Day Streak', streak_7: '7-Day Streak',
     mood_first: 'First Mood Check', mood_consistent: 'Consistent Checker',
     quicktakes_first: 'Quick Taker', quicktakes_pattern: 'Pattern Finder',
-    pet_baby: 'Baby Steps', pet_adult: 'Growing Up', pet_legendary: 'Legendary Bond'
+    pet_baby: 'Baby Steps', pet_adult: 'Growing Up', pet_legendary: 'Legendary Bond',
+    pet_couple_shiny: 'Shiny Bond'
   })[id] || id;
 }
 
@@ -128,17 +178,20 @@ export const insights = {
     const gd = gameData || {};
     const attach = profiles.user?.attachmentStyle || 'secure';
     const uName = profiles.user?.name || 'You';
+    // Per-person seed so two brand-new accounts (same attachment style,
+    // checking in around the same hour) don't converge on identical content.
+    const seed = computeContentSeed(profiles.user);
 
     // Rotate headline from bank
     const headlines = solo ? SOLO_HEADLINES : PARTNER_HEADLINES;
     const baseKey = (dayIndex * 4 + Math.floor(hour / 6) + Math.floor(gd.trivia?.total || 0) + Math.floor(gd.wyr?.answered || 0));
-    const headlineIdx = (baseKey + (fortuneOffset || 0)) % headlines.length;
+    const headlineIdx = (baseKey + seed + (fortuneOffset || 0)) % headlines.length;
     const headline = headlines[headlineIdx];
 
     // Rotate body from attachment-keyed bank
     const bodies = solo ? DAILY_BODIES_SOLO : DAILY_BODIES_PARTNER;
     const bodyPool = bodies[attach] || bodies.secure;
-    const bodyIdx = (baseKey + (fortuneOffset || 0) + 2) % bodyPool.length;
+    const bodyIdx = (baseKey + seed + (fortuneOffset || 0) + 2) % bodyPool.length;
     const body = bodyPool[bodyIdx];
 
     // Append game insight if available
@@ -147,9 +200,18 @@ export const insights = {
       ? `${body} ${gameHints[0]}`
       : body;
 
-    // Append mood-aware note when mood has been checked today
+    // Append mood-aware note when mood has been checked today — named when
+    // we actually have a real name, generic fallback otherwise.
     const moodToday = gd.mood?.today;
-    const MOOD_NOTES = {
+    const rawName = profiles.user?.name;
+    const MOOD_NOTES = rawName ? {
+      glowing: `Something in you is lit up today, ${rawName} — lean into it.`,
+      curious: `That curious energy today is worth following, ${rawName}.`,
+      chill:   `Today feels calm, ${rawName}. Use that stillness well.`,
+      tense:   `Notice the tension, ${rawName} — it often points to something important.`,
+      low:     `Low days are still valid days, ${rawName}. Be gentle with yourself.`,
+      fired:   `You brought real fire today, ${rawName} — channel it somewhere that counts.`
+    } : {
       glowing: 'Something in you is lit up today — lean into it.',
       curious: 'That curious energy today is worth following.',
       chill:   'Today feels calm. Use that stillness well.',
@@ -160,7 +222,21 @@ export const insights = {
     const moodNote = moodToday ? MOOD_NOTES[moodToday] : null;
     const withMood = moodNote ? `${finalBody} ${moodNote}` : finalBody;
 
-    return { headline, body: withMood };
+    // Occasionally sprinkle in an MBTI-flavored line for extra personality
+    const mbtiFlavor = (fortuneOffset || 0) % 4 === 3 ? assembleMbtiFlavor(profiles.user?.mbti, seed + (fortuneOffset || 0)) : null;
+    const withFlavor = mbtiFlavor ? `${withMood} ${mbtiFlavor}` : withMood;
+
+    // Occasionally cross-pollinate with a concrete, actionable tip pulled
+    // from the Spotlight pool — free extra variety since it reuses existing
+    // content, and makes the message feel like real advice, not just a quote.
+    let withCrossTip = withFlavor;
+    if ((fortuneOffset || 0) % 5 === 4) {
+      const tipPool = SPOTLIGHT_DOS[profiles.user?.loveLanguage] || SPOTLIGHT_DOS.words;
+      const tip = tipPool[(seed + (fortuneOffset || 0)) % tipPool.length];
+      if (tip) withCrossTip = `${withFlavor} Try this: ${tip}`;
+    }
+
+    return { headline, body: withCrossTip };
   },
 
   generateSpotlightLists(profiles, gameData, date, focusOffset) {
@@ -170,6 +246,7 @@ export const insights = {
     const wyrPrefs = gd.wyr?.preferences || {};
     const weakCat = getWeakestCategoryLabel(gd.trivia?.categoryAccuracy);
     const offset = focusOffset || 0;
+    const seed = computeContentSeed(user);
     const relStatus = user.relationshipStatus || 'early';
 
     // Relationship-status bonus tip
@@ -183,20 +260,22 @@ export const insights = {
 
     // Pick DO tips from love-language bank
     const lovePool = SPOTLIGHT_DOS[user.loveLanguage] || SPOTLIGHT_DOS.words;
-    const doIdx1 = offset % lovePool.length;
-    const doIdx2 = (offset + 3) % lovePool.length;
+    const doIdx1 = (offset + seed) % lovePool.length;
+    const doIdx2 = (offset + seed + 3) % lovePool.length;
     const userDos = [lovePool[doIdx1]];
     if (doIdx2 !== doIdx1) userDos.push(lovePool[doIdx2]);
 
     // Pick a bonus tip from solo/partner pool + relationship status tip
     const bonusPool = solo ? FOCUS_TIPS_SOLO : FOCUS_TIPS_PARTNER;
-    userDos.push(bonusPool[offset % bonusPool.length]);
-    if (offset % 4 === 0) userDos.push(relTip);
+    userDos.push(bonusPool[(offset + seed) % bonusPool.length]);
+    if ((offset + seed) % 4 === 0) userDos.push(relTip);
 
     // DON'T tips from expression bank
     const dontPool = SPOTLIGHT_DONTS[user.expressionStyle] || SPOTLIGHT_DONTS.direct;
-    const userDonts = [dontPool[offset % dontPool.length]];
-    if (weakCat) userDonts.push(`Take time to explore your ${weakCat} — there's more to discover there.`);
+    const userDonts = [dontPool[(offset + seed) % dontPool.length]];
+    // weakCat comes from a single shared trivia stat, not a per-person one —
+    // frame it as joint so it doesn't read as an individual callout.
+    if (weakCat) userDonts.push(solo ? `Take time to explore your ${weakCat} — there's more to discover there.` : `You two could dig into your ${weakCat} together — there's more to discover there.`);
     else userDonts.push('Assume you already know everything — curiosity is the better move.');
 
     // WYR behavioral nudge
@@ -209,14 +288,17 @@ export const insights = {
     if (solo) return { userDos, userDonts, partnerDos: [], partnerDonts: [] };
 
     const partner = profiles.partner || {};
+    const partnerSeed = computeContentSeed(partner);
     const partnerLovePool = SPOTLIGHT_DOS[partner.loveLanguage] || SPOTLIGHT_DOS.time;
-    const pDoIdx = (offset + 1) % partnerLovePool.length;
-    const partnerDos = [partnerLovePool[pDoIdx], bonusPool[(offset + 4) % bonusPool.length]];
+    const pDoIdx = (offset + partnerSeed + 1) % partnerLovePool.length;
+    const partnerDos = [partnerLovePool[pDoIdx], bonusPool[(offset + partnerSeed + 4) % bonusPool.length]];
 
     const partnerDontPool = SPOTLIGHT_DONTS[partner.expressionStyle] || SPOTLIGHT_DONTS.direct;
-    const partnerDonts = [partnerDontPool[(offset + 2) % partnerDontPool.length], 'Forget to acknowledge the small efforts — they add up.'];
+    const partnerDonts = [partnerDontPool[(offset + partnerSeed + 2) % partnerDontPool.length], 'Forget to acknowledge the small efforts — they add up.'];
 
-    if (weakCat) partnerDos.push(`Tell your partner more about your ${weakCat} — they want to understand.`);
+    // weakCat is already surfaced once (in userDonts, framed as joint) —
+    // it used to also show up here re-attributed to the partner individually,
+    // which is the same shared stat presented as two different people's data.
 
     return { userDos, userDonts, partnerDos, partnerDonts };
   },
@@ -228,12 +310,22 @@ export const insights = {
     const streak = gd.streak?.current || 0;
     const gameHints = getGameInsights(gd, solo);
     const offset = blueprintOffset || 0;
+    // Blueprint is about "the two of you" jointly in partner mode, so it
+    // gets a combined couple seed rather than just the primary user's.
+    const seed = solo ? computeContentSeed(user) : computeCoupleSeed(user, profiles.partner);
 
     const pool = solo ? BLUEPRINT_SOLO : BLUEPRINT_PARTNER;
-    let blueprint = pool[offset % pool.length];
+    let blueprint = pool[(offset + seed) % pool.length];
 
     if (streak >= 3) blueprint += ` Your ${streak}-day streak is a real signal of that.`;
     if (gameHints.length > 0) blueprint += ` ${gameHints[offset % gameHints.length] || gameHints[0]}`;
+
+    // Occasionally sprinkle in an MBTI-flavored line so the "generic" pool
+    // text still ties back to something specific about this actual person.
+    if ((offset + seed) % 3 === 1) {
+      const mbtiFlavor = assembleMbtiFlavor(user.mbti, offset + seed);
+      if (mbtiFlavor) blueprint += ` ${mbtiFlavor}`;
+    }
 
     return blueprint;
   },
@@ -247,11 +339,14 @@ export const insights = {
     const offset = insightOffset || 0;
     const gameHints = getGameInsights(gd, solo);
     const weakCat = getWeakestCategoryLabel(gd.trivia?.categoryAccuracy);
+    // Deep-insight drawers are about "the two of you" jointly in partner
+    // mode, same reasoning as the Blueprint's couple seed.
+    const seed = solo ? computeContentSeed(user) : computeCoupleSeed(user, profiles.partner);
 
     switch (type) {
       case 'groove': {
         const pool = solo ? DEEP_GROOVE_SOLO : DEEP_GROOVE_PARTNER;
-        const picked = pool[offset % pool.length];
+        const picked = pool[(offset + seed) % pool.length];
         let body = picked.body;
         if (gameHints[0]) body += ` ${gameHints[0]}`;
         if (weakCat) body += ` Your quiz results suggest ${weakCat} is worth exploring deeper.`;
@@ -264,7 +359,7 @@ export const insights = {
       }
       case 'journey': {
         const pool = solo ? DEEP_JOURNEY_SOLO : DEEP_JOURNEY_PARTNER;
-        const picked = pool[offset % pool.length];
+        const picked = pool[(offset + seed) % pool.length];
         let body = picked.body;
         const streak = gd.streak?.current || 0;
         if (streak >= 3) body += ` Your ${streak}-day streak shows the kind of consistency that compounds.`;
@@ -278,10 +373,25 @@ export const insights = {
       }
       case 'decoder': {
         const pool = solo ? DEEP_DECODER_SOLO : DEEP_DECODER_PARTNER;
-        const picked = pool[offset % pool.length];
+        const picked = pool[(offset + seed) % pool.length];
         let body = picked.body;
-        const doPool = SPOTLIGHT_DOS[user.loveLanguage] || SPOTLIGHT_DOS.words;
-        body += ` Practical tip: ${doPool[offset % doPool.length]}`;
+        const userSeed = computeContentSeed(user);
+        const userDoPool = SPOTLIGHT_DOS[user.loveLanguage] || SPOTLIGHT_DOS.words;
+        if (solo) {
+          body += ` Practical tip: ${userDoPool[(offset + userSeed) % userDoPool.length]}`;
+        } else {
+          // Reflects BOTH partners' love languages — previously this only
+          // ever referenced the primary user's, even though the drawer
+          // claims to cover "what makes each of you feel seen." Each side
+          // uses its own person's seed, not the shared couple seed, since
+          // this tip is specifically about that individual's love language.
+          const partner = profiles.partner || {};
+          const partnerSeed = computeContentSeed(partner);
+          const partnerDoPool = SPOTLIGHT_DOS[partner.loveLanguage] || SPOTLIGHT_DOS.time;
+          const uName = user.name || 'you';
+          const pName = partner.name || 'your partner';
+          body += ` For ${uName}: ${userDoPool[(offset + userSeed) % userDoPool.length]} For ${pName}: ${partnerDoPool[(offset + partnerSeed + 1) % partnerDoPool.length]}`;
+        }
         return {
           title: picked.headline,
           headline: picked.headline,
@@ -291,7 +401,7 @@ export const insights = {
       }
       case 'vibe': {
         const pool = solo ? DEEP_VIBE_SOLO : DEEP_VIBE_PARTNER;
-        const picked = pool[offset % pool.length];
+        const picked = pool[(offset + seed) % pool.length];
         const metrics = engine.calculateLiveMetrics(window.AppState?.vibeSeed, gd);
         const wyrLabel = engine.deriveWyrPersonalityLabel(gd.wyr?.preferences);
         const mbtiNote = solo

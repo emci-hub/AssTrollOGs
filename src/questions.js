@@ -4,123 +4,123 @@
 export const PSYCH_QUESTIONS = [
   {
       key: "mbti",
-      title: "Personality Archetype (MBTI)",
+      title: "Personality Type",
       type: "mbti",
-      question: "Select or build the exact MBTI matrix configuration."
+      question: "Pick your personality type below — or build it step by step."
   },
   {
       key: "attachment",
-      title: "Attachment Profile",
+      title: "How You Connect",
       type: "cards",
-      question: "Choose the style reflecting comfort levels with emotional vulnerability and intimacy proximity:",
+      question: "Which of these feels most like you when it comes to closeness?",
       choices: [
           {
               label: "Secure",
-              desc: "Comfortable with emotional intimacy, natural vulnerability, and direct sharing of inner states. (Example: Expressing feelings openly and trusting that your partner will listen with care.)",
+              desc: "You're comfortable being open and vulnerable with people you trust. (Example: You share how you're feeling and trust they'll listen with care.)",
               value: "secure"
           },
           {
               label: "Anxious",
-              desc: "Attuned and deeply caring, with high sensitivity to relationship security and connection transitions. (Example: Seeking constant reassurances to ease persistent doubts about relationship stability.)",
+              desc: "You care deeply and pick up on the smallest shifts in a relationship. (Example: You sometimes need a little extra reassurance that everything's okay.)",
               value: "anxious"
           },
           {
               label: "Avoidant",
-              desc: "Self-reliant, calm, and prioritizing personal independence while working to preserve safe spaces. (Example: Retreating to absolute solo activities to decompress when relationship friction rises.)",
+              desc: "You value your independence and like having space to recharge on your own. (Example: You retreat to solo time when things start feeling tense.)",
               value: "avoidant"
           },
           {
               label: "Fearful-Avoidant",
-              desc: "Deeply reflective, balancing a strong desire for close intimacy with a structural self-protective reserve. (Example: Wanting connection but pulling back when a dynamic starts feeling too vulnerable.)",
+              desc: "You want closeness, but part of you stays a little guarded. (Example: You want the connection, but pull back when it starts feeling too vulnerable.)",
               value: "fearful"
           }
       ]
   },
   {
       key: "conflict",
-      title: "Conflict Resolution Style",
+      title: "How You Handle Disagreements",
       type: "cards",
-      question: "Select the primary resolution model deployed when relationship stress or tension increases:",
+      question: "When things get tense, what do you usually do?",
       choices: [
           {
               label: "Collaborative",
-              desc: "Active problem-solvers who integrate perspectives to establish win-win pathways. (Example: Laying out all dynamic viewpoints on the table to design a structural compromise together.)",
+              desc: "You like to talk it out until you find something that works for both of you. (Example: You lay out both sides and figure out a solution together.)",
               value: "collaborative"
           },
           {
               label: "Compromising",
-              desc: "Pragmatic balance-seekers who look for rapid common ground to preserve progress momentum. (Example: Agreeing on a quick middle ground to keep things moving forward with minimal emotional friction.)",
+              desc: "You look for a quick middle ground so things can keep moving. (Example: You settle on a fair compromise fast rather than dragging it out.)",
               value: "compromising"
           },
           {
               label: "Accommodating",
-              desc: "Harmony-prioritizers who actively defer preferences to preserve mutual connection levels. (Example: Agreeing with your partner's plans to maintain smooth domestic peace and ease tension.)",
+              desc: "You'd rather keep the peace than push your own preference. (Example: You go along with their plan to keep things smooth.)",
               value: "accommodating"
           },
           {
               label: "Avoiding",
-              desc: "Space-respecters who utilize intentional downtime to analyze variables coolly before speaking. (Example: Asking for a temporary pause in a heated discussion to cool down before reconnecting.)",
+              desc: "You need a little space to cool off before you can talk it through. (Example: You ask for a pause in a heated moment so you can come back calmer.)",
               value: "avoiding"
           }
       ]
   },
   {
       key: "loveLanguage",
-      title: "Primary Love Language",
+      title: "How You Feel Loved",
       type: "cards",
-      question: "Select the primary energetic channel used to express and receive relationship support:",
+      question: "What makes you feel most loved and supported?",
       choices: [
           {
               label: "Words of Affirmation",
-              desc: "Feeling deeply valued and secure through focused verbal kindness and appreciative statements. (Example: Receiving a genuine text detailing exactly why your efforts are appreciated.)",
+              desc: "Hearing it — specifically and sincerely. (Example: A genuine text telling you exactly why they appreciate you.)",
               value: "words"
           },
           {
               label: "Quality Time",
-              desc: "Thriving on focused, shared attention and completely uninterrupted personal connection. (Example: Planning a regular evening walk together with all devices placed on absolute silent mode.)",
+              desc: "Getting someone's full, undistracted attention. (Example: An evening walk together with phones left behind.)",
               value: "time"
           },
           {
               label: "Acts of Service",
-              desc: "Quiet support executed through helpful, tangible daily actions that simplify life operations. (Example: Taking over a complex domestic chore when your partner is navigating a tight work schedule.)",
+              desc: "Someone quietly making your day a little easier. (Example: They take a chore off your plate when your week's already packed.)",
               value: "service"
           },
           {
               label: "Physical Touch",
-              desc: "Tactile safety and grounding connection through consistent warmth, proximity, or small touchpoints. (Example: Sitting close together on the couch or holding hands while walking through crowds.)",
+              desc: "Physical closeness — a hand to hold, someone sitting near you. (Example: Sitting close on the couch, or holding hands in a crowd.)",
               value: "touch"
           },
           {
               label: "Receiving Gifts",
-              desc: "Feeling deeply seen, valued, and thought of through symbolic, reflective tokens of connection. (Example: Receiving a small item that reminds your partner of a shared inside reference.)",
+              desc: "Being thought of — the gift matters less than the fact they remembered. (Example: A small thing that reminds them of an inside joke you share.)",
               value: "gifts"
           }
       ]
   },
   {
       key: "expression",
-      title: "Immediate Expression Style",
+      title: "How You Speak Up",
       type: "cards",
-      question: "Select the style used to communicate immediate tactical goals or emotional needs:",
+      question: "When you need something, how do you usually say so?",
       choices: [
           {
               label: "Direct",
-              desc: "Clear, linear verbalization of internal states and structural needs exactly as they arise. (Example: Saying 'I need 20 minutes of uninterrupted quiet space right now to wind down.')",
+              desc: "You just say it, plainly, as it comes up. (Example: 'I need 20 minutes of quiet to wind down.')",
               value: "direct"
           },
           {
               label: "Indirect",
-              desc: "Soft verbal cues, subtle gestures, and situational setup to preserve social harmony. (Example: Dropping gentle conversational hints about feeling tired in hopes of changing plans.)",
+              desc: "You drop hints and hope they pick up on it. (Example: Mentioning you're tired, hoping plans quietly change.)",
               value: "indirect"
           },
           {
               label: "Reflective",
-              desc: "Processing variables offline and analyzing dynamics before delivering a structured outline. (Example: Taking a night to write down thoughts clearly before having a key conversation.)",
+              desc: "You like to sit with it and figure out what you actually mean before you say it. (Example: Sleeping on it and writing your thoughts down before a big conversation.)",
               value: "reflective"
           },
           {
               label: "Analytical",
-              desc: "Converting emotional variables into objective facts and logical problem statements. (Example: Presenting a structured bullet list of specific tasks and scheduling challenges.)",
+              desc: "You turn feelings into something concrete and workable. (Example: Laying out exactly what's going on as a clear list of what needs to happen.)",
               value: "analytical"
           }
       ]

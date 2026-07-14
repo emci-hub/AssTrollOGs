@@ -65,6 +65,9 @@ export const DAILY_BODIES_SOLO = {
     "You're good at reading situations because you're not panicking through them. Use that clarity today — someone around you probably needs it.",
     "Your natural ease with yourself makes you easier to be around. People feel that. Don't underestimate how much that matters.",
     "You don't need external validation to move forward — and that's one of your quiet strengths. Trust that today.",
+    "Being unbothered isn't the same as being disconnected — you feel things, you just don't let them run the show.",
+    "You've built a version of stability that doesn't depend on everything going right. That's worth noticing today.",
+    "The steadiness you offer other people starts with the steadiness you've built with yourself.",
   ],
   anxious: [
     "The same attentiveness that sometimes makes you overthink is also what makes you deeply caring. Channel it outward today — someone will feel genuinely seen because of it.",
@@ -72,6 +75,9 @@ export const DAILY_BODIES_SOLO = {
     "You care a lot. That's not a weakness. The key is remembering to aim some of that care at yourself too.",
     "The fact that you notice small shifts in energy around you means you also notice when things are going well — even when you forget to acknowledge it.",
     "Today, try letting one thing just be okay without analyzing it further. Not every signal needs to be decoded.",
+    "The intensity you feel isn't a malfunction — it's just more information coming in than most people process.",
+    "You already know how to care hard. Today, practice caring hard about your own peace too.",
+    "Not every worry needs to be solved today. Some just need to be noticed and set down.",
   ],
   avoidant: [
     "Your independence is real and worth keeping. The goal isn't to become someone who needs everyone — it's to let a few good people in without losing yourself.",
@@ -79,6 +85,9 @@ export const DAILY_BODIES_SOLO = {
     "You think carefully before acting. That's not avoidance — it's deliberateness. Trust that instinct today, especially in conversations that matter.",
     "Your tendency to process quietly means your conclusions are usually solid. Share one of those conclusions with someone today.",
     "Being self-sufficient is a strength until it becomes a wall. Today, try asking for one thing — anything — and see how it feels.",
+    "Needing less from other people isn't the same as needing nothing. Let yourself want something today.",
+    "Your own company is genuinely good company. That's not a consolation prize — it's a skill.",
+    "Distance can be a tool or a habit. Today, notice which one you're actually reaching for.",
   ],
   fearful: [
     "Wanting closeness and also being scared of it isn't a contradiction — it's one of the most human experiences there is. You're not broken.",
@@ -86,6 +95,9 @@ export const DAILY_BODIES_SOLO = {
     "You've learned to be careful with who you trust. That means when you do open up, it actually means something — for both of you.",
     "Your self-awareness is one of your greatest strengths. Today, use it to notice one good thing about how you're showing up.",
     "Progress with closeness doesn't have to look dramatic. A small moment of honesty today counts as much as a big one.",
+    "You don't have to fully trust something to take one small step toward it.",
+    "The push and pull you feel isn't indecision — it's two real, valid things happening at once.",
+    "Healing isn't linear, and today doesn't have to be your best day to still count as progress.",
   ],
 };
 
@@ -96,6 +108,9 @@ export const DAILY_BODIES_PARTNER = {
     "Your openness to working things through keeps this connection resilient. Today's a good day to check in — not because something is wrong, but because you can.",
     "The confidence you bring to this relationship doesn't come from having all the answers. It comes from trusting that you can figure them out together.",
     "You model something important: that love can be calm. Not boring — calm. There's a huge difference.",
+    "You don't need a big gesture today. Just keep doing the small, steady thing you always do.",
+    "Your partner has probably stopped noticing how rare your calm actually is. Remind them, gently, that it's a choice you keep making.",
+    "Being the steady one doesn't mean you don't need steadying sometimes too.",
   ],
   anxious: [
     "Your care runs deep, and that's exactly why they feel as loved as they do. The key today is trusting that the connection is real even when it's quiet.",
@@ -103,6 +118,9 @@ export const DAILY_BODIES_PARTNER = {
     "The attentiveness you bring to this relationship is a genuine gift. When you direct it with intention rather than worry, it creates the closeness you're looking for.",
     "Today, try resting in the connection you already have rather than testing it. What you're looking for is probably already there.",
     "Your emotional depth is one of the things that makes this relationship feel real. Trust it today.",
+    "The love you bring doesn't need to be proven today — it's already been shown, many times over.",
+    "Today, try naming what you need instead of hoping they'll guess it.",
+    "Your attentiveness is a gift when it's aimed at connection instead of reassurance-seeking.",
   ],
   avoidant: [
     "You show love through actions, and that's completely valid — but sometimes saying it out loud lands differently. Today, try both.",
@@ -110,6 +128,9 @@ export const DAILY_BODIES_PARTNER = {
     "Your partner doesn't need you to be an open book. They just need occasional glimpses. A sentence today is more than enough.",
     "The space you give yourself is healthy. The question is whether your partner knows you're coming back — a small signal of that goes a long way.",
     "Being present doesn't require being verbal. Sometimes just staying in the room a little longer, or looking up from your phone, says everything.",
+    "Choosing to stay in the room, even quietly, is its own form of showing up.",
+    "You don't have to narrate every feeling — but naming one today would go a long way.",
+    "Independence and partnership aren't opposites. You get to have both.",
   ],
   fearful: [
     "You want this connection to be real and safe — and the fact that you're still in it means it's earning that trust. Let it.",
@@ -117,6 +138,9 @@ export const DAILY_BODIES_PARTNER = {
     "Your partner chose you knowing you come with complexity. That choice deserves to be believed.",
     "Today, try letting one interaction be easy. Not every moment needs to carry the weight of everything before it.",
     "The courage it takes to stay open in a relationship is underrated. You're doing it. That counts.",
+    "Every day you stay is proof that the fear doesn't get the final word.",
+    "Your partner isn't waiting for you to be fixed. They're just waiting for you.",
+    "Trust doesn't arrive all at once. It shows up in moments like today, if you let it.",
   ],
 };
 
@@ -181,24 +205,40 @@ export const SPOTLIGHT_DONTS = {
     "Avoid turning every difference of opinion into a debate.",
     "Don't mistake bluntness for honesty — they're not the same.",
     "Tone matters as much as content — watch yours.",
+    "Check your tone before you hit send.",
+    "Not everything needs to be said the second you think it.",
+    "Directness lands better with a little warmth attached.",
+    "Give them a beat to respond before you push further.",
   ],
   indirect: [
     "Avoid expecting them to guess — say one thing directly today.",
     "Don't let resentment build from unspoken needs.",
     "Hints work sometimes; clear words work every time.",
     "Naming what you need isn't needy — it's efficient.",
+    "If it matters, say it out loud — don't leave it to context clues.",
+    "A hint they miss isn't a conversation you had.",
+    "Practice saying the direct version, even just once today.",
+    "Waiting for them to notice can turn into waiting a long time.",
   ],
   reflective: [
     "Don't stay in your head so long that they're left out.",
     "Sharing your conclusions matters more than sharing your whole thought process.",
     "Avoid using 'I need time to think' as a way to avoid the conversation entirely.",
     "Some things resolve better when you talk them out rather than think them out.",
+    "A quick 'I'm still thinking about it' beats total silence.",
+    "Not every thought needs to be fully formed before you share it.",
+    "Give them a rough sense of when you'll circle back.",
+    "Processing alone forever isn't the same as processing.",
   ],
   analytical: [
     "Not everything needs a solution — sometimes they just need to be heard.",
     "Avoid over-explaining in moments that call for empathy.",
     "Logic without warmth can land cold, even when it's accurate.",
     "Resist the urge to fix before fully listening.",
+    "Ask if they want advice or just want to vent, before giving either.",
+    "Being right isn't the same as being helpful in the moment.",
+    "Sometimes what they need most is just 'that sounds hard.'",
+    "Save the breakdown for after they feel heard.",
   ],
 };
 
@@ -238,6 +278,8 @@ export const DEEP_GROOVE_SOLO = [
   { headline: "You have a comfort zone in conversations.", body: "There are topics you navigate easily and ones that feel harder to put into words. Both are worth knowing. The easier ones show your natural strengths. The harder ones show where your growth edge is." },
   { headline: "Your communication style is a feature, not a bug.", body: "Whether you lead with logic, emotion, directness, or care — that's your style doing its job. The trick is to understand how it lands for the people around you, so you can adjust when it matters." },
   { headline: "What you don't say communicates too.", body: "Silence, avoidance, and deflection all carry meaning. Not in a bad way — just in a way worth being aware of. Your unexpressed thoughts are often your clearest ones." },
+  { headline: "You adjust your style more than you realize.", body: "You're not one fixed communicator — you shift depending on who you're with and what's at stake. That flexibility is a skill, even when it doesn't feel like one." },
+  { headline: "Your style has a history.", body: "The way you communicate now was shaped by what worked before — what got you heard, what kept you safe. It's worth knowing that history without being ruled by it." },
 ];
 
 export const DEEP_GROOVE_PARTNER = [
@@ -246,6 +288,8 @@ export const DEEP_GROOVE_PARTNER = [
   { headline: "Repair is more important than perfection.", body: "Every relationship has moments where communication breaks down. What sets strong connections apart isn't avoiding those moments — it's how quickly and genuinely you recover from them." },
   { headline: "The conversation you avoid is usually the one you need.", body: "The topics that feel risky to bring up are almost always the ones worth having. Avoiding them doesn't make them smaller — it usually makes them bigger over time." },
   { headline: "Listening is the other half of communication.", body: "The way each of you listens shapes the whole dynamic. Are you listening to respond, or listening to understand? The second one changes everything about what's possible between you." },
+  { headline: "You've built shorthand nobody else has.", body: "The way you two communicate now — the glances, the half-sentences, the things that don't need explaining — took real time to build. That's not a small thing." },
+  { headline: "Misunderstandings aren't proof something's wrong.", body: "Two different communication styles will occasionally cross wires. That's not a red flag — it's just two people, being two different people, in the same conversation." },
 ];
 
 export const DEEP_JOURNEY_SOLO = [
@@ -254,6 +298,8 @@ export const DEEP_JOURNEY_SOLO = [
   { headline: "What you're building is worth protecting.", body: "Self-knowledge is one of the few things that compounds. Every reflection, every honest answer, every time you pause to understand yourself better — it all builds on itself." },
   { headline: "Your story isn't finished.", body: "Whatever chapter you're in right now, it's not the final one. The patterns that haven't served you can shift. The strengths you haven't fully used are still there, waiting." },
   { headline: "The goal isn't to arrive — it's to keep moving.", body: "There's no version of personal growth where you're finally done and can stop paying attention. But the journey genuinely gets more interesting the deeper in you go." },
+  { headline: "You keep showing up, even on the hard days.", body: "Consistency doesn't always look impressive from the outside. But the version of you that keeps trying, even quietly, is the one actually building something." },
+  { headline: "You're allowed to outgrow old versions of yourself.", body: "The person you were a year ago made sense for who you were then. You don't owe that version of you any loyalty if it's not who you're becoming." },
 ];
 
 export const DEEP_JOURNEY_PARTNER = [
@@ -262,6 +308,8 @@ export const DEEP_JOURNEY_PARTNER = [
   { headline: "The version of this connection five years from now.", body: "If you keep doing what you're already doing — checking in, showing up, being curious about each other — the future version of this relationship will be something genuinely impressive." },
   { headline: "You're building a shared history.", body: "The inside jokes, the things only you two know, the way you've learned to read each other — that accumulates into something that can't be replicated. It's yours." },
   { headline: "Your growth feeds the connection.", body: "The more each of you understands yourself, the better you understand each other. Individual growth and relational growth aren't competing — they're complementary." },
+  { headline: "You've both changed — and stayed.", body: "People assume growing apart is the risk. Just as often, two people grow and choose to keep meeting each other where they are. That's what's been happening here." },
+  { headline: "The hard seasons taught you something the easy ones couldn't.", body: "Nobody wants the difficult stretches. But if you're honest, some of what you value most about this connection was built in one of them." },
 ];
 
 export const DEEP_DECODER_SOLO = [
@@ -270,6 +318,8 @@ export const DEEP_DECODER_SOLO = [
   { headline: "The gap between what you give and what you need.", body: "Sometimes we give what we wish we'd received rather than what the other person actually needs. And sometimes we forget to apply the same generosity to ourselves. Both gaps are worth closing." },
   { headline: "Self-care as a practice, not a reward.", body: "Taking care of yourself isn't something you earn by being good enough or busy enough. It's maintenance. The same way you'd invest in someone you love — invest in yourself." },
   { headline: "How you know you're doing okay.", body: "There are specific signals that tell you when you're in a good place — emotionally, energetically, relationally. Learning to read those signals means you can act on them before you're running on empty." },
+  { headline: "Care doesn't always look like you expect.", body: "Sometimes the people who care about you show it in a completely different language than the one you speak. Learning to recognize their version matters as much as asking for your own." },
+  { headline: "You can ask for what you need directly.", body: "Waiting for someone to guess what makes you feel cared for puts a lot of pressure on guesswork. Saying it plainly is a kindness to both of you." },
 ];
 
 export const DEEP_DECODER_PARTNER = [
@@ -277,7 +327,9 @@ export const DEEP_DECODER_PARTNER = [
   { headline: "How you make each other feel seen.", body: "Feeling truly understood by someone is one of the most powerful experiences in a close relationship. The moments that do that for each of you are worth identifying and protecting." },
   { headline: "The gap between intention and impact.", body: "You probably already try to show care in ways that are meaningful. But every so often, the way you deliver it doesn't land quite the way you mean it to. That gap is easy to close once you know it's there." },
   { headline: "What 'I love you' looks like in action for each of you.", body: "Words are great. But the specific actions that make each of you feel loved are the real language. Speaking both — yours and theirs — is what makes a relationship feel genuinely attentive." },
-  { headline: "Appreciation as a practice.", body: "The research on relationships is pretty consistent: couples who express appreciation regularly are happier, more resilient, and more satisfied. It's not complicated. Just: say it, specifically, often." },
+  { headline: "Appreciation as a practice.", body: "The couples who feel closest aren't the ones who never struggle — they're the ones who say the good stuff out loud, often. It's not complicated. Just: say it, specifically, and don't wait for a reason." },
+  { headline: "Small consistent gestures beat big rare ones.", body: "It's tempting to save up for the grand gesture. But the small, repeated ones — the ones that say 'I see you' on an ordinary Tuesday — are what actually build a feeling of being loved." },
+  { headline: "You're allowed to ask, not just guess.", body: "Trying to intuit exactly what makes someone feel loved is a lot of pressure to put on yourself. Sometimes the fastest path to feeling understood is just asking directly." },
 ];
 
 export const DEEP_VIBE_SOLO = [
@@ -286,6 +338,8 @@ export const DEEP_VIBE_SOLO = [
   { headline: "What makes you distinctly you.", body: "Your personality isn't a fixed thing, but there are consistent notes that run through all of it — the way you think, the way you care, the things you notice. Those notes are worth knowing by name." },
   { headline: "Your current state, honestly.", body: "The best read on your vibe comes from what you've been doing, thinking about, and feeling lately — not from a label. You're a moving target, which is good. It means you're still growing." },
   { headline: "What you bring to every interaction.", body: "You lead with something distinct — a quality that people respond to whether they name it or not. Knowing what that is lets you choose when to amplify it and when to dial it back." },
+  { headline: "Your energy shifts, and that's normal.", body: "You're not the same on every day, in every room, with every person — and that's not inconsistency, that's being a full person responding to context." },
+  { headline: "You have a signature, even in the chaos.", body: "However scattered a day feels, there's a throughline in how you move through it — a set of instincts that are unmistakably yours." },
 ];
 
 export const DEEP_VIBE_PARTNER = [
@@ -294,6 +348,8 @@ export const DEEP_VIBE_PARTNER = [
   { headline: "Your complementary strengths.", body: "You each bring something the other one doesn't have in the same way — a way of thinking, a way of feeling, a way of handling things. That's not accidental. It's part of why this works." },
   { headline: "The mood of right now.", body: "Every relationship has seasons — periods of growth, closeness, distance, routine, and renewal. Understanding where you are right now helps you make the most of it." },
   { headline: "What's working really well.", body: "It's easy to focus on what needs improvement. But there are things you two do genuinely well together — things that would be worth naming and protecting. Do that today." },
+  { headline: "You bring out a version of each other nobody else sees.", body: "There's a specific version of you that only exists around your partner, and a specific version of them that only exists around you. That mutual unlocking is rare." },
+  { headline: "Your energy together has its own rhythm.", body: "Some days it's fast and playful. Some days it's slow and quiet. Both are the relationship working — not one version being more 'real' than the other." },
 ];
 
 // ── Chronicle Scenarios (greatly expanded) ───────────────────────────────────
@@ -401,6 +457,21 @@ export const FOCUS_TIPS_PARTNER = [
   "Let them be right about something today — genuinely.",
   "Share one thing that's going on with you that you'd usually keep to yourself.",
 ];
+
+// ── MBTI flavor fragments (assembled into a sentence, keyed by letter) ───────
+// Small, cheap-to-write pool that gets combinatorial variety from assembly
+// rather than needing 16 separate full-type pools.
+
+export const MBTI_FRAGMENTS = {
+  E: ["feeds off the room's energy", "says the thing out loud before thinking it all the way through", "recharges by being around people"],
+  I: ["recharges best in quiet moments", "likes to process things alone before talking them out", "prefers depth over a crowded room"],
+  S: ["trusts what's right in front of them", "notices the small concrete details everyone else skips", "prefers the practical over the theoretical"],
+  N: ["is always chasing the bigger picture", "connects dots other people miss entirely", "gets pulled toward whatever feels possible"],
+  T: ["wants the plan, not just the vibe", "leads with logic even in emotional moments", "would rather be accurate than comforted"],
+  F: ["reads the room emotionally before anything else", "leads with how it feels first", "values harmony over being technically right"],
+  J: ["feels better once something's decided", "brings structure without being asked to", "likes a plan and actually sticks to it"],
+  P: ["keeps options open as long as possible", "works best with room to improvise", "prefers flexible plans over fixed ones"],
+};
 
 // ── Helper: pick from a pool by index ────────────────────────────────────────
 

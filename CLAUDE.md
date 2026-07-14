@@ -26,10 +26,10 @@ A mobile-first personality + relationship dashboard (430px max-width app contain
 | `src/dashboard.js` | `hydrateDashboardViews()` — main render entry. Updates header, metrics bar, spotlight tips, Day at a Glance, games section titles. |
 | `src/drawers.js` | All overlay drawers (insight types, sandbox, games, profile settings, pet). `openDrawer(type)` / `closeDrawer()`. `window.saveProfileSettings` writes to correct tempAnswers keys: `attachment`, `conflict`, `expression`. |
 | `src/engine.js` | `computeDeterministicSeed()`, `calculateLiveMetrics()`, `generateDuoName()`, `generateSoloVibeName()` (returns "Alex Soleil" style), `deriveWyrPersonalityLabel()`. |
-| `src/insights.js` | `insights.generateDeepInsight(type, profiles, gameData, now, offset)` — content for groove/journey/decoder/vibe drawers. `generateChronicleScenario()`. |
-| `src/content-bank.js` | Large arrays of insight content indexed by profile keys. |
-| `src/questions.js` | `PSYCH_QUESTIONS` array (5 questions: loveLanguage, attachment, conflict, expression, mbti). `MBTI_TYPES` array. |
-| `src/pet.js` | `initPet()`, `renderPetSection()`, `awardPetGrowth(n)`, `renderPetDrawer()`, `refreshPetAffirmation()`. SVG-based virtual pets. Mood synced from `gd.mood.today`. |
+| `src/insights.js` | `insights.generateDeepInsight(type, profiles, gameData, now, offset)` — content for groove/journey/decoder/vibe drawers. `generateChronicleScenario()`. `assembleMbtiFlavor()` composes short MBTI-flavored lines from `MBTI_FRAGMENTS`. Decoder now reflects both partners' love languages in partner mode. |
+| `src/content-bank.js` | Large arrays of insight content indexed by profile keys, plus `MBTI_FRAGMENTS` (small per-letter pool assembled combinatorially, not a full 16-type pool). |
+| `src/questions.js` | `PSYCH_QUESTIONS` array (5 questions: loveLanguage, attachment, conflict, expression, mbti). `MBTI_TYPES` array. Question/title/desc copy is plain and warm — `value` fields are lookup keys used throughout the app and must never change. |
+| `src/pet.js` | `initPet()`, `renderPetSection()`, `awardPetGrowth(n)`, `renderPetDrawer()`, `refreshPetAffirmation()`. SVG-based virtual pets. Mood synced from `gd.mood.today`. Color/ear-shape/pattern derived deterministically from profile (`derivePetVisuals()`); body silhouette varies per stage (`STAGE_SHAPE`). Solo Legendary pets get a bonus weapon accessory. Couple pet (`gd.pet.couple`) has independent persisted growth and a shiny gradient+sparkle treatment at stage 5. `pickPetReaction()` reacts to today's actual mood/game/streak activity before falling back to `pickAffirmation()`'s shuffle-bag-rotated pool; partner-mode affirmation label now names the actual person it's about. |
 | `src/dev-tools.js` | Dev panel: jump steps, force dashboard, clear cache. |
 | `src/games/index.js` | Game registry. `gameRegistry.get(id)` / `gameRegistry.bindAll()`. All games registered here. |
 | `src/games/trivia.js` | 5-question quiz (solo self-knowledge or partner trivia). Awards pet growth on round complete (daily cap). |
@@ -77,7 +77,7 @@ window.AppState = {
   sparks:     { checkedItems: [], lastPlayed },
   streak:     { current, lastOpenDate, longest, lastResetDate },
   milestones: [],        // string ids
-  pet:        { user: PetData, partner: PetData | null },
+  pet:        { user: PetData, partner: PetData | null, couple: CouplePetData | null },
   mood:       { today, lastChecked, streak, history: [{date, mood}] },
   quicktakes: { sessionCount, lastPlayed },
   petGrowthLog: { [gameId]: 'YYYY-MM-DD' }    // daily cap per game
@@ -86,12 +86,20 @@ window.AppState = {
 
 **PetData:** `{ name, totalDays, lastSeen, stage: 1–5, mood, _baseProfile }`
 
+**CouplePetData:** `{ totalDays, lastSeen, stage: 1–5, mood }` — no `name`; the couple's display name is always derived on the fly via `generateMergedName()`, never persisted. Only exists (non-null) in partner mode.
+
 **Pet stages:** 0d=Newborn, 4d=Baby, 10d=Growing, 20d=Adult, 40d=Legendary
 
+**Pet appearance:** Color, ear shape, and pattern overlay are derived deterministically from the profile every render (`derivePetVisuals()` in `pet.js`) — never persisted. Color comes from a per-person hue (hashed from name/location/mbti/attachmentStyle) plus an attachment-style "mood" (S/L range + hue-shift bias), not a fixed 4-color palette. MBTI's E/I picks ear shape; `loveLanguage` picks a pattern overlay (spots/stripes/band/sparkle/none). Body silhouette (proportions, limbs, aura) also varies per stage via `STAGE_SHAPE`, not just overall size.
+
 **Pet growth sources:**
-- Daily visit: +2 (solo), +1 (partner)
-- Each game win/completion: +1 (daily cap via `petGrowthLog`)
+- Daily visit: +2 (solo), +1 (partner), +1 (couple pet, partner mode only)
+- Each game win/completion: +1 (daily cap via `petGrowthLog`) — applies to user, partner, *and* couple pet simultaneously; no per-game code needed for the couple pet, it rides the same `awardPetGrowth()` call
 - Games with daily cap: `trivia`, `memory`, `wyr`, `sparks`, `mood`, `quicktakes`
+
+**Solo Legendary weapon:** At stage 5, a pet rendered with `isSolo: true` (true solo mode only — never partner-mode individual pets, even at stage 5) additionally renders a weapon accessory alongside the crown.
+
+**Couple pet — independent growth + shiny:** Unlike the two individual pets, `gd.pet.couple` is NOT derived as `min(userStage, partnerStage)` — it has its own persisted `totalDays`/`stage`, ticked once per day in partner mode (`tickCouplePet()`) and bumped by every `awardPetGrowth()` call. It can lag or lead the two individual pets. Once it independently reaches stage 5, it renders "shiny legendary": a 5-stop gradient blending both partners' actual hues (instead of the flat averaged blend used at stages 1-4) plus a static sparkle overlay, and earns the `pet_couple_shiny` milestone.
 
 **Pet mood derived from** `gd.mood.today`: glowing→excited, curious→curious, chill/low→happy, fired→excited, tense→curious. Falls back to game-based derivation if no mood check.
 
@@ -129,7 +137,9 @@ window.AppState = {
 
 ## Milestone IDs
 
-`trivia_first`, `trivia_perfect` (≥10 total, 100%), `trivia_master` (≥15, ≥80%), `wyr_5`, `wyr_10`, `wyr_25`, `memory_first`, `memory_sharp` (≤8 moves), `bingo_3`, `bingo_row`, `streak_3`, `streak_7`, `mood_first`, `mood_consistent` (5-day mood streak), `quicktakes_first`, `quicktakes_pattern` (5 sessions), `pet_baby` (4d), `pet_adult` (20d), `pet_legendary` (40d)
+`trivia_first`, `trivia_perfect` (≥10 total, 100%), `trivia_master` (≥15, ≥80%), `wyr_5`, `wyr_10`, `wyr_25`, `memory_first`, `memory_sharp` (≤8 moves), `bingo_3`, `bingo_row`, `streak_3`, `streak_7`, `mood_first`, `mood_consistent` (5-day mood streak), `quicktakes_first`, `quicktakes_pattern` (5 sessions), `pet_baby` (4d), `pet_adult` (20d), `pet_legendary` (40d), `pet_couple_shiny` (couple pet independently ≥40d, partner mode only)
+
+New milestone IDs must be added in **three** places or the label silently regresses to the raw id: `MILESTONE_CHECKS` (state.js), `MILESTONE_LABELS` (state.js), and `getMilestoneLabel()` (insights.js) — a separate hardcoded map. This has bitten the codebase before (see Known Bugs).
 
 ---
 
@@ -174,10 +184,11 @@ game completes
   → canAwardPetGrowthToday(gameId)  [state.js]
   → recordPetGrowthToday(gameId)    [state.js]
   → awardPetGrowth(1)               [pet.js]
+  → bumps gd.pet.user, gd.pet.partner (if present), AND gd.pet.couple (if present) in parallel
   → pet.totalDays++ triggers stage upgrade
   → pet stage: 0d=Newborn, 4d=Baby, 10d=Growing, 20d=Adult, 40d=Legendary
 ```
-Daily visit awards +2 (solo) or +1 (partner) automatically in `initPet()`.
+Daily visit awards +2 (solo) or +1 (partner) automatically in `initPet()`; the couple pet also gets +1/day (partner mode only) via `tickCouplePet()`. The couple pet's stage is independent of the two individual pets' stages — it renders "shiny legendary" (gradient + sparkle) once its own `stage` hits 5, regardless of where the individual pets are.
 
 ---
 
@@ -218,6 +229,71 @@ _Add confirmed bugs here with file:line. Mark [FIXED] when resolved._
 ---
 
 ## Changelog
+
+### 2026-07-14 — Per-Profile Content Seeding (Fix Cross-User Collisions) + Bigger Knowledge Bank
+
+**Problem:** every rotation formula in `insights.js` was keyed only by time (day/hour) and game progress, never by profile identity. A brand-new account has `trivia.total = 0` and `wyr.answered = 0`, so two different new users with the same attachment style, checking the app in the same hour, landed on the literal same headline/body/blueprint/spotlight-tip/deep-insight — the app looked identical for different people.
+
+**insights.js**
+- Added `computeContentSeed(profile)` — a local DJB2-style hash blending name/location/mbti/attachmentStyle/loveLanguage/expressionStyle into a stable per-person number (same pattern as `pet.js`'s `computePetSeed`, kept separate/local rather than shared, matching that module's own precedent). Folded into every pool-index calculation: `generateDayAtAGlance` (headline + body), `generateSpotlightLists` (dos/donts, using the user's own seed for their side and the partner's own seed for theirs), `generateBlueprint`, and `generateDeepInsight` (all four types).
+- Added `computeCoupleSeed(userProfile, partnerProfile)` (XOR of both individual seeds) for content that represents "the two of you" jointly in partner mode (Blueprint, the four deep-insight drawers) — so different couples diverge even if they happen to share one member, while `decoder`'s per-person practical-tip picks still use each individual's own seed since that content is specifically about them.
+- Verified: two profiles with identical traits/zero game progress now get different content; the same profile reliably reproduces the same content (deterministic per-identity, not random) — matches the intent that trait-tied content can legitimately recur for people sharing that trait, it's the coincidental cross-person collisions that were the bug.
+- `generateDayAtAGlance` also occasionally cross-pollinates with a concrete Spotlight tip (`Try this: ...`) — free extra variety since it reuses existing content instead of needing new pool entries.
+
+**content-bank.js**
+- Expanded the thinnest pools: `DAILY_BODIES_SOLO`/`DAILY_BODIES_PARTNER` from 5 to 8 entries per attachment style; all four `DEEP_*_SOLO`/`DEEP_*_PARTNER` pools (groove/journey/decoder/vibe) from 5 to 7 entries each.
+
+No `SCHEMA_VERSION` bump — content-selection-only change, no `gameData` shape changed.
+
+### 2026-07-14 — Message/Insight Tone Rewrite + Attribution Fixes + Fun Additions
+
+**questions.js**
+- Rewrote every onboarding question's `title`/`question`/`desc` from stiff clinical/corporate phrasing ("Select or build the exact MBTI matrix configuration," "Tactile safety and grounding connection," "Processing variables offline") to plain, warm language. `value` fields (`secure`, `direct`, `words`, etc.) are unchanged — they're lookup keys used throughout `content-bank.js`, `pet.js`, milestone checks, and dev-tools.
+- Renamed the MBTI question's title from "Your Personality Type" to "Personality Type" — the literal word "Your" was found to trigger a pre-existing, previously-dormant bug in `renderPsychQuestionBlock()` (`profile-builder.js`) that unconditionally does a `.replace("Your", ...)` on titles regardless of the `isPartner` flag. No original title contained "Your" so the bug never fired before. The `renderPsychQuestionBlock` bug itself is left as-is — that function's partner-branching is slated for a full rewrite when the deferred "solo-only onboarding" plan lands.
+
+**profile-builder.js**
+- Rewrote the 4 relationship-status card descriptions ("Exploring dynamics and initial compatibility variables," "Unified residential planning and daily tactical tasks," etc.) to plain language. `val` args (`early`, `committed`, `cohabitating`, `longdistance`) unchanged.
+- Swapped the pre-onboarding header text "Unified Interface State" → "Getting Started", and the relationship-status submit button "Complete Configuration" → "Finish Up".
+
+**content-bank.js**
+- Removed a clinical citation line in `DEEP_DECODER_PARTNER` ("The research on relationships is pretty consistent...") — reworded without citing "the research."
+- Expanded `SPOTLIGHT_DONTS` from 4 to 8 entries per expression style (was repeating within 4 views).
+- Added `MBTI_FRAGMENTS` — a small per-letter phrase pool (8 letters × 3 fragments) assembled combinatorially by `insights.js`'s `assembleMbtiFlavor()`, giving MBTI-flavored variety without needing 16 separate full-type pools.
+
+**insights.js**
+- Fixed `generateDeepInsight('decoder')`: previously only ever referenced the primary user's `loveLanguage` even in partner mode, despite the drawer subtitle claiming to cover "what makes each of you feel seen." Now references both partners' love languages by name in partner mode.
+- Fixed `generateSpotlightLists`'s `weakCat` handling: the weakest-trivia-category value comes from a single shared `gd.trivia.categoryAccuracy` object (not per-person data), but was previously surfaced twice — once phrased as the user's individual "don't" and again phrased as the partner's individual "do" — presenting one shared stat as if it were two people's separate data. Now surfaced once, explicitly framed as joint ("You two could dig into...").
+- `generateDayAtAGlance`: mood-aware notes now interpolate the user's actual name when available (previously the `uName` variable was computed but never used — no body copy anywhere except `generateChronicleScenario` ever said the person's name). Added an occasional MBTI-flavored bonus line via `assembleMbtiFlavor()`.
+- `generateBlueprint`: also gets an occasional MBTI-flavored line, since it was previously 100% generic pool content that never reflected anything specific about the person/couple.
+- Day at a Glance / Blueprint rotation intentionally left on its existing deterministic date+behavior-driven formula (not converted to a shuffle-bag) — that's a different, purpose-built design (content evolves with the actual day/game-progress) from the "clicking a refresh button repeats within a few clicks" problem that motivated the pet.js shuffle-bag below.
+
+**pet.js**
+- Expanded `AFFIRMATIONS` (7→10 per style) and `WARNINGS` (6→9 per style) — was 52 total messages, repeating within about a week of daily use with a mechanical warning/affirmation flip every 3rd click.
+- Replaced `pickAffirmation()`'s `(offset + streak) % pool.length` rotation with a shuffle-bag (`_drawFromBag`/`_shuffledIndices`) that never immediately repeats and drops the old mechanical 3-click pattern; pool selection (affirmation vs. warning) now uses weighted randomness instead of a fixed offset formula. Result is memoized per `_affirmOffset` value so incidental re-renders (any `saveGameData()` call, not just an explicit "New Message" tap) don't silently swap the visible text.
+- Added `pickPetReaction(gameData)`: on the first affirmation view of a session, reacts to something that actually happened today (mood check, a game played, a streak just extended) instead of always pulling from the generic pool — falls back to `pickAffirmation()` once the user taps "New Message" or nothing notable happened today.
+- Fixed the partner-mode "wrong person" pet complaint: the single shared affirmation block (sourced only from the primary user's `attachmentStyle`, generically labeled "Today for you") sits beneath both pet cards in partner mode with nothing tying it to either pet. The label now explicitly names who it's about (`Today for ${name}` / `From ${petName}` for reactions).
+
+No `SCHEMA_VERSION` bump — all changes are content/rendering-level; no `gameData` shape changed.
+
+### 2026-07-14 — Procedural Pet Evolution + Solo Weapon + Shiny Couple Pet
+
+**pet.js**
+- Pet appearance is no longer a fixed 4-color palette (`PET_COLORS`) keyed only to `attachmentStyle`. Replaced with `derivePetVisuals(profile)`: a deterministic per-person hue (hashed from name/location/mbti/attachmentStyle via a new pet-local `computePetSeed()`/`hashString()`, deliberately not reusing `engine.computeDeterministicSeed()`/`AppState.vibeSeed`) combined with an attachment-style "mood" (`ATTACHMENT_PALETTE_MOOD` — S/L ranges + hue-shift bias). MBTI E/I picks ear shape (`earShapeVariant`); `loveLanguage` picks a pattern overlay (`patternType` → spots/stripes/band/sparkle/none, drawn clipped to the body via `patternOverlaySvg`).
+- Added `STAGE_SHAPE` table so all 5 growth stages change body proportions (`ryMul`), ear size (`earMul`), and add limbs (`limbsSvg`, stages 2+) and an aura glow (`auraSvg`, stage 5) — not just overall scale. `accessorySvg()` (bow tie/cape/glasses/crown/milestone extras) is unchanged and layers on top.
+- `buildPetSvg()` signature changed from `(colors, stage, mood, size, ...)` to `(visuals, stage, mood, size, milestones, isCouple, isSolo)`.
+- **Solo-only Legendary weapon**: at stage 5, a pet built with `isSolo: true` additionally renders a weapon accessory (blade/crossguard/grip/pommel) alongside the crown. Threaded from `renderPetSection()`/`renderPetDrawer()`'s existing `solo` flag — partner-mode individual pets never get it, even at stage 5.
+- **Couple pet now independently persisted**: `gd.pet.couple` (`{ totalDays, lastSeen, stage, mood }`) replaces the old `Math.min(userStage, partnerStage)` derivation. New `makeCouplePetData()`/`tickCouplePet()` (+1/day, partner mode only) mirror the existing user/partner pattern; `awardPetGrowth()` now bumps `gd.pet.couple` alongside `user`/`partner` for free — no per-game code changes needed. The couple pet can lag or lead the two individual pets.
+- **Shiny legendary**: once the couple pet's own `stage` reaches 5, `buildPetSvg()` swaps its flat `blendColors()` fill for a 5-stop gradient blending both partners' actual hues (`deriveCoupleVisuals()`'s new `shinyColors`) plus a static sparkle overlay (`shinySparkleSvg()`).
+- `migratePetData()` now also defaults/backfills `gd.pet.couple`.
+
+**state.js**
+- `defaultGameData()`'s `pet` field now includes `couple: null`.
+- New milestone `pet_couple_shiny` (couple pet independently reaches stage 5) added to `MILESTONE_CHECKS` and `MILESTONE_LABELS`.
+
+**insights.js**
+- `getMilestoneLabel()` — added `pet_couple_shiny: 'Shiny Bond'` (this map is separate from `state.js`'s `MILESTONE_LABELS`; missing an id here was a past bug, see Known Bugs).
+
+No `SCHEMA_VERSION` bump — purely additive to `gameData.pet`, defensively backfilled by `migratePetData()` exactly like prior additions (`petGrowthLog`, `quicktakes`, `sparks`). Pet appearance was never persisted, so existing users simply see a different (more unique) pet on next render — no migration needed.
 
 ### 2026-07-14 — Save Code Feature Fix Pass
 
