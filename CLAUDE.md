@@ -26,10 +26,10 @@ A mobile-first personality + relationship dashboard (430px max-width app contain
 | `src/dashboard.js` | `hydrateDashboardViews()` — main render entry. Updates header, metrics bar, spotlight tips, Day at a Glance, games section titles. |
 | `src/drawers.js` | All overlay drawers (insight types, sandbox, games, profile settings, pet). `openDrawer(type)` / `closeDrawer()`. `window.saveProfileSettings` writes to correct tempAnswers keys: `attachment`, `conflict`, `expression`. |
 | `src/engine.js` | `computeDeterministicSeed()`, `calculateLiveMetrics()`, `generateDuoName()`, `generateSoloVibeName()` (returns "Alex Soleil" style), `deriveWyrPersonalityLabel()`. |
-| `src/insights.js` | `insights.generateDeepInsight(type, profiles, gameData, now, offset)` — content for groove/journey/decoder/vibe drawers. `generateChronicleScenario()`. |
-| `src/content-bank.js` | Large arrays of insight content indexed by profile keys. |
-| `src/questions.js` | `PSYCH_QUESTIONS` array (5 questions: loveLanguage, attachment, conflict, expression, mbti). `MBTI_TYPES` array. |
-| `src/pet.js` | `initPet()`, `renderPetSection()`, `awardPetGrowth(n)`, `renderPetDrawer()`, `refreshPetAffirmation()`. SVG-based virtual pets. Mood synced from `gd.mood.today`. Color/ear-shape/pattern derived deterministically from profile (`derivePetVisuals()`); body silhouette varies per stage (`STAGE_SHAPE`). Solo Legendary pets get a bonus weapon accessory. Couple pet (`gd.pet.couple`) has independent persisted growth and a shiny gradient+sparkle treatment at stage 5. |
+| `src/insights.js` | `insights.generateDeepInsight(type, profiles, gameData, now, offset)` — content for groove/journey/decoder/vibe drawers. `generateChronicleScenario()`. `assembleMbtiFlavor()` composes short MBTI-flavored lines from `MBTI_FRAGMENTS`. Decoder now reflects both partners' love languages in partner mode. |
+| `src/content-bank.js` | Large arrays of insight content indexed by profile keys, plus `MBTI_FRAGMENTS` (small per-letter pool assembled combinatorially, not a full 16-type pool). |
+| `src/questions.js` | `PSYCH_QUESTIONS` array (5 questions: loveLanguage, attachment, conflict, expression, mbti). `MBTI_TYPES` array. Question/title/desc copy is plain and warm — `value` fields are lookup keys used throughout the app and must never change. |
+| `src/pet.js` | `initPet()`, `renderPetSection()`, `awardPetGrowth(n)`, `renderPetDrawer()`, `refreshPetAffirmation()`. SVG-based virtual pets. Mood synced from `gd.mood.today`. Color/ear-shape/pattern derived deterministically from profile (`derivePetVisuals()`); body silhouette varies per stage (`STAGE_SHAPE`). Solo Legendary pets get a bonus weapon accessory. Couple pet (`gd.pet.couple`) has independent persisted growth and a shiny gradient+sparkle treatment at stage 5. `pickPetReaction()` reacts to today's actual mood/game/streak activity before falling back to `pickAffirmation()`'s shuffle-bag-rotated pool; partner-mode affirmation label now names the actual person it's about. |
 | `src/dev-tools.js` | Dev panel: jump steps, force dashboard, clear cache. |
 | `src/games/index.js` | Game registry. `gameRegistry.get(id)` / `gameRegistry.bindAll()`. All games registered here. |
 | `src/games/trivia.js` | 5-question quiz (solo self-knowledge or partner trivia). Awards pet growth on round complete (daily cap). |
@@ -229,6 +229,36 @@ _Add confirmed bugs here with file:line. Mark [FIXED] when resolved._
 ---
 
 ## Changelog
+
+### 2026-07-14 — Message/Insight Tone Rewrite + Attribution Fixes + Fun Additions
+
+**questions.js**
+- Rewrote every onboarding question's `title`/`question`/`desc` from stiff clinical/corporate phrasing ("Select or build the exact MBTI matrix configuration," "Tactile safety and grounding connection," "Processing variables offline") to plain, warm language. `value` fields (`secure`, `direct`, `words`, etc.) are unchanged — they're lookup keys used throughout `content-bank.js`, `pet.js`, milestone checks, and dev-tools.
+- Renamed the MBTI question's title from "Your Personality Type" to "Personality Type" — the literal word "Your" was found to trigger a pre-existing, previously-dormant bug in `renderPsychQuestionBlock()` (`profile-builder.js`) that unconditionally does a `.replace("Your", ...)` on titles regardless of the `isPartner` flag. No original title contained "Your" so the bug never fired before. The `renderPsychQuestionBlock` bug itself is left as-is — that function's partner-branching is slated for a full rewrite when the deferred "solo-only onboarding" plan lands.
+
+**profile-builder.js**
+- Rewrote the 4 relationship-status card descriptions ("Exploring dynamics and initial compatibility variables," "Unified residential planning and daily tactical tasks," etc.) to plain language. `val` args (`early`, `committed`, `cohabitating`, `longdistance`) unchanged.
+- Swapped the pre-onboarding header text "Unified Interface State" → "Getting Started", and the relationship-status submit button "Complete Configuration" → "Finish Up".
+
+**content-bank.js**
+- Removed a clinical citation line in `DEEP_DECODER_PARTNER` ("The research on relationships is pretty consistent...") — reworded without citing "the research."
+- Expanded `SPOTLIGHT_DONTS` from 4 to 8 entries per expression style (was repeating within 4 views).
+- Added `MBTI_FRAGMENTS` — a small per-letter phrase pool (8 letters × 3 fragments) assembled combinatorially by `insights.js`'s `assembleMbtiFlavor()`, giving MBTI-flavored variety without needing 16 separate full-type pools.
+
+**insights.js**
+- Fixed `generateDeepInsight('decoder')`: previously only ever referenced the primary user's `loveLanguage` even in partner mode, despite the drawer subtitle claiming to cover "what makes each of you feel seen." Now references both partners' love languages by name in partner mode.
+- Fixed `generateSpotlightLists`'s `weakCat` handling: the weakest-trivia-category value comes from a single shared `gd.trivia.categoryAccuracy` object (not per-person data), but was previously surfaced twice — once phrased as the user's individual "don't" and again phrased as the partner's individual "do" — presenting one shared stat as if it were two people's separate data. Now surfaced once, explicitly framed as joint ("You two could dig into...").
+- `generateDayAtAGlance`: mood-aware notes now interpolate the user's actual name when available (previously the `uName` variable was computed but never used — no body copy anywhere except `generateChronicleScenario` ever said the person's name). Added an occasional MBTI-flavored bonus line via `assembleMbtiFlavor()`.
+- `generateBlueprint`: also gets an occasional MBTI-flavored line, since it was previously 100% generic pool content that never reflected anything specific about the person/couple.
+- Day at a Glance / Blueprint rotation intentionally left on its existing deterministic date+behavior-driven formula (not converted to a shuffle-bag) — that's a different, purpose-built design (content evolves with the actual day/game-progress) from the "clicking a refresh button repeats within a few clicks" problem that motivated the pet.js shuffle-bag below.
+
+**pet.js**
+- Expanded `AFFIRMATIONS` (7→10 per style) and `WARNINGS` (6→9 per style) — was 52 total messages, repeating within about a week of daily use with a mechanical warning/affirmation flip every 3rd click.
+- Replaced `pickAffirmation()`'s `(offset + streak) % pool.length` rotation with a shuffle-bag (`_drawFromBag`/`_shuffledIndices`) that never immediately repeats and drops the old mechanical 3-click pattern; pool selection (affirmation vs. warning) now uses weighted randomness instead of a fixed offset formula. Result is memoized per `_affirmOffset` value so incidental re-renders (any `saveGameData()` call, not just an explicit "New Message" tap) don't silently swap the visible text.
+- Added `pickPetReaction(gameData)`: on the first affirmation view of a session, reacts to something that actually happened today (mood check, a game played, a streak just extended) instead of always pulling from the generic pool — falls back to `pickAffirmation()` once the user taps "New Message" or nothing notable happened today.
+- Fixed the partner-mode "wrong person" pet complaint: the single shared affirmation block (sourced only from the primary user's `attachmentStyle`, generically labeled "Today for you") sits beneath both pet cards in partner mode with nothing tying it to either pet. The label now explicitly names who it's about (`Today for ${name}` / `From ${petName}` for reactions).
+
+No `SCHEMA_VERSION` bump — all changes are content/rendering-level; no `gameData` shape changed.
 
 ### 2026-07-14 — Procedural Pet Evolution + Solo Weapon + Shiny Couple Pet
 

@@ -35,7 +35,7 @@ export function switchView(screenId) {
       }
       window.AppState.currentState = 'PHASE_3_DAILY';
     } else {
-      headerDisplay.innerHTML = `<span>Unified Interface State</span> <span>VIBE ID: <strong>INIT</strong></span>`;
+      headerDisplay.innerHTML = `<span>Getting Started</span> <span>VIBE ID: <strong>INIT</strong></span>`;
       window.AppState.currentState = 'PHASE_1';
     }
   }
@@ -161,7 +161,7 @@ export function renderActiveStep() {
 
   if (stepIndex === 12 || (window.AppState.soloMode && stepIndex === 7)) {
     const isSelected = window.AppState.tempAnswers['relationshipStatus'] || '';
-    const soloLabel = window.AppState.soloMode ? 'Your Life Stage' : 'Relationship Status Alignment';
+    const soloLabel = window.AppState.soloMode ? 'Your Life Stage' : 'Your Relationship Status';
     const soloSub = window.AppState.soloMode ? 'Step 6' : 'Step 8';
     const backTarget = window.AppState.soloMode ? 6 : 11;
     html = `
@@ -170,15 +170,15 @@ export function renderActiveStep() {
         <h1>${soloLabel}</h1>
       </header>
       <div class="card">
-        <p class="card-body" style="margin-bottom: 12px;">Select the dynamic alignment state that represents your setup:</p>
+        <p class="card-body" style="margin-bottom: 12px;">Pick whichever one fits where you're at right now:</p>
         <div style="display: flex; flex-direction: column; gap: 10px;">
-          ${renderStatusCard('Early Stages', 'early', 'Exploring dynamics and initial compatibility variables.', isSelected)}
-          ${renderStatusCard('Committed Alignment', 'committed', 'Sustained, structured commitments and shared objectives.', isSelected)}
-          ${renderStatusCard('Co-Habitating / Married', 'cohabitating', 'Unified residential planning and daily tactical tasks.', isSelected)}
-          ${renderStatusCard('Long Distance', 'longdistance', 'Geographically distributed operations and remote variables.', isSelected)}
+          ${renderStatusCard('Early Stages', 'early', "Still getting to know each other and figuring things out.", isSelected)}
+          ${renderStatusCard('Committed', 'committed', "You're in it together, building toward shared goals.", isSelected)}
+          ${renderStatusCard('Co-Habitating / Married', 'cohabitating', 'Sharing a home and the day-to-day of life together.', isSelected)}
+          ${renderStatusCard('Long Distance', 'longdistance', 'Making it work across the distance.', isSelected)}
         </div>
       </div>
-      <button class="btn" onclick="validateStepAdvance()">Complete Configuration</button>
+      <button class="btn" onclick="validateStepAdvance()">Finish Up</button>
       ${renderBackButton(backTarget)}
     `;
     container.innerHTML = html;

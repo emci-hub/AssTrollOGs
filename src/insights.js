@@ -16,7 +16,7 @@ import {
   DEEP_JOURNEY_SOLO, DEEP_JOURNEY_PARTNER,
   DEEP_DECODER_SOLO, DEEP_DECODER_PARTNER,
   DEEP_VIBE_SOLO, DEEP_VIBE_PARTNER,
-  CHRONICLE_SCENARIOS
+  CHRONICLE_SCENARIOS, MBTI_FRAGMENTS
 } from './content-bank.js';
 import { engine } from './engine.js';
 
@@ -63,6 +63,22 @@ function getMbtiSelf(mbti) {
     : 'You bring energy to every room and tend to think out loud as you go.';
   const process = isSensor ? 'You trust what you can see and feel.' : 'You love big ideas and imagining what could be.';
   return `${energy} ${process}`;
+}
+
+// Assembles a short MBTI-flavored line from the small fragment bank in
+// content-bank.js — combinatorial variety from a cheap pool instead of
+// needing a full pool per type.
+function assembleMbtiFlavor(mbti, offset) {
+  if (!mbti || mbti.length !== 4) return null;
+  const pickFragment = (letter, salt) => {
+    const pool = MBTI_FRAGMENTS[letter];
+    if (!pool || pool.length === 0) return null;
+    return pool[Math.abs((offset || 0) + salt) % pool.length];
+  };
+  const first = pickFragment(mbti[0], 0);
+  const last = pickFragment(mbti[3], 5);
+  if (!first || !last) return null;
+  return `Classic ${mbti} energy: ${first}, and ${last}.`;
 }
 
 function getWeakestCategoryLabel(categoryAccuracy) {
@@ -148,9 +164,18 @@ export const insights = {
       ? `${body} ${gameHints[0]}`
       : body;
 
-    // Append mood-aware note when mood has been checked today
+    // Append mood-aware note when mood has been checked today — named when
+    // we actually have a real name, generic fallback otherwise.
     const moodToday = gd.mood?.today;
-    const MOOD_NOTES = {
+    const rawName = profiles.user?.name;
+    const MOOD_NOTES = rawName ? {
+      glowing: `Something in you is lit up today, ${rawName} — lean into it.`,
+      curious: `That curious energy today is worth following, ${rawName}.`,
+      chill:   `Today feels calm, ${rawName}. Use that stillness well.`,
+      tense:   `Notice the tension, ${rawName} — it often points to something important.`,
+      low:     `Low days are still valid days, ${rawName}. Be gentle with yourself.`,
+      fired:   `You brought real fire today, ${rawName} — channel it somewhere that counts.`
+    } : {
       glowing: 'Something in you is lit up today — lean into it.',
       curious: 'That curious energy today is worth following.',
       chill:   'Today feels calm. Use that stillness well.',
@@ -161,7 +186,11 @@ export const insights = {
     const moodNote = moodToday ? MOOD_NOTES[moodToday] : null;
     const withMood = moodNote ? `${finalBody} ${moodNote}` : finalBody;
 
-    return { headline, body: withMood };
+    // Occasionally sprinkle in an MBTI-flavored line for extra personality
+    const mbtiFlavor = (fortuneOffset || 0) % 4 === 3 ? assembleMbtiFlavor(profiles.user?.mbti, fortuneOffset) : null;
+    const withFlavor = mbtiFlavor ? `${withMood} ${mbtiFlavor}` : withMood;
+
+    return { headline, body: withFlavor };
   },
 
   generateSpotlightLists(profiles, gameData, date, focusOffset) {
@@ -197,7 +226,9 @@ export const insights = {
     // DON'T tips from expression bank
     const dontPool = SPOTLIGHT_DONTS[user.expressionStyle] || SPOTLIGHT_DONTS.direct;
     const userDonts = [dontPool[offset % dontPool.length]];
-    if (weakCat) userDonts.push(`Take time to explore your ${weakCat} — there's more to discover there.`);
+    // weakCat comes from a single shared trivia stat, not a per-person one —
+    // frame it as joint so it doesn't read as an individual callout.
+    if (weakCat) userDonts.push(solo ? `Take time to explore your ${weakCat} — there's more to discover there.` : `You two could dig into your ${weakCat} together — there's more to discover there.`);
     else userDonts.push('Assume you already know everything — curiosity is the better move.');
 
     // WYR behavioral nudge
@@ -217,7 +248,9 @@ export const insights = {
     const partnerDontPool = SPOTLIGHT_DONTS[partner.expressionStyle] || SPOTLIGHT_DONTS.direct;
     const partnerDonts = [partnerDontPool[(offset + 2) % partnerDontPool.length], 'Forget to acknowledge the small efforts — they add up.'];
 
-    if (weakCat) partnerDos.push(`Tell your partner more about your ${weakCat} — they want to understand.`);
+    // weakCat is already surfaced once (in userDonts, framed as joint) —
+    // it used to also show up here re-attributed to the partner individually,
+    // which is the same shared stat presented as two different people's data.
 
     return { userDos, userDonts, partnerDos, partnerDonts };
   },
@@ -235,6 +268,13 @@ export const insights = {
 
     if (streak >= 3) blueprint += ` Your ${streak}-day streak is a real signal of that.`;
     if (gameHints.length > 0) blueprint += ` ${gameHints[offset % gameHints.length] || gameHints[0]}`;
+
+    // Occasionally sprinkle in an MBTI-flavored line so the "generic" pool
+    // text still ties back to something specific about this actual person.
+    if (offset % 3 === 1) {
+      const mbtiFlavor = assembleMbtiFlavor(user.mbti, offset);
+      if (mbtiFlavor) blueprint += ` ${mbtiFlavor}`;
+    }
 
     return blueprint;
   },
@@ -281,8 +321,19 @@ export const insights = {
         const pool = solo ? DEEP_DECODER_SOLO : DEEP_DECODER_PARTNER;
         const picked = pool[offset % pool.length];
         let body = picked.body;
-        const doPool = SPOTLIGHT_DOS[user.loveLanguage] || SPOTLIGHT_DOS.words;
-        body += ` Practical tip: ${doPool[offset % doPool.length]}`;
+        const userDoPool = SPOTLIGHT_DOS[user.loveLanguage] || SPOTLIGHT_DOS.words;
+        if (solo) {
+          body += ` Practical tip: ${userDoPool[offset % userDoPool.length]}`;
+        } else {
+          // Reflects BOTH partners' love languages — previously this only
+          // ever referenced the primary user's, even though the drawer
+          // claims to cover "what makes each of you feel seen."
+          const partner = profiles.partner || {};
+          const partnerDoPool = SPOTLIGHT_DOS[partner.loveLanguage] || SPOTLIGHT_DOS.time;
+          const uName = user.name || 'you';
+          const pName = partner.name || 'your partner';
+          body += ` For ${uName}: ${userDoPool[offset % userDoPool.length]} For ${pName}: ${partnerDoPool[(offset + 1) % partnerDoPool.length]}`;
+        }
         return {
           title: picked.headline,
           headline: picked.headline,
