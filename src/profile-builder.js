@@ -6,8 +6,9 @@
 import { PSYCH_QUESTIONS, MBTI_TYPES } from './questions.js';
 import { engine } from './engine.js';
 import { hydrateDashboardViews } from './dashboard.js';
-import { generateSaveCode, verifySaveCode } from './save-code.js';
+import { generateSaveCode } from './save-code.js';
 import { cloudSave, cloudLoadByCode } from './supabase.js';
+import { todayLocal } from './state.js';
 
 let activeMbtiTab = "toggle";
 let activePartnerMbtiTab = "toggle";
@@ -426,8 +427,6 @@ export function finalizeEngineData() {
     };
   }
 
-  const cacheKeyDate = timestampInstance.toISOString().split('T')[0];
-
   const storagePayload = {
     userProfile: window.AppState.userProfile,
     partnerProfile: window.AppState.partnerProfile,
@@ -436,18 +435,19 @@ export function finalizeEngineData() {
     tempAnswers: window.AppState.tempAnswers,
     gameData: window.AppState.gameData,
     currentStep: window.AppState.currentStep,
-    cachedDate: cacheKeyDate
+    cachedDate: todayLocal(),
+    lastSavedAt: timestampInstance.toISOString()
   };
 
   localStorage.setItem('persistent_profile_data', JSON.stringify(storagePayload));
 
-  // Generate save code immediately on first profile creation
-  generateSaveCode(storagePayload).then(code => {
-    localStorage.setItem('vibeSaveCode', code);
-    window.AppState.saveCode = code;
-    cloudSave(storagePayload, code);
-    if (typeof window.refreshSaveCodeDisplay === 'function') window.refreshSaveCodeDisplay();
-  }).catch(() => cloudSave(storagePayload));
+  // The save code is minted exactly once, here — it's a permanent random key,
+  // not derived from the profile, so later edits never invalidate it.
+  const code = localStorage.getItem('vibeSaveCode') || generateSaveCode();
+  localStorage.setItem('vibeSaveCode', code);
+  window.AppState.saveCode = code;
+  cloudSave(storagePayload, code);
+  if (typeof window.refreshSaveCodeDisplay === 'function') window.refreshSaveCodeDisplay();
 
   hydrateDashboardViews(storagePayload);
   switchView('daily-screen');
@@ -499,11 +499,6 @@ export async function submitSaveCode() {
       throw new Error('No save found for that code.');
     }
 
-    const valid = await verifySaveCode(code, result.profileData);
-    if (!valid) {
-      throw new Error('Code does not match the stored profile. Double-check and try again.');
-    }
-
     const parsed = result.profileData;
     window.AppState.userProfile = parsed.userProfile;
     window.AppState.partnerProfile = parsed.partnerProfile || null;
@@ -518,7 +513,7 @@ export async function submitSaveCode() {
 
     // Reset stale mood
     const gd = window.AppState.gameData;
-    if (gd.mood?.lastChecked && gd.mood.lastChecked !== new Date().toISOString().split('T')[0]) {
+    if (gd.mood?.lastChecked && gd.mood.lastChecked !== todayLocal()) {
       gd.mood.today = null;
     }
 

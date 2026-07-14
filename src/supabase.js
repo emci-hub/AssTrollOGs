@@ -54,38 +54,29 @@ export async function cloudSave(payload, saveCode) {
 
 /**
  * Loads profile by device_id (same device restore).
+ * Goes through the get_session_by_device RPC — the table has no open SELECT
+ * policy, so reads require knowing the exact key.
  */
 export async function cloudLoad() {
   if (!supabase) return null;
   try {
     const deviceId = getDeviceId();
-    const { data } = await supabase
-      .from('user_sessions')
-      .select('profile_data, updated_at')
-      .eq('device_id', deviceId)
-      .maybeSingle();
-    return data?.profile_data || null;
+    const { data } = await supabase.rpc('get_session_by_device', { p_device_id: deviceId });
+    return data?.[0]?.profile_data || null;
   } catch (_) {
     return null;
   }
 }
 
 /**
- * Loads profile by save code (cross-device restore).
+ * Loads profile by save code (cross-device restore + newest-wins sync).
  * Returns { profileData, saveCode } or null if not found.
+ * The RPC normalises formatting on both sides, so dashed and raw codes match.
  */
 export async function cloudLoadByCode(code) {
   if (!supabase || !code) return null;
   try {
-    const normalised = code.toUpperCase().replace(/[-\s]/g, '');
-    // Build all valid formatted variants to match against the stored value
-    const formatted = `VIBE-${normalised.slice(0, 4)}-${normalised.slice(4, 8)}`;
-    const { data } = await supabase
-      .from('user_sessions')
-      .select('profile_data, save_code')
-      .or(`save_code.eq.${formatted},save_code.eq.${normalised}`)
-      .order('updated_at', { ascending: false })
-      .limit(1);
+    const { data } = await supabase.rpc('get_session_by_code', { p_code: code });
     const row = data?.[0];
     if (!row?.profile_data) return null;
     return { profileData: row.profile_data, saveCode: row.save_code };

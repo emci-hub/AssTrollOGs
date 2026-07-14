@@ -19,6 +19,31 @@ import { cloudSave } from './supabase.js';
 
 export const SCHEMA_VERSION = 2;
 
+// ─── Local-time date helpers ─────────────────────────────────────────────────
+// All "what day is it" logic uses the user's local calendar day, not UTC —
+// otherwise streaks, mood resets, and daily pet caps roll over mid-evening
+// for anyone west of Greenwich.
+
+/** Local calendar date as 'YYYY-MM-DD'. Pass a Date to convert a timestamp. */
+export function todayLocal(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** True if the given ISO timestamp falls on the user's local today. */
+export function isToday(isoTimestamp) {
+  if (!isoTimestamp) return false;
+  const d = new Date(isoTimestamp);
+  return !isNaN(d) && todayLocal(d) === todayLocal();
+}
+
+/** Whole days between two 'YYYY-MM-DD' strings (b - a). */
+export function daysBetween(a, b) {
+  return Math.round((new Date(b) - new Date(a)) / 86400000);
+}
+
 export function defaultGameData() {
   return {
     schemaVersion: SCHEMA_VERSION,
@@ -143,8 +168,7 @@ window.AppState = {
  */
 export function canAwardPetGrowthToday(gameId) {
   const log = window.AppState.gameData.petGrowthLog || {};
-  const today = new Date().toISOString().split('T')[0];
-  return log[gameId] !== today;
+  return log[gameId] !== todayLocal();
 }
 
 /**
@@ -153,7 +177,7 @@ export function canAwardPetGrowthToday(gameId) {
 export function recordPetGrowthToday(gameId) {
   const gd = window.AppState.gameData;
   if (!gd.petGrowthLog) gd.petGrowthLog = {};
-  gd.petGrowthLog[gameId] = new Date().toISOString().split('T')[0];
+  gd.petGrowthLog[gameId] = todayLocal();
 }
 
 /**
@@ -163,15 +187,13 @@ export function updateStreak() {
   const gd = window.AppState.gameData;
   if (!gd.streak) gd.streak = { current: 0, lastOpenDate: null, longest: 0, lastResetDate: null };
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayLocal();
   const last = gd.streak.lastOpenDate;
 
   if (last === today) return;
 
   if (last) {
-    const lastDate = new Date(last);
-    const todayDate = new Date(today);
-    const diffDays = Math.round((todayDate - lastDate) / (1000 * 60 * 60 * 24));
+    const diffDays = daysBetween(last, today);
     if (diffDays === 1) {
       gd.streak.current += 1;
     } else if (diffDays > 1) {
@@ -261,6 +283,7 @@ export function saveGameData() {
     try {
       const parsed = JSON.parse(cachedPackage);
       parsed.gameData = window.AppState.gameData;
+      parsed.lastSavedAt = new Date().toISOString();
       const json = JSON.stringify(parsed);
       localStorage.setItem('persistent_profile_data', json);
       cloudSave(parsed, window.AppState.saveCode);

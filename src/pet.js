@@ -10,7 +10,7 @@
  * always recomputed at render time.
  */
 
-import { saveGameData } from './state.js';
+import { saveGameData, todayLocal, isToday } from './state.js';
 
 // ─── Name generation ──────────────────────────────────────────────────────────
 
@@ -588,9 +588,9 @@ function pickAffirmation(attach, gameData, offset) {
 
 function pickPetReaction(gameData) {
   const gd = gameData || {};
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayLocal();
 
-  if (gd.mood?.lastChecked?.startsWith(today) && gd.mood?.today) {
+  if (gd.mood?.lastChecked === today && gd.mood?.today) {
     const MOOD_REACTIONS = {
       glowing: "noticed you're glowing today and has been doing a happy little wiggle about it.",
       curious: "picked up on your curious mood and has been extra alert all day.",
@@ -603,11 +603,11 @@ function pickPetReaction(gameData) {
     if (line) return line;
   }
 
-  const gamesPlayedToday = ['trivia', 'wyr', 'memory', 'bingo', 'quicktakes']
-    .some(g => gd[g]?.lastPlayed?.startsWith(today));
+  const gamesPlayedToday = ['trivia', 'wyr', 'bingo', 'quicktakes', 'dailyq', 'checkin']
+    .some(g => isToday(gd[g]?.lastPlayed));
   if (gamesPlayedToday) return "did a little victory lap after watching you play today.";
 
-  if (gd.streak?.lastOpenDate?.startsWith(today) && (gd.streak?.current || 0) >= 3) {
+  if (gd.streak?.lastOpenDate === today && (gd.streak?.current || 0) >= 3) {
     return `is proud of the ${gd.streak.current}-day streak you're on.`;
   }
 
@@ -625,7 +625,7 @@ function makeCouplePetData() {
 }
 
 function tickPet(petData, profile, isSolo, gameData) {
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayLocal();
   if (petData.lastSeen !== today) {
     if (petData.lastSeen) {
       // Solo grows 2x — each visit = 2 growth points
@@ -647,7 +647,7 @@ function tickPet(petData, profile, isSolo, gameData) {
 }
 
 function tickCouplePet(petData, gameData) {
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayLocal();
   if (petData.lastSeen !== today) {
     petData.totalDays += 1;
     petData.lastSeen = today;

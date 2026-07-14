@@ -9,7 +9,6 @@ import { insights } from './insights.js';
 import { gameRegistry } from './games/index.js';
 import { hydrateDashboardViews } from './dashboard.js';
 import { renderPetDrawer } from './pet.js';
-import { generateSaveCode } from './save-code.js';
 import { cloudSave } from './supabase.js';
 
 let _insightOffsets = { groove: 0, journey: 0, decoder: 0, vibe: 0 };
@@ -420,14 +419,13 @@ window.saveProfileSettings = function() {
       if (love) parsed.tempAnswers.loveLanguage = love;
       if (expr) parsed.tempAnswers.expression = expr;
     }
+    parsed.lastSavedAt = new Date().toISOString();
     localStorage.setItem('persistent_profile_data', JSON.stringify(parsed));
 
-    generateSaveCode(parsed).then(code => {
-      localStorage.setItem('vibeSaveCode', code);
-      window.AppState.saveCode = code;
-      cloudSave(parsed, code);
-      if (typeof window.refreshSaveCodeDisplay === 'function') window.refreshSaveCodeDisplay();
-    }).catch(() => cloudSave(parsed));
+    // The save code is permanent — profile edits sync to cloud under the
+    // same code, so a code written down long ago keeps working.
+    const code = window.AppState.saveCode || localStorage.getItem('vibeSaveCode');
+    cloudSave(parsed, code);
   }
 
   hydrateDashboardViews({
