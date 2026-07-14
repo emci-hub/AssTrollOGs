@@ -181,24 +181,40 @@ export const SPOTLIGHT_DONTS = {
     "Avoid turning every difference of opinion into a debate.",
     "Don't mistake bluntness for honesty — they're not the same.",
     "Tone matters as much as content — watch yours.",
+    "Check your tone before you hit send.",
+    "Not everything needs to be said the second you think it.",
+    "Directness lands better with a little warmth attached.",
+    "Give them a beat to respond before you push further.",
   ],
   indirect: [
     "Avoid expecting them to guess — say one thing directly today.",
     "Don't let resentment build from unspoken needs.",
     "Hints work sometimes; clear words work every time.",
     "Naming what you need isn't needy — it's efficient.",
+    "If it matters, say it out loud — don't leave it to context clues.",
+    "A hint they miss isn't a conversation you had.",
+    "Practice saying the direct version, even just once today.",
+    "Waiting for them to notice can turn into waiting a long time.",
   ],
   reflective: [
     "Don't stay in your head so long that they're left out.",
     "Sharing your conclusions matters more than sharing your whole thought process.",
     "Avoid using 'I need time to think' as a way to avoid the conversation entirely.",
     "Some things resolve better when you talk them out rather than think them out.",
+    "A quick 'I'm still thinking about it' beats total silence.",
+    "Not every thought needs to be fully formed before you share it.",
+    "Give them a rough sense of when you'll circle back.",
+    "Processing alone forever isn't the same as processing.",
   ],
   analytical: [
     "Not everything needs a solution — sometimes they just need to be heard.",
     "Avoid over-explaining in moments that call for empathy.",
     "Logic without warmth can land cold, even when it's accurate.",
     "Resist the urge to fix before fully listening.",
+    "Ask if they want advice or just want to vent, before giving either.",
+    "Being right isn't the same as being helpful in the moment.",
+    "Sometimes what they need most is just 'that sounds hard.'",
+    "Save the breakdown for after they feel heard.",
   ],
 };
 
@@ -277,7 +293,7 @@ export const DEEP_DECODER_PARTNER = [
   { headline: "How you make each other feel seen.", body: "Feeling truly understood by someone is one of the most powerful experiences in a close relationship. The moments that do that for each of you are worth identifying and protecting." },
   { headline: "The gap between intention and impact.", body: "You probably already try to show care in ways that are meaningful. But every so often, the way you deliver it doesn't land quite the way you mean it to. That gap is easy to close once you know it's there." },
   { headline: "What 'I love you' looks like in action for each of you.", body: "Words are great. But the specific actions that make each of you feel loved are the real language. Speaking both — yours and theirs — is what makes a relationship feel genuinely attentive." },
-  { headline: "Appreciation as a practice.", body: "The research on relationships is pretty consistent: couples who express appreciation regularly are happier, more resilient, and more satisfied. It's not complicated. Just: say it, specifically, often." },
+  { headline: "Appreciation as a practice.", body: "The couples who feel closest aren't the ones who never struggle — they're the ones who say the good stuff out loud, often. It's not complicated. Just: say it, specifically, and don't wait for a reason." },
 ];
 
 export const DEEP_VIBE_SOLO = [
@@ -401,6 +417,21 @@ export const FOCUS_TIPS_PARTNER = [
   "Let them be right about something today — genuinely.",
   "Share one thing that's going on with you that you'd usually keep to yourself.",
 ];
+
+// ── MBTI flavor fragments (assembled into a sentence, keyed by letter) ───────
+// Small, cheap-to-write pool that gets combinatorial variety from assembly
+// rather than needing 16 separate full-type pools.
+
+export const MBTI_FRAGMENTS = {
+  E: ["feeds off the room's energy", "says the thing out loud before thinking it all the way through", "recharges by being around people"],
+  I: ["recharges best in quiet moments", "likes to process things alone before talking them out", "prefers depth over a crowded room"],
+  S: ["trusts what's right in front of them", "notices the small concrete details everyone else skips", "prefers the practical over the theoretical"],
+  N: ["is always chasing the bigger picture", "connects dots other people miss entirely", "gets pulled toward whatever feels possible"],
+  T: ["wants the plan, not just the vibe", "leads with logic even in emotional moments", "would rather be accurate than comforted"],
+  F: ["reads the room emotionally before anything else", "leads with how it feels first", "values harmony over being technically right"],
+  J: ["feels better once something's decided", "brings structure without being asked to", "likes a plan and actually sticks to it"],
+  P: ["keeps options open as long as possible", "works best with room to improvise", "prefers flexible plans over fixed ones"],
+};
 
 // ── Helper: pick from a pool by index ────────────────────────────────────────
 

@@ -161,7 +161,10 @@ const AFFIRMATIONS = {
     "Balanced energy is a superpower. You have it naturally.",
     "People feel safe around you. Lean into that today.",
     "Your emotional intelligence runs deeper than you give yourself credit for.",
-    "Being consistent is quietly heroic. You show up and that's everything."
+    "Being consistent is quietly heroic. You show up and that's everything.",
+    "You don't need to perform confidence — you just have it.",
+    "The way you de-escalate a room without even trying is a quiet superpower.",
+    "Steadiness isn't glamorous, but it's the thing everyone secretly relies on you for."
   ],
   anxious: [
     "Your sensitivity is not a flaw — it's how you experience life more fully.",
@@ -170,7 +173,10 @@ const AFFIRMATIONS = {
     "Your heart is one of your best features. Let it lead today.",
     "You notice things others miss. That awareness is your strength.",
     "You are more resilient than the worry tells you.",
-    "Feeling deeply means caring fully. The world needs more of that."
+    "Feeling deeply means caring fully. The world needs more of that.",
+    "Caring this much isn't too much — it's just a lot, and that's allowed.",
+    "The people who matter to you know it, even on days you doubt it.",
+    "Your intuition about people is sharper than you give it credit for."
   ],
   avoidant: [
     "Your independence is built on quiet strength. Own it.",
@@ -179,7 +185,10 @@ const AFFIRMATIONS = {
     "Your boundaries are clear and that clarity is something to be proud of.",
     "Solitude isn't loneliness when you use it well. You do.",
     "There is real power in needing less than others expect.",
-    "Your self-sufficiency is a foundation, not a wall."
+    "Your self-sufficiency is a foundation, not a wall.",
+    "You don't owe anyone constant access to you to prove you care.",
+    "Quiet loyalty still counts as loyalty, even when it's never loud about it.",
+    "Your calm exterior is doing more emotional labor than people realize."
   ],
   fearful: [
     "Every step forward counts, even the small hesitant ones.",
@@ -188,7 +197,10 @@ const AFFIRMATIONS = {
     "The fact that you feel both things at once makes you deeply human.",
     "You've survived every difficult moment so far. Today is no different.",
     "Trust can be built slowly, on your terms. That's allowed.",
-    "Your self-awareness is a form of strength most people never develop."
+    "Your self-awareness is a form of strength most people never develop.",
+    "Wanting both closeness and safety at the same time isn't a flaw — it's just complicated, and that's okay.",
+    "You keep choosing to try, even when it would be easier not to. That's real.",
+    "The walls you've built made sense once. You get to decide what stays."
   ]
 };
 
@@ -199,7 +211,10 @@ const WARNINGS = {
     "Notice if you've been assuming things are fine without actually asking.",
     "Your calm might read as indifference to someone who needs reassurance.",
     "Balance is great — make sure you're not just avoiding the hard stuff.",
-    "Check in: are you giving others the security you give yourself?"
+    "Check in: are you giving others the security you give yourself?",
+    "Being easygoing doesn't mean you have to agree with everything today.",
+    "Steady doesn't mean silent — say something if it's actually bothering you.",
+    "Don't let 'it's fine' become your default answer when it isn't."
   ],
   anxious: [
     "Watch out: your brain might be writing stories that aren't true today.",
@@ -207,7 +222,10 @@ const WARNINGS = {
     "Notice if you're seeking reassurance more than you need to right now.",
     "That quiet feeling might just be quiet — not a sign something's wrong.",
     "Your worry is protective, but it can block the good stuff. Let it rest.",
-    "Check in: are you deciding from fear or from what you actually want?"
+    "Check in: are you deciding from fear or from what you actually want?",
+    "A slow reply doesn't automatically mean something's wrong.",
+    "Notice if you're rehearsing worst-case scenarios instead of just asking.",
+    "Reassurance feels good, but it isn't a substitute for trusting what you already know."
   ],
   avoidant: [
     "Watch out: distance can feel like protection but sometimes it's just distance.",
@@ -215,7 +233,10 @@ const WARNINGS = {
     "Notice if 'I need space' is becoming a habit instead of a need.",
     "Not every emotional moment requires a retreat. You can stay.",
     "Disconnecting to recharge is healthy. Disconnecting to avoid is different.",
-    "Check in: is there a conversation you've been postponing that matters?"
+    "Check in: is there a conversation you've been postponing that matters?",
+    "Silence can read as anger even when you don't mean it that way.",
+    "Notice if 'I'm fine' is doing a lot of heavy lifting today.",
+    "Independence is great until it starts keeping people at arm's length by default."
   ],
   fearful: [
     "Watch out for pushing someone away just as they're getting close.",
@@ -223,7 +244,10 @@ const WARNINGS = {
     "Notice if you're testing people in ways they don't know about.",
     "Not everyone will leave. Some are staying — let them.",
     "Check in: is fear of being hurt stopping you from being happy right now?",
-    "Your defenses are smart. But sometimes the threat isn't real."
+    "Your defenses are smart. But sometimes the threat isn't real.",
+    "Testing someone's patience isn't the same as trusting it.",
+    "Notice if you're bracing for an ending that hasn't actually started.",
+    "Mixed signals confuse people even when your intentions are clear to you."
   ]
 };
 
@@ -508,17 +532,86 @@ function buildPetSvg(visuals, stage, mood, size, milestones = [], isCouple = fal
 }
 
 // ─── Affirmation picker ───────────────────────────────────────────────────────
+// Shuffle-bag rotation: each pool is shuffled once, handed out in order, then
+// reshuffled (never repeating the immediately-preceding item) — avoids both
+// near-term repeats and the old mechanical "every 3rd click is a warning"
+// pattern from a pure offset % length.
 
 let _affirmOffset = 0;
+const _shuffleBags = {};
+
+function _shuffledIndices(len) {
+  const arr = Array.from({ length: len }, (_, i) => i);
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function _drawFromBag(bagId, poolLength) {
+  if (poolLength <= 0) return 0;
+  let bag = _shuffleBags[bagId];
+  if (!bag || bag.pos >= bag.order.length) {
+    const order = _shuffledIndices(poolLength);
+    if (bag && order.length > 1 && order[0] === bag.order[bag.order.length - 1]) {
+      [order[0], order[1]] = [order[1], order[0]];
+    }
+    bag = { order, pos: 0 };
+    _shuffleBags[bagId] = bag;
+  }
+  const idx = bag.order[bag.pos];
+  bag.pos++;
+  return idx;
+}
+
+// Memoized by offset so incidental re-renders (any saveGameData() call, not
+// just an explicit "New Message" tap) don't silently swap the visible text.
+let _lastAffirmOffset = -1;
+let _lastAffirmResult = null;
 
 function pickAffirmation(attach, gameData, offset) {
+  if (offset === _lastAffirmOffset && _lastAffirmResult) return _lastAffirmResult;
   const streak = gameData?.streak?.current || 0;
-  const pool = (offset % 3 === 2 || (streak === 0 && offset % 2 === 1))
-    ? WARNINGS[attach] || WARNINGS.secure
-    : AFFIRMATIONS[attach] || AFFIRMATIONS.secure;
-  const isWarning = pool === (WARNINGS[attach] || WARNINGS.secure);
-  const idx = (offset + (streak)) % pool.length;
-  return { text: pool[idx], isWarning };
+  const isWarning = streak === 0 ? Math.random() < 0.4 : Math.random() < 0.22;
+  const pool = isWarning ? (WARNINGS[attach] || WARNINGS.secure) : (AFFIRMATIONS[attach] || AFFIRMATIONS.secure);
+  const idx = _drawFromBag(`${attach}_${isWarning ? 'warn' : 'affirm'}`, pool.length);
+  _lastAffirmOffset = offset;
+  _lastAffirmResult = { text: pool[idx], isWarning };
+  return _lastAffirmResult;
+}
+
+// ─── Pet reaction picker ──────────────────────────────────────────────────────
+// Reacts to something that actually happened today (mood check, a game
+// played, a streak just extended) instead of always pulling a generic pool
+// line — falls back to pickAffirmation() when nothing notable happened.
+
+function pickPetReaction(gameData) {
+  const gd = gameData || {};
+  const today = new Date().toISOString().split('T')[0];
+
+  if (gd.mood?.lastChecked?.startsWith(today) && gd.mood?.today) {
+    const MOOD_REACTIONS = {
+      glowing: "noticed you're glowing today and has been doing a happy little wiggle about it.",
+      curious: "picked up on your curious mood and has been extra alert all day.",
+      chill: "matched your chill energy and has been lazing around contentedly.",
+      tense: "sensed the tension today and has been sticking close by.",
+      low: "noticed today's a low one and is staying extra close.",
+      fired: "caught your fired-up energy and has been bouncing off the walls."
+    };
+    const line = MOOD_REACTIONS[gd.mood.today];
+    if (line) return line;
+  }
+
+  const gamesPlayedToday = ['trivia', 'wyr', 'memory', 'bingo', 'quicktakes']
+    .some(g => gd[g]?.lastPlayed?.startsWith(today));
+  if (gamesPlayedToday) return "did a little victory lap after watching you play today.";
+
+  if (gd.streak?.lastOpenDate?.startsWith(today) && (gd.streak?.current || 0) >= 3) {
+    return `is proud of the ${gd.streak.current}-day streak you're on.`;
+  }
+
+  return null;
 }
 
 // ─── Pet data helpers ─────────────────────────────────────────────────────────
@@ -629,11 +722,29 @@ export function renderPetSection() {
   const userStageInfo = getStage(userPet.totalDays);
   const userSvg = buildPetSvg(userVisuals, userPet.stage, userPet.mood, userStageInfo.size, milestones, false, solo);
 
-  const { text: affirmText, isWarning } = pickAffirmation(userAttach, gd, _affirmOffset);
+  // A fresh session opens with a contextual reaction to what actually
+  // happened today (if anything did); tapping "New Message" moves past it
+  // into the regular rotating pool.
+  const petReaction = _affirmOffset === 0 ? pickPetReaction(gd) : null;
+  let affirmText, isWarning, affirmLabel;
+  if (petReaction) {
+    affirmText = `${userPet.name} ${petReaction}`;
+    isWarning = false;
+    affirmLabel = `From ${userPet.name}`;
+  } else {
+    const picked = pickAffirmation(userAttach, gd, _affirmOffset);
+    affirmText = picked.text;
+    isWarning = picked.isWarning;
+    // Labeled with the actual name in partner mode so it's unambiguous
+    // whose message this is, since it's shown once beneath both pet cards.
+    const uName = window.AppState.userProfile?.name;
+    affirmLabel = isWarning
+      ? (solo ? 'Watch out for' : `A heads-up for ${uName || 'you'}`)
+      : (solo ? 'Today for you' : `Today for ${uName || 'you'}`);
+  }
   const affirmColor = isWarning ? '#f0a055' : 'var(--success-color)';
   const affirmBg = isWarning ? 'rgba(240,160,85,0.08)' : 'rgba(78,180,120,0.08)';
   const affirmIcon = isWarning ? '!' : '✦';
-  const affirmLabel = isWarning ? 'Watch out for' : 'Today for you';
 
   const nextStage = STAGES.find(s => s.minDays > userPet.totalDays);
   const daysToNext = nextStage ? nextStage.minDays - userPet.totalDays : 0;

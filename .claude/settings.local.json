@@ -40,7 +40,12 @@
       "Bash(git config *)",
       "Bash(git rebase *)",
       "Bash(node -e ' *)",
-      "Bash(mkdir -p /tmp/claude-0/-home-user-AssTrollOGs/118c7f3f-9ffb-5bb8-8c46-66b1334552dc/scratchpad)"
+      "Bash(mkdir -p /tmp/claude-0/-home-user-AssTrollOGs/118c7f3f-9ffb-5bb8-8c46-66b1334552dc/scratchpad)",
+      "Bash(rm -f dist/assets/index-D8OgGcDw.js dist/assets/index-DDPmr0Qa.css && git status --short)",
+      "Bash(npm root *)",
+      "Bash(NODE_PATH=$\\(npm root -g\\) node verify_messages.js)",
+      "Bash(pkill -f \"vite --port 5184\")",
+      "Bash(git clean *)"
     ]
   }
 }
