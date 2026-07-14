@@ -4,8 +4,8 @@
  * calculateLiveMetrics() is the key new function — it replaces the frozen
  * modulo-seed calculation with a live score derived from actual game behavior:
  *
- *   compatibilityWeight  = seed base (70) + trivia accuracy bonus (0-15) + streak bonus (0-5) + wyr bonus (0-10)
- *   synchronyFactor      = seed base (80) + memory sharpness bonus (0-10) + wyr answered bonus (0-7)
+ *   compatibilityWeight  = seed base (70) + knowledge bonus (0-15: real duo guess accuracy when available, else trivia accuracy) + streak bonus (0-5) + wyr bonus (0-10)
+ *   synchronyFactor      = seed base (80) + daily-question participation bonus (0-10) + wyr answered bonus (0-7)
  *   alignmentVector      = seed base (90) + bingo identity bonus (0-5) + milestone bonus (0-5)
  *
  * All metrics are capped at their respective ceilings (100, 97, 100) and
@@ -44,21 +44,23 @@ export const engine = {
     const gd = gameData || {};
 
     // --- Compatibility Weight (70-100) ---
+    // Once Guess & Reveal has real data (5+ guesses), the main bonus comes
+    // from ACTUAL guess accuracy about the partner — honest dyadic signal —
+    // instead of solo trivia accuracy.
     const triviaBase = 70 + (seed % 7); // 70-76 base
-    const triviaBonus = gd.trivia && gd.trivia.total > 0
-      ? Math.round((gd.trivia.correct / gd.trivia.total) * 15)
-      : 0;
+    const duoRate = gd.duo && gd.duo.guesses >= 5 ? gd.duo.correctGuesses / gd.duo.guesses : null;
+    const knowledgeBonus = duoRate !== null
+      ? Math.round(duoRate * 15)
+      : (gd.trivia && gd.trivia.total > 0 ? Math.round((gd.trivia.correct / gd.trivia.total) * 15) : 0);
     const streakBonus = gd.streak ? Math.min(gd.streak.current * 1, 5) : 0;
     const wyrCompatBonus = gd.wyr ? Math.min(Math.floor(gd.wyr.answered / 3), 10) : 0;
-    const compatibilityWeight = Math.min(triviaBase + triviaBonus + streakBonus + wyrCompatBonus, 100);
+    const compatibilityWeight = Math.min(triviaBase + knowledgeBonus + streakBonus + wyrCompatBonus, 100);
 
     // --- Synchrony Factor (80-97 Hz) ---
     const syncBase = 80 + (seed % 5); // 80-84 base
-    const memoryBonus = gd.memory && gd.memory.bestMoves !== null
-      ? Math.max(0, 10 - Math.floor(gd.memory.bestMoves / 2))
-      : 0;
+    const dailyBonus = Math.min(gd.dailyq?.answered || 0, 10);
     const wyrSyncBonus = gd.wyr ? Math.min(Math.floor(gd.wyr.answered / 2), 7) : 0;
-    const synchronyFactor = Math.min(syncBase + memoryBonus + wyrSyncBonus, 97);
+    const synchronyFactor = Math.min(syncBase + dailyBonus + wyrSyncBonus, 97);
 
     // --- Alignment Vector (90-100) ---
     const alignBase = 90 + (seed % 3); // 90-92 base

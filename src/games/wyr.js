@@ -1,12 +1,20 @@
 /**
- * Would You Rather game.
- * Light, fun, low-stakes questions that still reveal personality preferences.
- * Every answer updates the preference map and flows into Day at a Glance.
+ * Would You Rather.
+ *
+ * Solo mode: light dilemmas — every answer updates the preference map and
+ * flows into Day at a Glance (unchanged classic flow).
+ *
+ * Partner mode: Guess & Reveal, pass-the-phone. The primary user guesses
+ * which option their partner would pick, hands the phone over, the partner
+ * answers for real, then the match is revealed. Guess accuracy is REAL
+ * dyadic data (gd.duo) and feeds the Connection metric; preferences are
+ * updated from the partner's actual answer — their signal, not a proxy.
  */
 
 import { saveGameData, canAwardPetGrowthToday, recordPetGrowthToday } from '../state.js';
 import { awardPetGrowth } from '../pet.js';
 import { engine } from '../engine.js';
+import { WYR_BONUS_QUESTIONS } from '../content-bank.js';
 
 const WYR_QUESTIONS = [
   {
@@ -111,58 +119,171 @@ const WYR_QUESTIONS = [
   }
 ];
 
+// Bonus pool merged in from the content bank (previously written but never wired).
+const ALL_QUESTIONS = [...WYR_QUESTIONS, ...WYR_BONUS_QUESTIONS];
+
 let currentQuestion = null;
 let shownIndices = [];
+// Partner-mode Guess & Reveal state
+let _phase = 'guess';   // 'guess' → 'handoff' → 'answer' → 'reveal'
+let _guess = null;
+
+function isSolo() {
+  return window.AppState.soloMode || !window.AppState.partnerProfile;
+}
+
+function partnerName() {
+  return window.AppState.partnerProfile?.name || 'your partner';
+}
 
 function init() {
   shownIndices = [];
   load();
 }
 
-function load() {
-  // Avoid repeating recent questions
-  if (shownIndices.length >= WYR_QUESTIONS.length) shownIndices = [];
+function pickQuestion() {
+  if (shownIndices.length >= ALL_QUESTIONS.length) shownIndices = [];
   let qIndex;
-  do { qIndex = Math.floor(Math.random() * WYR_QUESTIONS.length); }
-  while (shownIndices.includes(qIndex) && shownIndices.length < WYR_QUESTIONS.length);
+  do { qIndex = Math.floor(Math.random() * ALL_QUESTIONS.length); }
+  while (shownIndices.includes(qIndex) && shownIndices.length < ALL_QUESTIONS.length);
   shownIndices.push(qIndex);
-  currentQuestion = { ...WYR_QUESTIONS[qIndex], index: qIndex };
+  currentQuestion = { ...ALL_QUESTIONS[qIndex], index: qIndex };
+}
+
+function refreshHeaderStats() {
+  const countEl = document.getElementById('wyr-answered-count');
+  const traitEl = document.getElementById('wyr-trait-label');
+  const gd = window.AppState.gameData;
+  if (countEl) countEl.innerText = `${gd?.wyr?.answered || 0} answered`;
+  const label = engine.deriveWyrPersonalityLabel(gd?.wyr?.preferences);
+  if (traitEl) {
+    traitEl.innerText = label || '';
+    traitEl.style.display = label ? '' : 'none';
+  }
+  const agreeEl = document.getElementById('wyr-agree-label');
+  const duo = gd?.duo;
+  if (agreeEl && duo?.guesses >= 5) {
+    agreeEl.innerText = `${Math.round((duo.correctGuesses / duo.guesses) * 100)}% guessed right`;
+    agreeEl.style.display = '';
+  }
+}
+
+function load() {
+  pickQuestion();
+  _phase = 'guess';
+  _guess = null;
 
   const qEl = document.getElementById('wyr-question');
   const choicesEl = document.getElementById('wyr-choices');
-  const countEl = document.getElementById('wyr-answered-count');
-  const traitEl = document.getElementById('wyr-trait-label');
-
   if (!qEl || !choicesEl) return;
 
-  const prefs = window.AppState.gameData?.wyr?.preferences;
-  const traitLabel = engine.deriveWyrPersonalityLabel(prefs);
+  const nextBtn = document.getElementById('wyr-next-btn');
+  if (nextBtn) nextBtn.style.display = 'none';
 
-  qEl.innerText = 'Would you rather...';
+  if (isSolo()) {
+    qEl.innerText = 'Would you rather...';
+    choicesEl.innerHTML = `
+      <button class="choice-btn" style="text-align:left;" onclick="selectWYR('a')">${currentQuestion.a}</button>
+      <button class="choice-btn" style="text-align:left;" onclick="selectWYR('b')">${currentQuestion.b}</button>
+    `;
+  } else {
+    qEl.innerHTML = `<span style="color:var(--accent-primary);">Your guess:</span> which would ${partnerName()} pick?`;
+    choicesEl.innerHTML = `
+      <button class="choice-btn" style="text-align:left;" onclick="selectWYR('a')">${currentQuestion.a}</button>
+      <button class="choice-btn" style="text-align:left;" onclick="selectWYR('b')">${currentQuestion.b}</button>
+    `;
+  }
+  refreshHeaderStats();
+}
+
+// ── Solo flow (classic) ───────────────────────────────────────────────────────
+
+function answerSolo(choice) {
+  const choicesEl = document.getElementById('wyr-choices');
+  if (!choicesEl) return;
+  const buttons = choicesEl.querySelectorAll('button');
+  buttons.forEach(btn => { btn.style.pointerEvents = 'none'; btn.style.opacity = '0.6'; });
+  const picked = choice === 'a' ? buttons[0] : buttons[1];
+  if (picked) { picked.style.opacity = '1'; picked.style.borderColor = 'var(--accent-primary)'; }
+
+  recordAnswer(choice);
+  showNextButton();
+}
+
+// ── Partner flow (Guess & Reveal) ─────────────────────────────────────────────
+
+function handoffScreen() {
+  const qEl = document.getElementById('wyr-question');
+  const choicesEl = document.getElementById('wyr-choices');
+  if (!qEl || !choicesEl) return;
+  qEl.innerText = '';
+  choicesEl.innerHTML = `
+    <div style="text-align:center; padding:14px 0;">
+      <div style="font-size:2rem; margin-bottom:8px;">🤝</div>
+      <div style="font-size:0.9rem; font-weight:700; margin-bottom:6px;">Hand the phone to ${partnerName()}</div>
+      <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:16px;">No peeking at the guess — answer honestly.</div>
+      <button class="btn" onclick="wyrPartnerReady()">I'm ${partnerName()} — show me</button>
+    </div>
+  `;
+}
+
+function partnerAnswerScreen() {
+  _phase = 'answer';
+  const qEl = document.getElementById('wyr-question');
+  const choicesEl = document.getElementById('wyr-choices');
+  if (!qEl || !choicesEl) return;
+  qEl.innerHTML = `${partnerName()}, would you rather...`;
   choicesEl.innerHTML = `
     <button class="choice-btn" style="text-align:left;" onclick="selectWYR('a')">${currentQuestion.a}</button>
     <button class="choice-btn" style="text-align:left;" onclick="selectWYR('b')">${currentQuestion.b}</button>
   `;
-
-  if (countEl) countEl.innerText = `${window.AppState.gameData?.wyr?.answered || 0} answered`;
-  if (traitEl) {
-    traitEl.innerText = traitLabel || '';
-    traitEl.style.display = traitLabel ? '' : 'none';
-  }
 }
 
-function select(choice) {
-  if (!currentQuestion) return;
+function revealScreen(guess, answer) {
+  _phase = 'reveal';
+  const match = guess === answer;
+  const qEl = document.getElementById('wyr-question');
   const choicesEl = document.getElementById('wyr-choices');
-  if (!choicesEl) return;
+  if (!qEl || !choicesEl) return;
 
-  const buttons = choicesEl.querySelectorAll('button');
-  buttons.forEach(btn => { btn.style.pointerEvents = 'none'; btn.style.opacity = '0.6'; });
-  if (choice === 'a') buttons[0].style.opacity = '1';
-  else buttons[1].style.opacity = '1';
-  if (choice === 'a') buttons[0].style.borderColor = 'var(--accent-primary)';
-  else buttons[1].style.borderColor = 'var(--accent-primary)';
+  const answerText = answer === 'a' ? currentQuestion.a : currentQuestion.b;
+  const guessText = guess === 'a' ? currentQuestion.a : currentQuestion.b;
+  const gd = window.AppState.gameData;
+  const rate = gd.duo.guesses > 0 ? Math.round((gd.duo.correctGuesses / gd.duo.guesses) * 100) : 0;
 
+  qEl.innerText = '';
+  choicesEl.innerHTML = `
+    <div style="text-align:center; padding:10px 0;">
+      <div style="font-size:2rem; margin-bottom:8px;">${match ? '🎯' : '🔍'}</div>
+      <div style="font-size:0.95rem; font-weight:700; color:${match ? 'var(--success-color)' : 'var(--accent-secondary)'}; margin-bottom:10px;">
+        ${match ? 'Called it!' : 'Missed it — and learned something.'}
+      </div>
+      <div style="font-size:0.75rem; color:var(--text-secondary); line-height:1.6; margin-bottom:8px;">
+        ${partnerName()} picked: <strong>${answerText}</strong><br>
+        The guess was: <strong>${guessText}</strong>
+      </div>
+      <div style="font-size:0.68rem; color:var(--text-muted);">
+        ${match
+          ? `That's real fluency — you're reading ${partnerName()} right ${rate}% of the time.`
+          : `The misses are the good part: that's a real difference you just discovered. (${rate}% guessed right so far.)`}
+      </div>
+    </div>
+  `;
+  showNextButton();
+}
+
+function showNextButton() {
+  setTimeout(() => {
+    const nextBtn = document.getElementById('wyr-next-btn');
+    if (nextBtn) nextBtn.style.display = '';
+  }, 500);
+}
+
+// ── Shared data recording ─────────────────────────────────────────────────────
+
+// Records the REAL answer (the user's in solo, the partner's in duo mode)
+// into preferences + history, handles pet growth via the daily cap.
+function recordAnswer(choice, guess = null) {
   const gd = window.AppState.gameData;
   gd.wyr.answered += 1;
   gd.wyr.lastPlayed = new Date().toISOString();
@@ -175,6 +296,15 @@ function select(choice) {
     if (gd.wyr.preferences[trait] !== undefined) gd.wyr.preferences[trait] += delta;
   });
 
+  if (guess !== null) {
+    gd.duo.rounds += 1;
+    gd.duo.guesses += 1;
+    if (guess === choice) gd.duo.correctGuesses += 1;
+    gd.duo.lastPlayed = new Date().toISOString();
+    gd.duo.history.push({ type: 'wyr', q: `${currentQuestion.a} / ${currentQuestion.b}`, guess, answer: choice, match: guess === choice });
+    if (gd.duo.history.length > 30) gd.duo.history.shift();
+  }
+
   saveGameData();
 
   // Award pet growth every 5th answer (once per day via cap)
@@ -183,17 +313,25 @@ function select(choice) {
     awardPetGrowth(1);
   }
 
-  const countEl = document.getElementById('wyr-answered-count');
-  const traitEl = document.getElementById('wyr-trait-label');
-  if (countEl) countEl.innerText = `${gd.wyr.answered} answered`;
-  const newLabel = engine.deriveWyrPersonalityLabel(gd.wyr.preferences);
-  if (traitEl) { traitEl.innerText = newLabel || ''; traitEl.style.display = newLabel ? '' : 'none'; }
+  refreshHeaderStats();
+}
 
-  // Show next button after a short delay
-  setTimeout(() => {
-    const nextBtn = document.getElementById('wyr-next-btn');
-    if (nextBtn) nextBtn.style.display = '';
-  }, 700);
+function select(choice) {
+  if (!currentQuestion) return;
+
+  if (isSolo()) {
+    answerSolo(choice);
+    return;
+  }
+
+  if (_phase === 'guess') {
+    _guess = choice;
+    _phase = 'handoff';
+    handoffScreen();
+  } else if (_phase === 'answer') {
+    recordAnswer(choice, _guess);
+    revealScreen(_guess, choice);
+  }
 }
 
 export const wyrGame = {
@@ -202,15 +340,22 @@ export const wyrGame = {
   renderDrawer: () => {
     const answered = window.AppState?.gameData?.wyr?.answered || 0;
     const prefs = window.AppState?.gameData?.wyr?.preferences;
+    const duo = window.AppState?.gameData?.duo;
     const traitLabel = engine.deriveWyrPersonalityLabel(prefs) || '';
+    const solo = window.AppState.soloMode || !window.AppState.partnerProfile;
+    const pName = window.AppState.partnerProfile?.name || 'your partner';
+    const agree = duo?.guesses >= 5 ? `${Math.round((duo.correctGuesses / duo.guesses) * 100)}% guessed right` : '';
     return `
     <div class="subtitle">Games</div>
-    <h2 style="margin-bottom:4px;">Would You Rather</h2>
+    <h2 style="margin-bottom:4px;">${solo ? 'Would You Rather' : 'Guess & Reveal'}</h2>
     <div style="display:flex; gap:8px; align-items:center; margin-bottom:14px; flex-wrap:wrap;">
       <span id="wyr-answered-count" style="font-size:0.7rem; color:var(--text-muted);">${answered} answered</span>
       <span id="wyr-trait-label" style="font-size:0.7rem; color:var(--accent-primary); background:rgba(129,140,248,0.12); padding:2px 8px; border-radius:20px; display:${traitLabel ? '' : 'none'};">${traitLabel}</span>
+      <span id="wyr-agree-label" style="font-size:0.7rem; color:var(--success-color); background:rgba(78,180,120,0.12); padding:2px 8px; border-radius:20px; display:${agree ? '' : 'none'};">${agree}</span>
     </div>
-    <p class="card-body" style="margin-bottom:16px;">Fun, light dilemmas. Every answer helps build your personality picture.</p>
+    <p class="card-body" style="margin-bottom:16px;">${solo
+      ? 'Fun, light dilemmas. Every answer helps build your personality picture.'
+      : `Guess what ${pName} would pick, then hand the phone over for their real answer. The hits show your fluency — the misses show you something new.`}</p>
     <div id="wyr-game-area">
       <div id="wyr-question" style="text-align:center; font-size:0.95rem; font-weight:700; margin-bottom:20px; color:var(--text-primary);"></div>
       <div style="display:flex; flex-direction:column; gap:10px;" id="wyr-choices"></div>
@@ -222,5 +367,6 @@ export const wyrGame = {
   bindWindow: () => {
     window.loadWouldYouRather = load;
     window.selectWYR = select;
+    window.wyrPartnerReady = partnerAnswerScreen;
   }
 };

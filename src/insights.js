@@ -227,6 +227,8 @@ function getMilestoneLabel(id) {
     trivia_first: 'First Quiz', trivia_perfect: 'Perfect Score', trivia_master: 'Trivia Master',
     wyr_5: '5 Dilemmas', wyr_10: '10 Dilemmas', wyr_25: 'Dilemma Veteran',
     memory_first: 'First Memory Win', memory_sharp: 'Sharp Memory',
+    dailyq_first: 'First Daily Question', dailyq_7: 'A Week of Questions',
+    duo_reader: 'Mind Reader', checkin_first: 'First Check-In', checkin_4: 'Monthly Ritual',
     bingo_3: 'Strength Spotter', bingo_row: 'Full Board',
     streak_3: '3-Day Streak', streak_7: '7-Day Streak',
     mood_first: 'First Mood Check', mood_consistent: 'Consistent Checker',
@@ -239,15 +241,24 @@ function getMilestoneLabel(id) {
 function getGameInsights(gameData, solo) {
   const result = [];
   const t = gameData?.trivia;
-  const m = gameData?.memory;
   const w = gameData?.wyr;
   const b = gameData?.bingo;
+  const duo = gameData?.duo;
+  const dq = gameData?.dailyq;
+  const ci = gameData?.checkin;
+  if (!solo && duo && duo.guesses >= 5) {
+    const rate = Math.round((duo.correctGuesses / duo.guesses) * 100);
+    result.push(rate >= 70
+      ? `You've read your partner right ${rate}% of the time in Guess & Reveal — real fluency.`
+      : `Your Guess & Reveal hit rate is ${rate}% — every miss is a real difference you've now seen.`);
+  }
   if (t && t.total > 0) {
     const acc = Math.round((t.correct / t.total) * 100);
     if (solo) result.push(acc >= 80 ? `Your quiz score of ${acc}% shows real self-knowledge.` : `Your quiz score of ${acc}% — there are some interesting things still to discover.`);
     else result.push(acc >= 80 ? `Your trivia score of ${acc}% shows you know your partner well.` : `Your trivia score of ${acc}% — more to explore together.`);
   }
-  if (m && m.bestMoves !== null && m.bestMoves <= 8) result.push(`You completed Vibe Match in just ${m.bestMoves} moves — that's sharp.`);
+  if (dq && dq.answered >= 3) result.push(`${dq.answered} daily questions answered — the record is building.`);
+  if (ci && ci.entries?.length >= 2) result.push(`${ci.entries.length} weekly check-ins done — that's a real ritual now.`);
   if (w && w.answered >= 5) result.push(`You've explored ${w.answered} Would You Rather dilemmas — your personality picture is coming into focus.`);
   if (b && b.checkedCells.length > 0) result.push(solo ? `You identified with ${b.checkedCells.length} personality sparks.` : `You two agreed on ${b.checkedCells.length} hot takes.`);
   return result;

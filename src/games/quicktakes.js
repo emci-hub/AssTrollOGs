@@ -145,13 +145,19 @@ export const quickTakesGame = {
 
       // Update gameData wyr-style preferences
       const gd = window.AppState.gameData;
-      const sig = _sessionQuestions[_sessionIndex]?.sig?.[choice] || {};
+      const q = _sessionQuestions[_sessionIndex];
+      const sig = q?.sig?.[choice] || {};
       if (!gd.wyr) gd.wyr = { answered: 0, preferences: {}, history: [], lastPlayed: null };
       Object.entries(sig).forEach(([k, v]) => {
         gd.wyr.preferences[k] = (gd.wyr.preferences[k] || 0) + v;
       });
       gd.wyr.answered = (gd.wyr.answered || 0) + 1;
       gd.wyr.lastPlayed = new Date().toISOString();
+      // Log into shared history + persist per answer (mirrors wyr.js), so
+      // quitting mid-session no longer loses recorded answers.
+      gd.wyr.history.push({ questionIndex: -1, choice, textChosen: choice === 'a' ? q.a : q.b });
+      if (gd.wyr.history.length > 20) gd.wyr.history.shift();
+      saveGameData();
 
       _sessionIndex++;
 

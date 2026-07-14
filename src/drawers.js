@@ -253,38 +253,53 @@ export function closeDrawer() {
   if (backdrop) backdrop.classList.remove('open');
 }
 
-export function executeScenarioSimulation(uName, pName, mbti, task, userRole, partnerRole) {
+// Trait flavor for Chronicles — the beats and the result line come from the
+// people's actual profiles, so reruns differ by couple, not by dice.
+const CHRONICLE_CONFLICT_FLAVOR = {
+  collaborative: 'talking every step through',
+  compromising:  'making quick, fair trades',
+  accommodating: 'keeping everyone comfortable',
+  avoiding:      'quietly regrouping before the next move'
+};
+
+const CHRONICLE_SOLO_RESULTS = {
+  collaborative: 'Solved by committee of one — you argued both sides and the best idea won.',
+  compromising:  'Plan A met reality, you cut a deal with reality, and reality signed.',
+  accommodating: 'Everyone around you somehow ended up fine too. Classic.',
+  avoiding:      'One strategic pause later, you came back and finished it clean.'
+};
+
+const CHRONICLE_SAME_STYLE_RESULTS = {
+  collaborative: 'Double talk-it-through energy: the plan got debated, improved, and executed. Committee of two, undefeated.',
+  compromising:  'Two dealmakers — trades were made, nobody kept score, everything got done.',
+  accommodating: 'You both kept trying to make it easier for the other one. Somehow that finished the whole job.',
+  avoiding:      'Two tactical retreats, one flawless comeback. Nobody panicked. Nobody will speak of it again.'
+};
+
+export function executeScenarioSimulation(uName, pName, task, userRole, partnerRole) {
   const consoleBox = document.getElementById('simulation-console');
   if (!consoleBox) return;
 
   consoleBox.style.display = '';
   consoleBox.innerHTML = '';
 
-  const SOLO_RESULTS = [
-    'Handled it. That\'s the energy.',
-    'Nailed it solo. No notes.',
-    'Done and done. You made it look easy.',
-    'Completely pulled it off on your own.',
-    'That\'s what self-reliance looks like.',
-  ];
-  const DUO_RESULTS = [
-    'Total success. You two made it look effortless.',
-    'Absolutely nailed it together.',
-    'That\'s the power of a great team.',
-    'Flawless execution. Nobody does it like you two.',
-    'Complete win. You complemented each other perfectly.',
-  ];
+  const userStyle = window.AppState.userProfile?.conflictStyle || 'collaborative';
+  const partnerStyle = window.AppState.partnerProfile?.conflictStyle || 'compromising';
+  const userFlavor = CHRONICLE_CONFLICT_FLAVOR[userStyle] || CHRONICLE_CONFLICT_FLAVOR.collaborative;
+  const partnerFlavor = CHRONICLE_CONFLICT_FLAVOR[partnerStyle] || CHRONICLE_CONFLICT_FLAVOR.compromising;
 
   const steps = [];
   steps.push({ delay: 0, text: `<span style="color:var(--text-muted);">Scenario: <em>${task}...</em></span>` });
   if (partnerRole) {
-    steps.push({ delay: 600, text: `<strong style="color:var(--accent-primary);">${uName}</strong> jumps in — ${userRole}...` });
-    steps.push({ delay: 1200, text: `<strong style="color:var(--success-color);">${pName}</strong> steps up — ${partnerRole}...` });
-    const result = DUO_RESULTS[Math.floor(Math.random() * DUO_RESULTS.length)];
+    steps.push({ delay: 600, text: `<strong style="color:var(--accent-primary);">${uName}</strong> jumps in — ${userRole}, ${userFlavor}...` });
+    steps.push({ delay: 1200, text: `<strong style="color:var(--success-color);">${pName}</strong> steps up — ${partnerRole}, ${partnerFlavor}...` });
+    const result = userStyle === partnerStyle
+      ? (CHRONICLE_SAME_STYLE_RESULTS[userStyle] || CHRONICLE_SAME_STYLE_RESULTS.collaborative)
+      : `Total win — ${uName}'s ${userFlavor} covered exactly what ${pName}'s ${partnerFlavor} would have missed. That's not luck, that's the pairing.`;
     steps.push({ delay: 2000, text: `<br><strong style="color:var(--success-color); font-size:0.9rem;">${result}</strong>` });
   } else {
-    steps.push({ delay: 600, text: `<strong style="color:var(--accent-primary);">${uName}</strong> takes on the challenge — ${userRole}...` });
-    const result = SOLO_RESULTS[Math.floor(Math.random() * SOLO_RESULTS.length)];
+    steps.push({ delay: 600, text: `<strong style="color:var(--accent-primary);">${uName}</strong> takes on the challenge — ${userRole}, ${userFlavor}...` });
+    const result = CHRONICLE_SOLO_RESULTS[userStyle] || CHRONICLE_SOLO_RESULTS.collaborative;
     steps.push({ delay: 1400, text: `<br><strong style="color:var(--success-color); font-size:0.9rem;">${result}</strong>` });
   }
   steps.push({ delay: steps[steps.length - 1].delay + 600, text: '<br><button class="btn btn-outline" style="margin-top:8px; font-size:0.75rem;" onclick="newChronicleScenario()">Try Another Scenario</button>' });
@@ -300,7 +315,7 @@ window.runChronicleSimulation = function() {
   const btn = document.querySelector('[onclick="runChronicleSimulation()"]');
   if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
   executeScenarioSimulation(
-    scenario.userName, scenario.partnerName, scenario.userMbti,
+    scenario.userName, scenario.partnerName,
     scenario.task, scenario.userRole, scenario.partnerRole
   );
 };

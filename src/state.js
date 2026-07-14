@@ -17,7 +17,7 @@
 import { hydrateDashboardViews } from './dashboard.js';
 import { cloudSave } from './supabase.js';
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 // ─── Local-time date helpers ─────────────────────────────────────────────────
 // All "what day is it" logic uses the user's local calendar day, not UTC —
@@ -59,7 +59,15 @@ export function defaultGameData() {
         expression: { correct: 0, total: 0 }
       }
     },
-    memory: { completed: 0, bestMoves: null, lastPlayed: null },
+    // Real dyadic data from pass-the-phone rounds (WYR Guess & Reveal +
+    // Daily Duo). guesses/correctGuesses only count actual guess rounds.
+    duo: { rounds: 0, guesses: 0, correctGuesses: 0, lastPlayed: null, history: [] },
+    // Daily Duo (partner) / Daily Reflection (solo) — one question a day.
+    dailyq: { answered: 0, lastAnswered: null, lastPlayed: null },
+    reflection: { entries: [], lastAnswered: null },
+    // Weekly Check-In ritual — appreciation/friction/experiment (partner)
+    // or win/struggle/intention (solo). Last 12 entries kept.
+    checkin: { entries: [], lastCheckin: null, lastPlayed: null },
     wyr: {
       answered: 0,
       lastPlayed: null,
@@ -138,6 +146,12 @@ export function migrateGameData(gd) {
 
   // Ensure sparks exists
   if (!gd.sparks) gd.sparks = { checkedItems: [], lastPlayed: null };
+
+  // v3 additions (duo / dailyq / reflection / checkin) are backfilled by the
+  // top-level defaults loop above; just harden their inner shapes.
+  if (!Array.isArray(gd.duo?.history)) gd.duo.history = [];
+  if (!Array.isArray(gd.reflection?.entries)) gd.reflection.entries = [];
+  if (!Array.isArray(gd.checkin?.entries)) gd.checkin.entries = [];
 
   gd.schemaVersion = SCHEMA_VERSION;
   return gd;
@@ -224,8 +238,13 @@ export function checkMilestones() {
     { id: 'wyr_5',             check: () => gd.wyr.answered >= 5 },
     { id: 'wyr_10',            check: () => gd.wyr.answered >= 10 },
     { id: 'wyr_25',            check: () => gd.wyr.answered >= 25 },
-    { id: 'memory_first',      check: () => gd.memory.completed >= 1 },
-    { id: 'memory_sharp',      check: () => gd.memory.bestMoves !== null && gd.memory.bestMoves <= 8 },
+    // memory_first / memory_sharp: game removed — labels kept so users who
+    // already earned them keep their badges, but they can no longer trigger.
+    { id: 'dailyq_first',      check: () => (gd.dailyq?.answered || 0) >= 1 },
+    { id: 'dailyq_7',          check: () => (gd.dailyq?.answered || 0) >= 7 },
+    { id: 'duo_reader',        check: () => (gd.duo?.guesses || 0) >= 10 && (gd.duo.correctGuesses / gd.duo.guesses) >= 0.7 },
+    { id: 'checkin_first',     check: () => (gd.checkin?.entries?.length || 0) >= 1 },
+    { id: 'checkin_4',         check: () => (gd.checkin?.entries?.length || 0) >= 4 },
     { id: 'bingo_3',           check: () => gd.bingo.checked >= 3 },
     { id: 'bingo_row',         check: () => gd.bingo.checked >= 9 },
     { id: 'streak_3',          check: () => gd.streak.current >= 3 },
@@ -259,6 +278,11 @@ export const MILESTONE_LABELS = {
   wyr_25:             'Dilemma Veteran',
   memory_first:       'First Memory Win',
   memory_sharp:       'Sharp Memory',
+  dailyq_first:       'First Daily Question',
+  dailyq_7:           'A Week of Questions',
+  duo_reader:         'Mind Reader',
+  checkin_first:      'First Check-In',
+  checkin_4:          'Monthly Ritual',
   bingo_3:            'Strength Spotter',
   bingo_row:          'Full Board',
   streak_3:           '3-Day Streak',

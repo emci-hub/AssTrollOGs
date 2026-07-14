@@ -11,6 +11,7 @@
 
 import { saveGameData, canAwardPetGrowthToday, recordPetGrowthToday } from '../state.js';
 import { awardPetGrowth } from '../pet.js';
+import { EXTRA_SPARKS_SOLO, EXTRA_SPARKS_PARTNER } from '../content-bank.js';
 
 // Solo: personality-anchored statements drawn from user profile values
 function buildSoloCards(userProfile) {
@@ -55,7 +56,8 @@ function buildSoloCards(userProfile) {
     'I am a better friend than I give myself credit for',
     'I feel things more deeply than I let on',
     'I am more patient than I used to be',
-    'I like learning new things even when they are hard'
+    'I like learning new things even when they are hard',
+    ...EXTRA_SPARKS_SOLO
   ];
 
   const combined = [...new Set([...anchored, ...extras])];
@@ -88,7 +90,8 @@ function buildPartnerCards(userProfile, partnerProfile) {
     'The best parts of this connection are the small everyday things',
     'You are still figuring each other out and that is a good thing',
     'You both show up differently, but you both show up',
-    'This relationship has taught you something about yourself'
+    'This relationship has taught you something about yourself',
+    ...EXTRA_SPARKS_PARTNER
   );
 
   const combined = [...new Set(anchored)];

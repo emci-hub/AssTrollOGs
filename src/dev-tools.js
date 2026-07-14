@@ -198,6 +198,13 @@ export function devSimulateDayAdvance() {
   if (gd.streak?.lastOpenDate) gd.streak.lastOpenDate = yesterday;
   if (gd.mood?.lastChecked) gd.mood.lastChecked = yesterday;
   gd.mood.today = null;
+  if (gd.dailyq?.lastAnswered) gd.dailyq.lastAnswered = yesterday;
+  // Roll the weekly check-in gate back a day too so it can be tested
+  if (gd.checkin?.lastCheckin) {
+    const d = new Date(gd.checkin.lastCheckin);
+    d.setDate(d.getDate() - 1);
+    gd.checkin.lastCheckin = todayLocal(d);
+  }
 
   // Reset daily growth caps to yesterday so games can award again today
   if (gd.petGrowthLog) {
@@ -299,7 +306,9 @@ export function devRefreshInspector() {
     ``,
     `Trivia:      ${gd.trivia?.correct || 0}/${gd.trivia?.total || 0} correct`,
     `WYR:         ${gd.wyr?.answered || 0} answered`,
-    `Memory:      ${gd.memory?.completed || 0} wins (best: ${gd.memory?.bestMoves ?? '—'} moves)`,
+    `Duo guesses: ${gd.duo?.correctGuesses || 0}/${gd.duo?.guesses || 0} right`,
+    `Daily Q:     ${gd.dailyq?.answered || 0} answered`,
+    `Check-ins:   ${gd.checkin?.entries?.length || 0} done`,
     `QuickTakes:  ${gd.quicktakes?.sessionCount || 0} sessions`,
     ``,
     `Milestones:  ${(gd.milestones || []).length} / ${Object.keys(MILESTONE_LABELS).length}`,
