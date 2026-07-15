@@ -116,9 +116,44 @@ function patternType(profile) {
   return PATTERN_BY_LOVE_LANGUAGE[profile?.loveLanguage] || 'none';
 }
 
+// ─── Species archetypes ────────────────────────────────────────────────────
+// MBTI already splits cleanly into 4 Keirsey temperament groups covering all
+// 16 types with no leftovers, so it's used as the primary "species family"
+// axis instead of adding a new profile field. Attachment style then picks a
+// silhouette sub-variant *within* that family (size/spikiness/asymmetry), so
+// 4 families x 4 sub-variants = 16 distinct-looking pets, deterministic and
+// fully derived — nothing new is persisted.
+
+function mbtiTemperament(mbti) {
+  const m = (mbti || 'ENFP').toUpperCase();
+  if (m[1] === 'S') return m[3] === 'J' ? 'SJ' : 'SP';
+  return m[2] === 'F' ? 'NF' : 'NT';
+}
+
+// NT: Construct (crystalline/angular) · NF: Wisp (soft, flowing, ethereal)
+// SJ: Guardian (sturdy four-legged beast) · SP: Flit (small, winged, quick)
+const TEMPERAMENT_ARCHETYPE = { NT: 'construct', NF: 'wisp', SJ: 'guardian', SP: 'flit' };
+
+function speciesArchetype(profile) {
+  return TEMPERAMENT_ARCHETYPE[mbtiTemperament(profile?.mbti)] || 'wisp';
+}
+
+const ATTACHMENT_VARIANT = {
+  secure:   { sizeMul: 1.00, spike: 1.00, asym: 0, featureBias: 0 },
+  anxious:  { sizeMul: 1.04, spike: 1.35, asym: 0, featureBias: 1 },
+  avoidant: { sizeMul: 0.92, spike: 0.75, asym: 0, featureBias: -1 },
+  fearful:  { sizeMul: 0.98, spike: 1.10, asym: 1, featureBias: 0 }
+};
+
+function bodyVariant(profile) {
+  return ATTACHMENT_VARIANT[profile?.attachmentStyle] || ATTACHMENT_VARIANT.secure;
+}
+
 function derivePetVisuals(profile) {
   return {
     colors: deriveColors(profile),
+    archetype: speciesArchetype(profile),
+    variant: bodyVariant(profile),
     earShape: earShapeVariant(profile),
     pattern: patternType(profile)
   };
@@ -129,11 +164,11 @@ function derivePetVisuals(profile) {
 // Partner pets grow at 1 pt/day. The couple pet grows independently (see below).
 
 const STAGES = [
-  { stage: 1, minDays: 0,  label: 'Newborn',   size: 56 },
-  { stage: 2, minDays: 4,  label: 'Baby',       size: 64 },
-  { stage: 3, minDays: 10, label: 'Growing',    size: 72 },
-  { stage: 4, minDays: 20, label: 'Adult',      size: 80 },
-  { stage: 5, minDays: 40, label: 'Legendary',  size: 88 }
+  { stage: 1, minDays: 0,  label: 'Newborn',   size: 76 },
+  { stage: 2, minDays: 4,  label: 'Baby',       size: 92 },
+  { stage: 3, minDays: 10, label: 'Growing',    size: 108 },
+  { stage: 4, minDays: 20, label: 'Adult',      size: 124 },
+  { stage: 5, minDays: 40, label: 'Legendary',  size: 140 }
 ];
 
 function getStage(totalDays) {
@@ -142,14 +177,54 @@ function getStage(totalDays) {
   return s;
 }
 
-// Body silhouette actually changes shape per stage (not just overall size).
-const STAGE_SHAPE = {
-  1: { ryMul: .96, earMul: .82, limbs: false, aura: false },
-  2: { ryMul: .90, earMul: 1.00, limbs: true,  aura: false },
-  3: { ryMul: .87, earMul: 1.05, limbs: true,  aura: false },
-  4: { ryMul: .83, earMul: 1.10, limbs: true,  aura: false },
-  5: { ryMul: .90, earMul: 1.15, limbs: true,  aura: true  }
+function clampStage(stage) {
+  return Math.max(1, Math.min(5, stage || 1));
+}
+
+// ─── Per-archetype structural evolution ────────────────────────────────────
+// Each stage is a genuinely different silhouette per archetype — new limbs,
+// new head features, new posture — not a uniform size multiplier. Index 0 is
+// unused (stages are 1-5) so the table can be indexed directly by stage.
+
+const ARCHETYPE_STAGE_SHAPE = {
+  construct: [
+    null,
+    { ryMul: .92, feature: 0, feet: false, plated: false, floating: false },
+    { ryMul: .90, feature: 1, feet: true,  plated: false, floating: false },
+    { ryMul: .88, feature: 2, feet: true,  plated: true,  floating: false },
+    { ryMul: .86, feature: 3, feet: true,  plated: true,  floating: false },
+    { ryMul: .90, feature: 4, feet: true,  plated: true,  floating: true  }
+  ],
+  wisp: [
+    null,
+    { ryMul: 1.02, tendrils: 0 },
+    { ryMul: 1.06, tendrils: 1 },
+    { ryMul: 1.10, tendrils: 2 },
+    { ryMul: 1.14, tendrils: 3 },
+    { ryMul: 1.20, tendrils: 4 }
+  ],
+  guardian: [
+    null,
+    { ryMul: .88, paws: false, mane: false, tail: false, maneBig: false },
+    { ryMul: .84, paws: true,  mane: false, tail: false, maneBig: false },
+    { ryMul: .80, paws: true,  mane: false, tail: true,  maneBig: false },
+    { ryMul: .78, paws: true,  mane: true,  tail: true,  maneBig: false },
+    { ryMul: .82, paws: true,  mane: true,  tail: true,  maneBig: true  }
+  ],
+  flit: [
+    null,
+    { ryMul: .95, wings: 0, legs: false, tailFeathers: false, streamers: false },
+    { ryMul: .93, wings: 1, legs: true,  tailFeathers: false, streamers: false },
+    { ryMul: .90, wings: 1, legs: true,  tailFeathers: true,  streamers: false },
+    { ryMul: .88, wings: 1, legs: true,  tailFeathers: true,  streamers: true  },
+    { ryMul: .90, wings: 2, legs: true,  tailFeathers: true,  streamers: true  }
+  ]
 };
+
+function getArchetypeStageShape(archetype, stage) {
+  const table = ARCHETYPE_STAGE_SHAPE[archetype] || ARCHETYPE_STAGE_SHAPE.wisp;
+  return table[clampStage(stage)] || table[1];
+}
 
 // ─── Affirmations + Warnings ──────────────────────────────────────────────────
 
@@ -305,9 +380,16 @@ function blendColors(c1, c2) {
   return { body: hexBlend(c1.body, c2.body), eye: hexBlend(c1.eye, c2.eye), cheek: hexBlend(c1.cheek, c2.cheek) };
 }
 
+// Chimera: the couple pet's primary body is the user's own archetype, but it
+// also carries one signature accent feature borrowed from the partner's
+// archetype family (e.g. a Guardian body with a Flit's wings) — a genuine
+// hybrid silhouette rather than just an averaged color.
 function deriveCoupleVisuals(userVisuals, partnerVisuals) {
   return {
     colors: blendColors(userVisuals.colors, partnerVisuals.colors),
+    archetype: userVisuals.archetype,
+    secondaryArchetype: partnerVisuals.archetype,
+    variant: userVisuals.variant,
     earShape: (userVisuals.earShape === 'pointed' || partnerVisuals.earShape === 'pointed') ? 'pointed' : 'round',
     pattern: 'none',
     shinyColors: { a: userVisuals.colors, b: partnerVisuals.colors }
@@ -337,19 +419,151 @@ function earsSvg(shape, earFill, cheekColor, cx, cy, r, earMul = 1) {
   `;
 }
 
-function limbsSvg(colors, cx, cy, r) {
-  const fy = cy + r * .82;
-  return `
-    <ellipse cx="${cx-r*.32}" cy="${fy}" rx="${r*.14}" ry="${r*.09}" fill="${colors.body}"/>
-    <ellipse cx="${cx+r*.32}" cy="${fy}" rx="${r*.14}" ry="${r*.09}" fill="${colors.body}"/>
-  `;
-}
-
 function auraSvg(colors, cx, cy, r) {
   return `
     <ellipse cx="${cx}" cy="${cy}" rx="${r*1.45}" ry="${r*1.3}" fill="${colors.body}" opacity=".14"/>
     <ellipse cx="${cx}" cy="${cy}" rx="${r*1.2}" ry="${r*1.08}" fill="${colors.cheek}" opacity=".18"/>
   `;
+}
+
+// ─── Archetype body features ───────────────────────────────────────────────
+// One builder per species family. Each reads the archetype's own per-stage
+// shape flags (see ARCHETYP_STAGE_SHAPE) so growth adds/changes real parts —
+// antennae, tendrils, paws+mane, wings — instead of just resizing the body.
+
+function constructFeaturesSvg(shape, variant, colors, cx, cy, r, ry) {
+  const parts = [];
+  // Antennae are anchored just at the head's own top edge (ry-relative) and
+  // kept short so a Legendary crown can still sit cleanly above them.
+  const topY = cy - ry * 0.98;
+  const count = shape.feature || 0;
+  for (let i = 0; i < count; i++) {
+    const spread = count > 1 ? (i / (count - 1) - 0.5) : 0;
+    const bx = cx + spread * r * 0.8 + variant.asym * r * 0.14;
+    const h = r * (0.16 + i * 0.03) * variant.spike;
+    const w = r * 0.07;
+    parts.push(`<polygon points="${bx-w},${topY} ${bx},${topY-h} ${bx+w},${topY}" fill="${colors.body}" stroke="${colors.eye}" stroke-width="${r*.02}" opacity=".92"/>`);
+    parts.push(`<polygon points="${bx-w*.4},${topY-h*.15} ${bx},${topY-h*.7} ${bx+w*.4},${topY-h*.15}" fill="${colors.cheek}" opacity=".7"/>`);
+  }
+  if (shape.feet) {
+    // Placed clearly below the body's own bottom edge (ry) so they read as
+    // protruding feet instead of being painted over by the body fill.
+    const fy = cy + ry * 1.12;
+    parts.push(`<polygon points="${cx-r*.36},${fy} ${cx-r*.24},${fy-r*.2} ${cx-r*.12},${fy}" fill="${colors.body}" stroke="${colors.eye}" stroke-width="${r*.015}" opacity=".95"/>`);
+    parts.push(`<polygon points="${cx+r*.12},${fy} ${cx+r*.24},${fy-r*.2} ${cx+r*.36},${fy}" fill="${colors.body}" stroke="${colors.eye}" stroke-width="${r*.015}" opacity=".95"/>`);
+  }
+  if (shape.plated) {
+    parts.push(`<polygon points="${cx-r*.98},${cy-ry*.1} ${cx-r*.74},${cy-ry*.5} ${cx-r*.6},${cy+ry*.14}" fill="${colors.body}" stroke="${colors.eye}" stroke-width="${r*.02}" opacity=".85"/>`);
+    parts.push(`<polygon points="${cx+r*.98},${cy-ry*.1} ${cx+r*.74},${cy-ry*.5} ${cx+r*.6},${cy+ry*.14}" fill="${colors.body}" stroke="${colors.eye}" stroke-width="${r*.02}" opacity=".85"/>`);
+  }
+  if (shape.floating) {
+    const orbitRx = r * 1.5, orbitRy = ry * 1.35;
+    [-50, -5, 130, 200].forEach((deg, i) => {
+      const rad = deg * Math.PI / 180;
+      const ox = cx + Math.cos(rad) * orbitRx;
+      const oy = cy + Math.sin(rad) * orbitRy;
+      const sz = r * (0.1 + (i % 2) * 0.03);
+      parts.push(`<polygon points="${ox},${oy-sz} ${ox+sz*.6},${oy} ${ox},${oy+sz} ${ox-sz*.6},${oy}" fill="${colors.cheek}" stroke="${colors.eye}" stroke-width="${r*.015}" opacity=".85"/>`);
+    });
+  }
+  return parts.join('');
+}
+
+function wispFeaturesSvg(shape, variant, colors, cx, cy, r, ry) {
+  const parts = [];
+  const topY = cy - ry;
+  const flameH = r * .38 * variant.spike;
+  parts.push(`<path d="M ${cx-r*.14} ${topY} Q ${cx-r*.2} ${topY-flameH*.6} ${cx} ${topY-flameH} Q ${cx+r*.2} ${topY-flameH*.6} ${cx+r*.14} ${topY} Z" fill="${colors.body}" opacity=".85"/>`);
+  parts.push(`<path d="M ${cx-r*.06} ${topY-flameH*.1} Q ${cx-r*.08} ${topY-flameH*.5} ${cx} ${topY-flameH*.78}" stroke="${colors.cheek}" stroke-width="${r*.03}" fill="none" opacity=".7"/>`);
+  const tendrils = shape.tendrils || 0;
+  for (let i = 0; i < tendrils; i++) {
+    const spread = tendrils > 1 ? (i / (tendrils - 1) - 0.5) : 0;
+    const bx = cx + spread * r * 1.05 + variant.asym * r * 0.1;
+    const by = cy + ry * .68;
+    const len = r * (.48 + i * .08) * variant.sizeMul;
+    const sway = r * .22 * (i % 2 === 0 ? 1 : -1);
+    parts.push(`<path d="M ${bx} ${by} Q ${bx+sway} ${by+len*.6} ${bx} ${by+len}" stroke="${colors.body}" stroke-width="${r*.065}" fill="none" stroke-linecap="round" opacity=".55"/>`);
+  }
+  return parts.join('');
+}
+
+function guardianFeaturesSvg(shape, variant, earShape, colors, cx, cy, r, ry, earMul) {
+  const parts = [];
+  parts.push(earsSvg(earShape, colors.body, colors.cheek, cx, cy, r, earMul));
+  if (shape.mane) {
+    const hy = cy - ry * 1.0;
+    parts.push(`<path d="M ${cx-r*.34} ${hy+r*.1} Q ${cx-r*.4} ${hy-r*.28} ${cx-r*.22} ${hy-r*.4}" stroke="#e8dfc8" stroke-width="${r*.07}" fill="none" stroke-linecap="round"/>`);
+    parts.push(`<path d="M ${cx+r*.34} ${hy+r*.1} Q ${cx+r*.4} ${hy-r*.28} ${cx+r*.22} ${hy-r*.4}" stroke="#e8dfc8" stroke-width="${r*.07}" fill="none" stroke-linecap="round"/>`);
+  }
+  if (shape.maneBig) {
+    for (let i = -2; i <= 2; i++) {
+      const bx = cx + i * r * .16 + variant.asym * r * .08;
+      const by = cy - ry * .92;
+      parts.push(`<polygon points="${bx-r*.06},${by} ${bx},${by-r*.24*variant.spike} ${bx+r*.06},${by}" fill="${colors.cheek}" opacity=".8"/>`);
+    }
+  }
+  if (shape.paws) {
+    // Sit just past the body's own bottom edge so they read as feet, not a
+    // smudge painted over by the body fill drawn afterward.
+    const fy = cy + ry * 1.08;
+    [-.42, -.16, .16, .42].forEach(dx => {
+      parts.push(`<ellipse cx="${cx+r*dx}" cy="${fy}" rx="${r*.12}" ry="${r*.09}" fill="${colors.body}"/>`);
+    });
+  }
+  if (shape.tail) {
+    const tx = cx + r * .92, ty = cy + ry * .3;
+    parts.push(`<path d="M ${tx} ${ty} Q ${tx+r*.55} ${ty-r*.1} ${tx+r*.48} ${ty-r*.55*variant.spike}" stroke="${colors.body}" stroke-width="${r*.14}" fill="none" stroke-linecap="round"/>`);
+  }
+  return parts.join('');
+}
+
+function flitFeaturesSvg(shape, variant, colors, cx, cy, r, ry) {
+  const parts = [];
+  const topY = cy - ry * .8;
+  parts.push(`<path d="M ${cx-r*.5} ${topY} Q ${cx-r*.62} ${topY-r*.32} ${cx-r*.38} ${topY-r*.1}" fill="${colors.body}" opacity=".8"/>`);
+  parts.push(`<path d="M ${cx+r*.5} ${topY} Q ${cx+r*.62} ${topY-r*.32} ${cx+r*.38} ${topY-r*.1}" fill="${colors.body}" opacity=".8"/>`);
+  const wingPairs = shape.wings || 0;
+  for (let p = 0; p < wingPairs; p++) {
+    // Base sits at the body's own side edge (ry-relative) so wings read as
+    // attached to the body instead of floating disconnected from it.
+    const wy = cy + ry * (0.1 - p * .55);
+    const spanX = r * (1.55 - p * .18) * variant.sizeMul;
+    const tipY = wy - r * (0.65 + p * .1) * variant.spike;
+    parts.push(`<path d="M ${cx-r*.9} ${wy} Q ${cx-spanX} ${wy-r*.15} ${cx-spanX*.85} ${tipY} Q ${cx-r*.75} ${wy-r*.25} ${cx-r*.6} ${wy+r*.1} Z" fill="${colors.body}" stroke="${colors.eye}" stroke-width="${r*.015}" opacity=".75"/>`);
+    parts.push(`<path d="M ${cx+r*.9} ${wy} Q ${cx+spanX} ${wy-r*.15} ${cx+spanX*.85} ${tipY} Q ${cx+r*.75} ${wy-r*.25} ${cx+r*.6} ${wy+r*.1} Z" fill="${colors.body}" stroke="${colors.eye}" stroke-width="${r*.015}" opacity=".75"/>`);
+  }
+  if (shape.legs) {
+    // Anchored below the body's own bottom edge so the legs/talons are
+    // fully visible rather than hidden inside the body fill.
+    const topAnchor = cy + ry * .78;
+    const fy = cy + ry * 1.15;
+    [-.2, .2].forEach(dx => {
+      parts.push(`<line x1="${cx+r*dx}" y1="${topAnchor}" x2="${cx+r*dx}" y2="${fy}" stroke="${colors.body}" stroke-width="${r*.055}"/>`);
+      parts.push(`<path d="M ${cx+r*dx-r*.07} ${fy} L ${cx+r*dx} ${fy+r*.1} L ${cx+r*dx+r*.07} ${fy}" stroke="${colors.body}" stroke-width="${r*.045}" fill="none"/>`);
+    });
+  }
+  if (shape.tailFeathers) {
+    const tx = cx, ty = cy + ry * .92;
+    [-.14, 0, .14].forEach(dx => {
+      parts.push(`<path d="M ${tx+r*dx} ${ty} L ${tx+r*dx*1.7} ${ty+r*.38}" stroke="${colors.cheek}" stroke-width="${r*.06}" stroke-linecap="round"/>`);
+    });
+  }
+  if (shape.streamers) {
+    [-.3, .3].forEach(dx => {
+      parts.push(`<path d="M ${cx+r*dx} ${cy+ry*.6} Q ${cx+r*dx*1.7} ${cy+ry*1.1} ${cx+r*dx*1.2} ${cy+ry*1.6}" stroke="${colors.eye}" stroke-width="${r*.035}" fill="none" opacity=".65"/>`);
+    });
+  }
+  return parts.join('');
+}
+
+function archetypeFeaturesSvg(archetype, shape, variant, earShape, colors, cx, cy, r, ry, earMul) {
+  switch (archetype) {
+    case 'construct': return constructFeaturesSvg(shape, variant, colors, cx, cy, r, ry);
+    case 'guardian':  return guardianFeaturesSvg(shape, variant, earShape, colors, cx, cy, r, ry, earMul);
+    case 'flit':      return flitFeaturesSvg(shape, variant, colors, cx, cy, r, ry);
+    case 'wisp':
+    default:          return wispFeaturesSvg(shape, variant, colors, cx, cy, r, ry);
+  }
 }
 
 function patternOverlaySvg(pattern, colors, cx, cy, r, ry, gid) {
@@ -471,15 +685,18 @@ function accessorySvg(stage, milestones, colors, cx, cy, r, isSolo = false) {
 // ─── SVG builder ─────────────────────────────────────────────────────────────
 
 function buildPetSvg(visuals, stage, mood, size, milestones = [], isCouple = false, isSolo = false) {
-  const { colors, earShape, pattern } = visuals;
+  const { colors, earShape, pattern, archetype, variant, secondaryArchetype } = visuals;
+  const arch = archetype || 'wisp';
+  const v = variant || ATTACHMENT_VARIANT.secure;
+  const stg = clampStage(stage);
   const s = size;
-  const r = s * .38;
+  const r = s * .38 * (v.sizeMul || 1);
   const cx = s / 2;
   const cy = s * .54;
-  const shape = STAGE_SHAPE[stage] || STAGE_SHAPE[1];
-  const ry = r * shape.ryMul;
-  const gid = `pg_${Math.round(r)}_${stage}${isCouple ? 'c' : ''}`;
-  const shiny = isCouple && stage >= 5;
+  const shape = getArchetypeStageShape(arch, stg);
+  const ry = r * (shape.ryMul || .9);
+  const gid = `pg_${Math.round(r)}_${stg}${isCouple ? 'c' : ''}`;
+  const shiny = isCouple && stg >= 5;
 
   const mouth =
     mood === 'excited' ? `M ${cx-r*.28} ${cy+r*.3} Q ${cx} ${cy+r*.56} ${cx+r*.28} ${cy+r*.3}` :
@@ -487,10 +704,14 @@ function buildPetSvg(visuals, stage, mood, size, milestones = [], isCouple = fal
     mood === 'curious' ? `M ${cx-r*.15} ${cy+r*.32} Q ${cx+r*.1} ${cy+r*.44} ${cx+r*.16} ${cy+r*.3}` :
                          `M ${cx-r*.2} ${cy+r*.3} Q ${cx} ${cy+r*.44} ${cx+r*.2} ${cy+r*.3}`;
 
-  const earFill = isCouple ? colors.cheek : colors.body;
-  const ears = earsSvg(earShape, earFill, colors.cheek, cx, cy, r, shape.earMul);
-  const limbs = shape.limbs ? limbsSvg(colors, cx, cy, r) : '';
-  const aura = shape.aura ? auraSvg(colors, cx, cy, r) : '';
+  const earMul = 1 + (stg - 1) * .08;
+  const features = archetypeFeaturesSvg(arch, shape, v, earShape, colors, cx, cy, r, ry, earMul);
+  // Chimera: couple pet borrows one accent feature from the partner's
+  // archetype family, layered smaller/behind the primary body's own features.
+  const secondaryAccent = (isCouple && secondaryArchetype && secondaryArchetype !== arch)
+    ? archetypeFeaturesSvg(secondaryArchetype, getArchetypeStageShape(secondaryArchetype, stg), v, earShape, colors, cx, cy, r * .8, ry * .8, earMul)
+    : '';
+  const aura = stg >= 5 ? auraSvg(colors, cx, cy, r) : '';
   const pat = patternOverlaySvg(pattern, colors, cx, cy, r, ry, gid);
   const sparkle = shiny ? shinySparkleSvg(cx, cy, r) : '';
 
@@ -498,7 +719,7 @@ function buildPetSvg(visuals, stage, mood, size, milestones = [], isCouple = fal
     <path d="M ${cx} ${cy+r*.36} C ${cx-r*.18} ${cy+r*.19} ${cx-r*.33} ${cy+r*.31} ${cx} ${cy+r*.53} C ${cx+r*.33} ${cy+r*.31} ${cx+r*.18} ${cy+r*.19} ${cx} ${cy+r*.36} Z" fill="${colors.eye}" opacity=".5"/>
   ` : '';
 
-  const accessories = accessorySvg(stage, milestones, colors, cx, cy, r, isSolo);
+  const accessories = accessorySvg(stg, milestones, colors, cx, cy, r, isSolo);
 
   const { a, b } = visuals.shinyColors || { a: colors, b: colors };
   const gradientDef = shiny
@@ -516,7 +737,7 @@ function buildPetSvg(visuals, stage, mood, size, milestones = [], isCouple = fal
 
   return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">
     <defs>${gradientDef}</defs>
-    ${aura}${accessories}${limbs}${ears}
+    ${aura}${accessories}${secondaryAccent}${features}
     <ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${ry}" fill="url(#${gid})"/>
     ${pat}
     <ellipse cx="${cx-r*.43}" cy="${cy+r*.19}" rx="${r*.23}" ry="${r*.15}" fill="${colors.cheek}" opacity=".48"/>
@@ -887,7 +1108,7 @@ export function renderPetDrawer() {
   const stageInfo = getStage(userPet.totalDays);
   const nextStage = STAGES.find(s => s.minDays > userPet.totalDays);
   const solo = window.AppState.soloMode || !window.AppState.partnerProfile?.name;
-  const svg = buildPetSvg(visuals, userPet.stage, userPet.mood, 90, milestones, false, solo);
+  const svg = buildPetSvg(visuals, userPet.stage, userPet.mood, stageInfo.size, milestones, false, solo);
 
   const stageBar = STAGES.map(s => {
     const cls = s.stage === userPet.stage ? 'active' : s.stage < userPet.stage ? 'past' : '';
@@ -933,3 +1154,12 @@ export function renderPetDrawer() {
     </div>
   `;
 }
+
+// ─── Test-only internals ──────────────────────────────────────────────────
+// Exposes the pure, render-only functions for the Node-based visual QA
+// harness (see /tmp/pet-test in the PR description) so pet art can be
+// rasterized and reviewed without a browser. Not used by the app itself.
+export const __internals = {
+  derivePetVisuals, deriveCoupleVisuals, buildPetSvg, getStage, clampStage,
+  speciesArchetype, mbtiTemperament, bodyVariant
+};
