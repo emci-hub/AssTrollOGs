@@ -1205,6 +1205,42 @@ function tickPet(petData, profile, isSolo, gameData) {
   return petData;
 }
 
+// Friendship pets grow on visit, not on a daily auto-tick — there's no
+// shared gameplay with a friend the way there is with a partner, so growth
+// is scoped to "did you actually open this friend's profile today," which
+// friends.js gates via the existing canAwardPetGrowthToday()/
+// recordPetGrowthToday() daily-cap pattern (keyed `friend_<id>`).
+export function bumpFriendPetGrowth(petData, points, gameData) {
+  petData.totalDays = (petData.totalDays || 0) + points;
+  petData.lastSeen = todayLocal();
+  petData.mood = deriveMood(gameData);
+  petData.stage = getStage(petData.totalDays).stage;
+  return petData;
+}
+
+// A small, cheap glyph (color + two eyes, no limbs/patterns/items) for
+// scannable list rows where rendering full pet SVGs for every entry would
+// be wasteful — e.g. the Friends list.
+export function miniAvatarSvg(profile, size = 40) {
+  const { colors } = derivePetVisuals(profile);
+  const s = size;
+  const r = s * 0.42;
+  const cx = s / 2, cy = s / 2;
+  const gid = `mini_${Math.round(r)}_${colors.body.slice(1)}`;
+  return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="${gid}" cx="38%" cy="32%">
+        <stop offset="0%" stop-color="${colors.cheek}" stop-opacity=".7"/>
+        <stop offset="100%" stop-color="${colors.body}"/>
+      </radialGradient>
+    </defs>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#${gid})"/>
+    <circle cx="${cx-r*.3}" cy="${cy-r*.1}" r="${r*.13}" fill="${colors.eye}"/>
+    <circle cx="${cx+r*.3}" cy="${cy-r*.1}" r="${r*.13}" fill="${colors.eye}"/>
+    <path d="M ${cx-r*.18} ${cy+r*.28} Q ${cx} ${cy+r*.42} ${cx+r*.18} ${cy+r*.28}" stroke="${colors.eye}" stroke-width="${r*.07}" fill="none" stroke-linecap="round"/>
+  </svg>`;
+}
+
 function tickCouplePet(petData, gameData) {
   const today = todayLocal();
   if (petData.lastSeen !== today) {
@@ -1536,6 +1572,11 @@ export function renderPetDrawer() {
 // Exposes the pure, render-only functions for the Node-based visual QA
 // harness (see /tmp/pet-test in the PR description) so pet art can be
 // rasterized and reviewed without a browser. Not used by the app itself.
+// Public API needed by friends.js to build friendship companion pets the
+// same way the couple pet is built (Chimera of any two profiles) — no new
+// visual code required, just exposing what was previously module-private.
+export { derivePetVisuals, deriveCoupleVisuals, buildPetSvg, getStage, ascensionTier, ascensionFinish, makeCouplePetData };
+
 export const __internals = {
   derivePetVisuals, deriveCoupleVisuals, buildPetSvg, getStage, clampStage,
   speciesArchetype, mbtiTemperament, bodyVariant,

@@ -596,3 +596,166 @@ export const GROWTH_AREAS = {
     }
   }
 };
+
+// ── Friends: attachment pairing (platonic tone) ──────────────────────────────
+// Same 4x4 structure as ATTACHMENT_PAIRINGS but written for a friendship, not
+// a relationship — deliberately NOT reused verbatim, since lines like "this
+// pair grows by giving each other room" read as a couple. Keyed
+// `${userAttachment}_${friendAttachment}`, order matters. {friend} token.
+
+export const FRIEND_ATTACHMENT_PAIRINGS = {
+  secure_secure:    "Two low-drama friends who just show up for each other. The only risk is taking it so for granted you forget to actually make plans.",
+  secure_anxious:   "You're the steady one; {friend} is the one who double-checks the group chat. A quick 'all good, just busy' from you goes a long way when you go quiet for a bit.",
+  secure_avoidant:  "You're easy to be around and {friend} needs real space sometimes — that's a good match, as long as {friend}'s disappearances come with a heads-up instead of just silence.",
+  secure_fearful:   "Your consistency is doing quiet work here — {friend} is watching to see if you're still around next month, and you keep being around. That's the whole friendship, actually.",
+  anxious_secure:   "{friend}'s calm isn't distance, it's just how they're built — when you're overthinking a slow reply, a straight question beats a spiral every time.",
+  anxious_anxious:  "You both notice everything and worry about half of it. Great for remembering birthdays, risky for reading a busy week as a falling-out.",
+  anxious_avoidant: "You check in more when it's quiet; {friend} goes quiet to recharge. Neither of you is doing anything wrong — just say which mode you're in instead of guessing at theirs.",
+  anxious_fearful:  "You both want to know the friendship is solid and you check for proof in different ways. Say the reassurance out loud sometimes instead of waiting for it to be inferred.",
+  avoidant_secure:  "{friend} gives you room without keeping score, which is exactly why this one's easy. Occasionally being the one who reaches out first costs you nothing and means a lot.",
+  avoidant_anxious: "Your radio silence reads louder to {friend} than it feels to you. A two-word 'still alive' text saves them a week of wondering.",
+  avoidant_avoidant:"Low-maintenance, easygoing, and genuinely at risk of not talking for six months without either of you meaning to. Someone has to send the first meme.",
+  avoidant_fearful: "You go quiet to recharge; {friend} goes quiet to test if you'll still be there. Same silence, different meaning — worth naming which one it is.",
+  fearful_secure:   "{friend} keeps showing up plainly, no drama, no test. Let the boring reliable weeks count as proof, not a fluke.",
+  fearful_anxious:  "You're both watching for signs this friendship is real, just from different angles. Compare notes sometimes instead of running separate investigations.",
+  fearful_avoidant: "Your caution reads as distance to {friend}, whose distance confirms your caution. One small honest text breaks the loop — it can be you.",
+  fearful_fearful:  "Two people who want this to be real and are bracing just in case it isn't. Nobody here is going to rush the other, which is its own kind of trust."
+};
+
+// ── Friends: conflict/friction pairing (platonic tone) ───────────────────────
+// Sorted-pair keyed like CONFLICT_PAIRINGS, but for the small frictions that
+// come up between friends (making plans, calling something out, drifting)
+// rather than romantic-relationship conflict.
+
+export const FRIEND_CONFLICT_PAIRINGS = {
+  'collaborative|collaborative': "If something's actually bothering either of you, you'll both talk it out properly — good instinct, just don't turn a scheduling mix-up into a summit.",
+  'collaborative|compromising':  "One of you wants to actually talk it through, the other wants to split the difference and move on. Ask which kind of issue it is before picking a mode.",
+  'accommodating|collaborative': "One of you will happily talk it out; the other tends to just say 'it's fine' to end it faster. Double-check that 'fine' actually means fine.",
+  'avoiding|collaborative':      "One of you wants to hash it out now, the other needs a beat first. 'Let's talk tomorrow' works better than pushing for it on the spot.",
+  'compromising|compromising':   "You both just want a fair fix and to get on with hanging out — efficient. Just don't let every actual gripe get quietly traded away instead of said.",
+  'accommodating|compromising':  "Plans get sorted fast here, but one of you may be the one always bending. Every so often, ask if the usual arrangement still works for both of you.",
+  'avoiding|compromising':       "One of you wants it settled today, the other needs to sit with it first. A short 'let's revisit this in a couple days' works for both.",
+  'accommodating|accommodating': "Neither of you wants to be the one who makes it weird, so small annoyances just don't get mentioned. Practice saying the minor thing before it becomes a bigger thing.",
+  'accommodating|avoiding':      "One of you smooths it over, the other just steps back — either way, nothing actually gets said. Try naming one small thing on purpose next time.",
+  'avoiding|avoiding':           "You both just let things go quiet when it's off between you, which is peaceful and also how friendships fade without anyone deciding to end them. Check in occasionally, even when nothing's wrong."
+};
+
+// ── Friendship titles ─────────────────────────────────────────────────────────
+// Multiple candidates per key (not one) so the "refresh" action on a
+// friendship's title can cycle through different options via the same
+// shuffle-bag pattern pet.js uses for affirmations — never immediately
+// repeats, purely in-memory, nothing persisted. Keyed by the sorted
+// attachment pair, matching FRIEND_CONFLICT_PAIRINGS' key style.
+
+export const FRIENDSHIP_TITLES = {
+  'secure|secure':    ['The Steady Two', 'Low-Drama Duo', 'Easy Company'],
+  'anxious|secure':   ['The Anchor & The Radar', 'Steady Meets Sensing', 'Calm and Curious'],
+  'avoidant|secure':  ['Space and Grace', 'The Easy Distance', 'Room to Breathe'],
+  'fearful|secure':   ['Slow Trust Build', 'The Patient Pair', 'Proof Over Time'],
+  'anxious|anxious':  ['Double Radar', 'Big Feelings, Bigger Loyalty', 'The Overthink Alliance'],
+  'anxious|avoidant': ['The Push-Pull Pair', 'Opposites in Sync', 'Chase and Retreat'],
+  'anxious|fearful':  ['Careful Hearts United', 'The Watchful Two', 'Testing the Waters Together'],
+  'avoidant|avoidant':['The Long-Distance Besties', 'Comfortable Silence Champions', 'Low-Contact, High-Trust'],
+  'avoidant|fearful': ['Two Kinds of Careful', 'The Quiet Negotiators', 'Distance With a Purpose'],
+  'fearful|fearful':  ['Brave Enough to Try', 'The Cautious Optimists', 'Guarded and Going For It']
+};
+
+const FRIENDSHIP_TITLE_FALLBACK = ['A Friendship in Progress', 'Still Figuring Each Other Out', 'The Unwritten Duo'];
+
+/** Sorted-pair lookup helper shared by the friend content tables above. */
+export function friendPairKey(a, b) {
+  return [a || 'secure', b || 'secure'].sort().join('|');
+}
+
+export function getFriendshipTitlePool(userAttachment, friendAttachment) {
+  return FRIENDSHIP_TITLES[friendPairKey(userAttachment, friendAttachment)] || FRIENDSHIP_TITLE_FALLBACK;
+}
+
+// ── Icebreakers ────────────────────────────────────────────────────────────────
+// Keyed by the FRIEND's expressionStyle (a conversation prompt tuned to how
+// they tend to communicate), {friend} token.
+
+export const FRIEND_ICEBREAKERS = {
+  direct:     [
+    "Ask {friend} straight up what they're most excited about right now — they'll actually tell you.",
+    "Ask {friend} what's the most useful piece of advice anyone's given them this year.",
+    "Ask {friend} what they'd change about their week if they could change one thing."
+  ],
+  indirect:   [
+    "Bring up something you've both been circling around and see if {friend} opens up about it.",
+    "Ask {friend} what's been on their mind lately — then actually wait for the real answer.",
+    "Mention something small you noticed about {friend} lately; it usually opens the door to more."
+  ],
+  reflective: [
+    "Ask {friend} something they've been mulling over — they'll have a more interesting answer than you expect.",
+    "Ask {friend} what they've changed their mind about recently.",
+    "Give {friend} a slightly bigger question than usual and let the pause happen — they're thinking, not stalling."
+  ],
+  analytical: [
+    "Ask {friend} how they'd actually solve a problem you're dealing with — they'll enjoy being asked.",
+    "Ask {friend} what they're currently trying to get better at.",
+    "Ask {friend} for their honest breakdown of something you both have an opinion on."
+  ]
+};
+
+// ── Jokes ───────────────────────────────────────────────────────────────────────
+// One general rotating pool — deliberately NOT keyed by personality trait,
+// since jokes shouldn't feel like they're diagnosing someone. Just light,
+// friendship-themed, shareable.
+
+export const FRIEND_JOKES = [
+  "Friendship level: you'd help them move a couch, no U-Haul required.",
+  "You two have reached the stage where silence in the group chat means nothing's wrong, not everything's wrong.",
+  "Officially certified: you can eat the last slice in front of them without asking.",
+  "You're at the exact friendship tier where 'we should hang out soon' actually means soon.",
+  "Congratulations, you've unlocked 'sends memes instead of texting back' status.",
+  "This friendship has fully cleared the 'no need to finish sentences' milestone.",
+  "You've reached peak trust: they know your order and just orders it for you.",
+  "Friendship achievement unlocked: comfortable arguing about where to eat for twenty minutes.",
+  "You're close enough now that 'I'm fine' actually gets questioned instead of accepted.",
+  "You've hit the tier where showing up in pajamas is not just allowed, it's expected."
+];
+
+// ── Send-this messages ────────────────────────────────────────────────────────
+// Keyed by the FRIEND's loveLanguage — a short line worth actually copying
+// and sending, not just reading. {friend} token.
+
+export const FRIEND_MESSAGES = {
+  words:   [
+    "hey — just thinking about you, you're one of my favorite people 🤍",
+    "random reminder that you're genuinely great at what you do",
+    "not gonna make this weird but I appreciate you, that's it, that's the text"
+  ],
+  time:    [
+    "we haven't hung out in a bit, you free this week?",
+    "want to just do nothing together this weekend? no agenda",
+    "I miss actually spending time with you, let's fix that soon"
+  ],
+  service: [
+    "if you need help with anything this week, I'm around, just say the word",
+    "let me know if there's anything I can take off your plate",
+    "I'm running errands anyway, want me to grab you anything?"
+  ],
+  touch:   [
+    "bring it in next time I see you, I mean it",
+    "virtual hug incoming, consider yourself hugged",
+    "next time we're in the same room I'm not letting you leave without a hug"
+  ],
+  gifts:   [
+    "saw something today that made me think of you",
+    "I have a little something for you next time I see you",
+    "found the thing you mentioned wanting — got you"
+  ]
+};
+
+// ── Friend of the Day nudge tips ────────────────────────────────────────────────
+// Keyed by the FRIEND's loveLanguage — a short reason-to-reach-out line for
+// the daily spotlight card. {friend} token.
+
+export const FRIEND_OF_DAY_TIPS = {
+  words:   "A quick 'thinking of you' text would land really well with {friend} today.",
+  time:    "{friend} would probably love it if you actually made plans instead of just saying you should.",
+  service: "Check if there's something small you could take off {friend}'s plate today.",
+  touch:   "Next time you see {friend}, don't skip the hug.",
+  gifts:   "You know that thing {friend} mentioned wanting? Today's a good day to remember it."
+};

@@ -12,6 +12,9 @@
  *   streak.longest           — all-time best streak
  *   milestones               — array of earned milestone ids
  *   petGrowthLog             — { [gameId]: 'YYYY-MM-DD' } tracks last day each game awarded pet growth
+ *                              (also reused for friend visits, keyed `friend_<id>`)
+ *   friends                  — [{ id, name, addedAt, profile: {...same shape as partnerProfile...}, streak }]
+ *   pet.friends              — { [friendId]: CouplePetData } — one companion pet per friendship
  */
 
 import { hydrateDashboardViews } from './dashboard.js';
@@ -99,10 +102,15 @@ export function defaultGameData() {
       lastResetDate: null
     },
     milestones: [],
-    pet: { user: null, partner: null, couple: null },
+    pet: { user: null, partner: null, couple: null, friends: {} },
     mood: { today: null, lastChecked: null, streak: 0, history: [] },
     quicktakes: { sessionCount: 0, lastPlayed: null },
-    petGrowthLog: {}
+    petGrowthLog: {},
+    // Friends list — each entry is a lightweight, locally-entered snapshot
+    // of someone else's profile (same shape as partnerProfile), not a live
+    // synced account. `streak` tracks consecutive days you've visited that
+    // specific friend's profile (drives their companion pet's growth).
+    friends: []
   };
 }
 
@@ -152,6 +160,14 @@ export function migrateGameData(gd) {
   if (!Array.isArray(gd.duo?.history)) gd.duo.history = [];
   if (!Array.isArray(gd.reflection?.entries)) gd.reflection.entries = [];
   if (!Array.isArray(gd.checkin?.entries)) gd.checkin.entries = [];
+
+  // Friends — additive, defensively backfilled like every prior addition.
+  if (!Array.isArray(gd.friends)) gd.friends = [];
+  gd.friends.forEach(f => {
+    if (!f.streak) f.streak = { current: 0, lastVisit: null, longest: 0 };
+  });
+  if (!gd.pet) gd.pet = { user: null, partner: null, couple: null, friends: {} };
+  if (!gd.pet.friends) gd.pet.friends = {};
 
   gd.schemaVersion = SCHEMA_VERSION;
   return gd;
@@ -256,7 +272,11 @@ export function checkMilestones() {
     { id: 'pet_baby',          check: () => gd.pet?.user?.totalDays >= 4 },
     { id: 'pet_adult',         check: () => gd.pet?.user?.totalDays >= 20 },
     { id: 'pet_legendary',     check: () => gd.pet?.user?.totalDays >= 40 },
-    { id: 'pet_couple_shiny',  check: () => gd.pet?.couple?.stage >= 5 }
+    { id: 'pet_couple_shiny',  check: () => gd.pet?.couple?.stage >= 5 },
+    { id: 'friend_first',      check: () => (gd.friends?.length || 0) >= 1 },
+    { id: 'friend_circle',     check: () => (gd.friends?.length || 0) >= 5 },
+    { id: 'friend_bond',       check: () => Object.values(gd.pet?.friends || {}).some(p => (p?.stage || 0) >= 5) },
+    { id: 'friend_streak_7',   check: () => (gd.friends || []).some(f => (f.streak?.current || 0) >= 7) }
   ];
 
   MILESTONE_CHECKS.forEach(m => {
@@ -294,7 +314,11 @@ export const MILESTONE_LABELS = {
   pet_baby:           'Baby Steps',
   pet_adult:          'Growing Up',
   pet_legendary:      'Legendary Bond',
-  pet_couple_shiny:   'Shiny Bond'
+  pet_couple_shiny:   'Shiny Bond',
+  friend_first:       'Made a Friend',
+  friend_circle:      'Friend Circle',
+  friend_bond:        'Friendship Legend',
+  friend_streak_7:    'Ride or Die'
 };
 
 /**
@@ -319,4 +343,5 @@ export function saveGameData() {
     vibeSeed: window.AppState.vibeSeed
   });
   if (typeof window._renderPetSection === 'function') window._renderPetSection();
+  if (typeof window._renderFriendsSection === 'function') window._renderFriendsSection();
 }
