@@ -1364,8 +1364,10 @@ export function renderPetSection() {
       ? (solo ? 'Watch out for' : `A heads-up for ${uName || 'you'}`)
       : (solo ? 'Today for you' : `Today for ${uName || 'you'}`);
   }
-  const affirmColor = isWarning ? '#f0a055' : 'var(--success-color)';
-  const affirmBg = isWarning ? 'rgba(240,160,85,0.08)' : 'rgba(78,180,120,0.08)';
+  const affirmColor = isWarning ? 'var(--warning-color)' : 'var(--success-color)';
+  const affirmBg = isWarning
+    ? 'color-mix(in srgb, var(--warning-color) 8%, transparent)'
+    : 'color-mix(in srgb, var(--success-color) 8%, transparent)';
   const affirmIcon = isWarning ? '!' : '✦';
 
   const nextStage = STAGES.find(s => s.minDays > userPet.totalDays);

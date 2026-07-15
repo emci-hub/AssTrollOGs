@@ -99,7 +99,7 @@ export function renderActiveStep() {
                 oninput="formatSaveCodeInput(this)"
                 onkeydown="if(event.key==='Enter') submitSaveCode()">
             </div>
-            <div id="save-code-error" style="display:none; font-size:0.7rem; color:#f87171; margin-bottom:8px; font-family:monospace;"></div>
+            <div id="save-code-error" style="display:none; font-size:0.7rem; color:var(--danger-color); margin-bottom:8px; font-family:var(--font-mono);"></div>
             <button class="btn" id="save-code-submit-btn" onclick="submitSaveCode()">Load Save</button>
           </div>
         </div>
