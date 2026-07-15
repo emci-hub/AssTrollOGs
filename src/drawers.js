@@ -12,6 +12,7 @@ import { renderPetDrawer } from './pet.js';
 import { renderGrowthDrawer } from './growth.js';
 import { cloudSave } from './supabase.js';
 import { buildStoragePayload, getActiveSaveCode } from './state.js';
+import { HUMOR_LEVELS, humorLevel, setHumorLevel } from './composer.js';
 
 let _insightOffsets = { groove: 0, journey: 0, decoder: 0, vibe: 0 };
 
@@ -219,6 +220,15 @@ export function openDrawer(type) {
           ${makeSelect('love', ['words','time','service','touch','gifts'], LOVE_LABELS, u.loveLanguage, 'How you feel most loved')}
           ${makeSelect('expr', ['direct','indirect','reflective','analytical'], EXPR_LABELS, u.expressionStyle, 'How you communicate')}
         </div>
+        <div class="card" style="margin-bottom:12px;">
+          <div class="card-title" style="margin-bottom:10px;">Humor Level</div>
+          <p class="card-body" style="margin-bottom:10px; font-size:0.72rem;">How much the app (and your pet) is allowed to joke around. Unhinged unlocks the dark stuff.</p>
+          <div class="input-group" style="margin-bottom:0;">
+            <select id="ps-humor" class="input-field" style="cursor:pointer;">
+              ${HUMOR_LEVELS.map(l => `<option value="${l.id}" ${humorLevel() === l.id ? 'selected' : ''}>${l.label} — ${l.desc}</option>`).join('')}
+            </select>
+          </div>
+        </div>
         <button class="btn" onclick="saveProfileSettings()">Save Changes</button>
         <div id="ps-saved-msg" style="display:none; text-align:center; color:var(--success-color); font-size:0.8rem; font-weight:700; margin-top:10px;">Profile updated!</div>
       `;
@@ -418,8 +428,11 @@ window.saveProfileSettings = function() {
   const conflict = document.getElementById('ps-conflict')?.value;
   const love = document.getElementById('ps-love')?.value;
   const expr = document.getElementById('ps-expr')?.value;
+  const humor = document.getElementById('ps-humor')?.value;
 
   if (!name || !location) return;
+
+  if (humor) setHumorLevel(humor);
 
   window.AppState.userProfile.name = name;
   window.AppState.userProfile.location = location;
@@ -437,6 +450,10 @@ window.saveProfileSettings = function() {
   }
   if (!parsed) parsed = buildStoragePayload();
   parsed.userProfile = window.AppState.userProfile;
+  // Carry live gameData into the package — the JSON.parse copy above is a
+  // snapshot from the last save and would otherwise clobber anything changed
+  // since (including the humor setting written just above).
+  parsed.gameData = window.AppState.gameData;
   if (parsed.tempAnswers) {
     parsed.tempAnswers.userName = name;
     parsed.tempAnswers.location = location;

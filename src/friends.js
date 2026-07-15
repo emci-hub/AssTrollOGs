@@ -23,6 +23,7 @@ import {
   FRIEND_ICEBREAKERS, FRIEND_JOKES, FRIEND_MESSAGES, FRIEND_OF_DAY_TIPS
 } from './content-bank.js';
 import { PSYCH_QUESTIONS, MBTI_TYPES } from './questions.js';
+import { accountSalt, pickVariant } from './composer.js';
 
 // ─── Hashing (module-local DJB2, same pattern used in pet.js/insights.js —
 // deliberately separate rather than shared, matching this codebase's own
@@ -84,10 +85,12 @@ function memoizedPick(key, forceRefresh, pickFn) {
 // the same score — a scannable number for the list, not a serious metric.
 
 export function computeFriendVibeScore(userProfile, friendProfile) {
+  // Salted per account so two accounts that entered the same friend don't
+  // land on the same "fun number" — still fully deterministic per pair.
   const seed = hashString([
     userProfile?.name, userProfile?.mbti, userProfile?.attachmentStyle,
     friendProfile?.name, friendProfile?.mbti, friendProfile?.attachmentStyle
-  ].map(v => (v || '').toString().toLowerCase()).join('|'));
+  ].map(v => (v || '').toString().toLowerCase()).join('|')) + accountSalt();
   return 40 + (seed % 61); // 40-100 — always reads as a decent vibe, never a harsh low score
 }
 
@@ -115,8 +118,11 @@ export function pickFriendshipTitle(userAttach, friendAttach, friendId, forceRef
 
 export function getFriendPairingInsight(userProfile, friendProfile) {
   const attachKey = `${userProfile?.attachmentStyle || 'secure'}_${friendProfile?.attachmentStyle || 'secure'}`;
-  const attachLine = FRIEND_ATTACHMENT_PAIRINGS[attachKey];
-  const conflictLine = FRIEND_CONFLICT_PAIRINGS[friendPairKey(userProfile?.conflictStyle, friendProfile?.conflictStyle)];
+  // Variant rotates daily per friend — deterministic within a day, so
+  // re-opening the same profile doesn't churn the text.
+  const daySeed = hashString(todayLocal()) + accountSalt();
+  const attachLine = pickVariant(FRIEND_ATTACHMENT_PAIRINGS[attachKey], daySeed, friendProfile?.name || '', 'friend-attach');
+  const conflictLine = pickVariant(FRIEND_CONFLICT_PAIRINGS[friendPairKey(userProfile?.conflictStyle, friendProfile?.conflictStyle)], daySeed, friendProfile?.name || '', 'friend-conflict');
   return {
     attachment: fillFriendTemplate(attachLine, friendProfile?.name),
     conflict: fillFriendTemplate(conflictLine, friendProfile?.name)
@@ -176,9 +182,10 @@ export function pickSendMessage(friendProfile, friendId, forceRefresh = false) {
 
 export function getFriendOfTheDay(friends) {
   if (!friends || friends.length === 0) return null;
-  const seed = hashString(todayLocal());
+  const seed = hashString(todayLocal()) + accountSalt();
   const friend = friends[seed % friends.length];
-  const tip = fillFriendTemplate(FRIEND_OF_DAY_TIPS[friend.profile?.loveLanguage] || FRIEND_OF_DAY_TIPS.words, friend.name);
+  const tipEntry = FRIEND_OF_DAY_TIPS[friend.profile?.loveLanguage] || FRIEND_OF_DAY_TIPS.words;
+  const tip = fillFriendTemplate(pickVariant(tipEntry, seed, friend.name, 'friend-of-day'), friend.name);
   return { friend, tip };
 }
 

@@ -20,6 +20,10 @@ import { moodGame } from './mood.js';
 import { quickTakesGame } from './quicktakes.js';
 import { dailyqGame } from './dailyq.js';
 import { checkinGame } from './checkin.js';
+import { redflagGame } from './redflag.js';
+import { pettyCourtGame } from './pettycourt.js';
+import { calledItGame } from './calledit.js';
+import { capsuleGame } from './capsule.js';
 
 const GAMES = [
   triviaGame,
@@ -28,7 +32,11 @@ const GAMES = [
   moodGame,
   quickTakesGame,
   dailyqGame,
-  checkinGame
+  checkinGame,
+  redflagGame,
+  pettyCourtGame,
+  calledItGame,
+  capsuleGame
 ];
 
 const _byId = {};

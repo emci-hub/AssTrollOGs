@@ -102,10 +102,21 @@ export function defaultGameData() {
       lastResetDate: null
     },
     milestones: [],
+    // New games (2026-07): Red Flag Bingo, Petty Court, Called It, Time Capsule.
+    redflag: { checkedCells: [], lastPlayed: null, boardsCompleted: 0 },
+    pettycourt: { cases: 0, agreements: 0, lastPlayed: null },
+    calledit: { active: null, made: 0, right: 0, lastPlayed: null },
+    capsule: { entries: [], lastPlayed: null },
+    // Daily pet question (pet.js petQuestionBlock) — one a day, +1 growth.
+    petq: { lastAnswered: null, count: 0, lastChoice: null },
     pet: { user: null, partner: null, couple: null, friends: {} },
     mood: { today: null, lastChecked: null, streak: 0, history: [] },
     quicktakes: { sessionCount: 0, lastPlayed: null },
     petGrowthLog: {},
+    // App-level user preferences that should sync across devices with the
+    // rest of the save. humorLevel: 'chill' | 'playful' | 'unhinged' —
+    // controls the joke kickers (composer.js); dark humor only at 'unhinged'.
+    settings: { humorLevel: 'playful' },
     // Friends list — each entry is a lightweight, locally-entered snapshot
     // of someone else's profile (same shape as partnerProfile), not a live
     // synced account. `streak` tracks consecutive days you've visited that
@@ -160,6 +171,15 @@ export function migrateGameData(gd) {
   if (!Array.isArray(gd.duo?.history)) gd.duo.history = [];
   if (!Array.isArray(gd.reflection?.entries)) gd.reflection.entries = [];
   if (!Array.isArray(gd.checkin?.entries)) gd.checkin.entries = [];
+
+  // Settings — additive, defensively backfilled like every prior addition.
+  if (!gd.settings) gd.settings = { humorLevel: 'playful' };
+  if (!gd.settings.humorLevel) gd.settings.humorLevel = 'playful';
+
+  // New games — additive, backfilled by the top-level defaults loop; harden
+  // inner shapes for saves that predate them.
+  if (!Array.isArray(gd.redflag?.checkedCells)) gd.redflag.checkedCells = [];
+  if (!Array.isArray(gd.capsule?.entries)) gd.capsule.entries = [];
 
   // Friends — additive, defensively backfilled like every prior addition.
   if (!Array.isArray(gd.friends)) gd.friends = [];
@@ -273,6 +293,13 @@ export function checkMilestones() {
     { id: 'pet_adult',         check: () => gd.pet?.user?.totalDays >= 20 },
     { id: 'pet_legendary',     check: () => gd.pet?.user?.totalDays >= 40 },
     { id: 'pet_couple_shiny',  check: () => gd.pet?.couple?.stage >= 5 },
+    { id: 'redflag_board',     check: () => (gd.redflag?.boardsCompleted || 0) >= 1 },
+    { id: 'pettycourt_first',  check: () => (gd.pettycourt?.cases || 0) >= 1 },
+    { id: 'pettycourt_docket', check: () => (gd.pettycourt?.cases || 0) >= 10 },
+    { id: 'calledit_first',    check: () => (gd.calledit?.made || 0) >= 1 },
+    { id: 'calledit_prophet',  check: () => (gd.calledit?.right || 0) >= 5 },
+    { id: 'capsule_first',     check: () => (gd.capsule?.entries?.length || 0) >= 1 },
+    { id: 'capsule_open',      check: () => (gd.capsule?.entries || []).some(e => e.opened) },
     { id: 'friend_first',      check: () => (gd.friends?.length || 0) >= 1 },
     { id: 'friend_circle',     check: () => (gd.friends?.length || 0) >= 5 },
     { id: 'friend_bond',       check: () => Object.values(gd.pet?.friends || {}).some(p => (p?.stage || 0) >= 5) },
@@ -315,6 +342,13 @@ export const MILESTONE_LABELS = {
   pet_adult:          'Growing Up',
   pet_legendary:      'Legendary Bond',
   pet_couple_shiny:   'Shiny Bond',
+  redflag_board:      'Certified Self-Aware',
+  pettycourt_first:   'First Case Closed',
+  pettycourt_docket:  'Full Docket',
+  calledit_first:     'First Prediction',
+  calledit_prophet:   'Local Prophet',
+  capsule_first:      'Sealed and Delivered',
+  capsule_open:       'Message From the Past',
   friend_first:       'Made a Friend',
   friend_circle:      'Friend Circle',
   friend_bond:        'Friendship Legend',

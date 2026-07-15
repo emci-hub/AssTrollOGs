@@ -10,7 +10,8 @@
  * always recomputed at render time.
  */
 
-import { saveGameData, todayLocal, isToday, daysBetween } from './state.js';
+import { saveGameData, todayLocal, isToday, daysBetween, canAwardPetGrowthToday, recordPetGrowthToday } from './state.js';
+import { accountSalt, pickVariant, kickerFor, maybeRareLine } from './composer.js';
 
 // ─── Name generation ──────────────────────────────────────────────────────────
 
@@ -25,7 +26,10 @@ function generatePetName(profile) {
   const name = ((profile?.name) || 'Friend').trim();
   const attach = profile?.attachmentStyle || 'secure';
   const suffixes = NAME_SUFFIXES[attach] || NAME_SUFFIXES.secure;
-  const seed = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  // Account salt so two accounts with the same human name don't hatch pets
+  // with the same pet name. Names persist once minted, so existing pets are
+  // untouched — only newly created (or profile-edit-regenerated) pets differ.
+  const seed = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) + accountSalt();
   const prefix = name.slice(0, Math.min(3, name.length));
   const suffix = suffixes[seed % suffixes.length];
   const raw = prefix + suffix;
@@ -70,13 +74,21 @@ function computePetSeed(profile) {
   return hashString(`${name}|${location}|${mbti}|${attach}`);
 }
 
+// Seed for the pet's message-y flavor (lucky number, quirks, identity facts)
+// — computePetSeed + the account salt. Kept SEPARATE from computePetSeed so
+// visuals (hue/patterns) stay stable for existing accounts, while flavor
+// content diverges between two accounts created with identical answers.
+function petFlavorSeed(profile) {
+  return Math.abs((computePetSeed(profile) + accountSalt()) | 0);
+}
+
 // ─── Lucky number ───────────────────────────────────────────────────────────
 // Deterministic per-person, per-day (not random, not persisted — same
 // pattern as the rest of this file's seeding). Recomputes naturally at
 // render time as the local day rolls over, so it changes daily without
 // needing a new gameData field.
 function computeLuckyNumber(profile) {
-  const seed = computePetSeed(profile);
+  const seed = petFlavorSeed(profile);
   const dateHash = hashString(todayLocal());
   return ((seed + dateHash) % 9) + 1;
 }
@@ -434,23 +446,89 @@ const WARNINGS = {
   ]
 };
 
+// Arrays of variants per pairing — the shown line rotates daily via
+// pickVariant, so the couple card doesn't repeat one sentence forever.
 const COUPLE_MESSAGES = {
-  'secure_secure':    "Two grounded people building something real. Rare and powerful.",
-  'secure_anxious':   "Stability meets depth. One anchors, one deepens. Together: unshakeable.",
-  'secure_avoidant':  "Patience and space. This pair grows by giving each other room.",
-  'secure_fearful':   "One steady hand for someone learning to reach out. Beautiful dynamic.",
-  'anxious_secure':   "Your depth is held safely here. That is everything.",
-  'anxious_anxious':  "Two big hearts who just get it. Keep choosing each other.",
-  'anxious_avoidant': "Fire and cool air. Opposites that teach each other something irreplaceable.",
-  'anxious_fearful':  "Both brave in different ways. The vulnerability here runs deep.",
-  'avoidant_secure':  "Freedom with a soft landing. What healthy independence looks like.",
-  'avoidant_anxious': "Intensity finds calm here, and calm finds life. Perfect balance.",
-  'avoidant_avoidant':"Two people who respect each other's space absolutely. Quietly powerful.",
-  'avoidant_fearful': "Two careful hearts moving at their own pace. Extraordinary patience.",
-  'fearful_secure':   "One learning to trust, one showing up consistently. This is healing.",
-  'fearful_anxious':  "Vulnerability all the way down. Terrifying and incredibly real.",
-  'fearful_avoidant': "The push-pull that creates the most honest dynamic of all.",
-  'fearful_fearful':  "Two people brave enough to try anyway. That courage is remarkable."
+  'secure_secure': [
+    "Two grounded people building something real. Rare and powerful.",
+    "Two calm people who chose each other on purpose. The pet has never once worried about you two.",
+    "Steady plus steady. Your couple pet gets to just be a pet — no drama absorption duties.",
+  ],
+  'secure_anxious': [
+    "Stability meets depth. One anchors, one deepens. Together: unshakeable.",
+    "One of you is the harbor, one of you is the lighthouse — someone's always watching the water. Solid system.",
+    "Anchor and antenna. Between you, nothing gets missed and nothing gets rocked.",
+  ],
+  'secure_avoidant': [
+    "Patience and space. This pair grows by giving each other room.",
+    "Closeness that doesn't crowd, space that doesn't sting. This pet was raised in a well-ventilated home.",
+    "One opens the door, one appreciates that it stays open. Balance, achieved quietly.",
+  ],
+  'secure_fearful': [
+    "One steady hand for someone learning to reach out. Beautiful dynamic.",
+    "One steady hand, one careful heart, and a little pet watching trust get built brick by brick.",
+    "Consistency meets caution and wins it over slowly. The pet has front-row seats to something rare.",
+  ],
+  'anxious_secure': [
+    "Your depth is held safely here. That is everything.",
+    "Deep feeling, safely held. The pet reports the emotional weather here is 'warm, occasional flurries, always clearing.'",
+    "Your intensity finally has a place to land. The pet approves of the landing pad.",
+  ],
+  'anxious_anxious': [
+    "Two big hearts who just get it. Keep choosing each other.",
+    "Two hearts with the sensitivity dialed to max. This pet has never once felt unnoticed.",
+    "You both feel everything, which means nothing important slips by. The pet is extremely well-monitored.",
+  ],
+  'anxious_avoidant': [
+    "Fire and cool air. Opposites that teach each other something irreplaceable.",
+    "Fire and cool air make weather — and weather makes things grow. Ask the pet, it's thriving.",
+    "One reaches, one recharges, both keep choosing this. The pet calls that a working climate.",
+  ],
+  'anxious_fearful': [
+    "Both brave in different ways. The vulnerability here runs deep.",
+    "Both brave in different directions. The pet was born from that courage and it shows.",
+    "Two kinds of careful, one shared heart. The vulnerability here could power a small city.",
+  ],
+  'avoidant_secure': [
+    "Freedom with a soft landing. What healthy independence looks like.",
+    "Independence with a home address. The pet respects the arrangement enormously.",
+    "Freedom that comes back. That's the rarest trick, and you two do it casually.",
+  ],
+  'avoidant_anxious': [
+    "Intensity finds calm here, and calm finds life. Perfect balance.",
+    "Cool air and warm current — the mix keeps this little one's climate interesting.",
+    "One brings space, one brings spark. The pet inherited both and it's honestly a great combination.",
+  ],
+  'avoidant_avoidant': [
+    "Two people who respect each other's space absolutely. Quietly powerful.",
+    "Two orbits, respectfully maintained, one shared moon. The pet enjoys the quiet.",
+    "Nobody crowds anybody in this house. The pet has never once been smothered and is slightly smug about it.",
+  ],
+  'avoidant_fearful': [
+    "Two careful hearts moving at their own pace. Extraordinary patience.",
+    "Two careful hearts at their own pace — the pet learned patience from professionals.",
+    "Slow, deliberate, real. This pet knows exactly how it was raised: no rush, no tests.",
+  ],
+  'fearful_secure': [
+    "One learning to trust, one showing up consistently. This is healing.",
+    "One learning to trust, one making trust easy to learn. The pet is literal proof of progress.",
+    "Someone keeps showing up, and someone's learning to believe it. The pet believes it already.",
+  ],
+  'fearful_anxious': [
+    "Vulnerability all the way down. Terrifying and incredibly real.",
+    "All the feelings, fully felt, nowhere to hide — and nobody hiding. Remarkable, honestly.",
+    "Vulnerability squared. This pet is made of pure honesty and it glows a little because of it.",
+  ],
+  'fearful_avoidant': [
+    "The push-pull that creates the most honest dynamic of all.",
+    "Push and pull, but the pet notices you both always end up in the same room eventually.",
+    "The most honest dynamic in the book: nobody performs here. The pet finds that very restful.",
+  ],
+  'fearful_fearful': [
+    "Two people brave enough to try anyway. That courage is remarkable.",
+    "Two people who tried anyway. The pet exists because courage beat caution — twice.",
+    "Both brave enough to stay. The pet is a small monument to trying anyway.",
+  ],
 };
 
 // ─── Mood ─────────────────────────────────────────────────────────────────────
@@ -1082,14 +1160,38 @@ function pickPetReaction(gameData, profile) {
 
   if (gd.mood?.lastChecked === today && gd.mood?.today) {
     const MOOD_REACTIONS = {
-      glowing: "noticed you're glowing today and has been doing a happy little wiggle about it.",
-      curious: "picked up on your curious mood and has been extra alert all day.",
-      chill: "matched your chill energy and has been lazing around contentedly.",
-      tense: "sensed the tension today and has been sticking close by.",
-      low: "noticed today's a low one and is staying extra close.",
-      fired: "caught your fired-up energy and has been bouncing off the walls."
+      glowing: [
+        "noticed you're glowing today and has been doing a happy little wiggle about it.",
+        "has been basking in your glow like it's a heat lamp.",
+        "declared today a 'good day' in its official records, citing your glow.",
+      ],
+      curious: [
+        "picked up on your curious mood and has been extra alert all day.",
+        "keeps investigating things alongside you in solidarity.",
+        "matched your curiosity and has now sniffed everything in the room twice.",
+      ],
+      chill: [
+        "matched your chill energy and has been lazing around contentedly.",
+        "achieved a level of relaxation science can't explain, in your honor.",
+        "has been doing absolutely nothing with you, which is its favorite activity.",
+      ],
+      tense: [
+        "sensed the tension today and has been sticking close by.",
+        "is on quiet standby duty today — close, calm, not asking questions.",
+        "noticed the tension and has assigned itself to emotional support detail.",
+      ],
+      low: [
+        "noticed today's a low one and is staying extra close.",
+        "moved a little closer today. No reason given. None needed.",
+        "is keeping today's energy soft on purpose. It's got you.",
+      ],
+      fired: [
+        "caught your fired-up energy and has been bouncing off the walls.",
+        "has been doing laps to keep up with your energy.",
+        "caught your fire and is now, legally speaking, a small comet.",
+      ],
     };
-    const line = MOOD_REACTIONS[gd.mood.today];
+    const line = pickVariant(MOOD_REACTIONS[gd.mood.today], petFlavorSeed(profile), today, 'reaction');
     if (line) return line;
   }
 
@@ -1120,7 +1222,11 @@ const BOND_GAMES = [
   { id: 'checkin', check: gd => (gd.checkin?.entries?.length || 0) > 0, label: 'Weekly Check-In' },
   { id: 'bingo', check: gd => (gd.bingo?.checked || 0) > 0, label: 'Personality Sparks / Hot Takes' },
   { id: 'mood', check: gd => (gd.mood?.history?.length || 0) > 0, label: 'Mood Check' },
-  { id: 'quicktakes', check: gd => (gd.quicktakes?.sessionCount || 0) > 0, label: 'QuickTakes' }
+  { id: 'quicktakes', check: gd => (gd.quicktakes?.sessionCount || 0) > 0, label: 'QuickTakes' },
+  { id: 'redflags', check: gd => (gd.redflag?.checkedCells?.length || 0) > 0 || (gd.redflag?.boardsCompleted || 0) > 0, label: 'Red Flag Bingo' },
+  { id: 'pettycourt', check: gd => (gd.pettycourt?.cases || 0) > 0, label: 'Petty Court' },
+  { id: 'calledit', check: gd => (gd.calledit?.made || 0) > 0 || !!gd.calledit?.active, label: 'Called It' },
+  { id: 'capsule', check: gd => (gd.capsule?.entries?.length || 0) > 0, label: 'Time Capsule' }
 ];
 
 function computeBondLevel(gameData) {
@@ -1146,7 +1252,7 @@ const QUIRKS_OF_DAY = [
 ];
 
 function computeQuirkOfDay(profile) {
-  const seed = computePetSeed(profile);
+  const seed = petFlavorSeed(profile);
   const dateHash = hashString(todayLocal());
   const combined = seed + dateHash;
   // Roughly one day in three has a quirk — keeps it a nice surprise rather
@@ -1165,7 +1271,7 @@ const PET_TRAITS = ['naps in odd places', 'always faces the door', 'loves a good
 const FAVORITE_ACTIVITIES = ['watching the world go by', 'a good long stretch', 'exploring something new', 'quiet company', 'a little victory lap', 'curling up somewhere warm'];
 
 function derivePetIdentity(profile) {
-  const seed = computePetSeed(profile);
+  const seed = petFlavorSeed(profile);
   return {
     favoriteColor: FAVORITE_COLORS[seed % FAVORITE_COLORS.length],
     trait: PET_TRAITS[Math.floor(seed / 7) % PET_TRAITS.length],
@@ -1348,8 +1454,15 @@ export function renderPetSection() {
   // happened today (if anything did); tapping "New Message" moves past it
   // into the regular rotating pool.
   const petReaction = _affirmOffset === 0 ? pickPetReaction(gd, window.AppState.userProfile) : null;
+  const rareTransmission = _affirmOffset === 0 ? maybeRareLine('pet') : null;
   let affirmText, isWarning, affirmLabel;
-  if (petReaction) {
+  if (rareTransmission) {
+    // ~1-in-50 days the pet's message slot carries a rare collectible line
+    // instead — the shiny-pet pattern applied to messages.
+    affirmText = rareTransmission;
+    isWarning = false;
+    affirmLabel = `${userPet.name}'s rare transmission`;
+  } else if (petReaction) {
     affirmText = `${userPet.name} ${petReaction}`;
     isWarning = false;
     affirmLabel = `From ${userPet.name}`;
@@ -1363,6 +1476,12 @@ export function renderPetSection() {
     affirmLabel = isWarning
       ? (solo ? 'Watch out for' : `A heads-up for ${uName || 'you'}`)
       : (solo ? 'Today for you' : `Today for ${uName || 'you'}`);
+  }
+  // The pet is the app's comedian: some (non-warning, non-rare) messages get
+  // a joke tacked on — level-gated and mood-guarded in composer.kickerFor.
+  if (!isWarning && !rareTransmission) {
+    const petKick = kickerFor('pet', petFlavorSeed(window.AppState.userProfile), _affirmOffset, todayLocal(), 'pet-affirm');
+    if (petKick) affirmText += ` ${petKick.replace(/\{pet\}/g, userPet.name)}`;
   }
   const affirmColor = isWarning ? 'var(--warning-color)' : 'var(--success-color)';
   const affirmBg = isWarning
@@ -1425,7 +1544,8 @@ export function renderPetSection() {
   const couplePet = gd.pet.couple || makeCouplePetData();
   const coupleVisuals = deriveCoupleVisuals(userVisuals, partnerVisuals);
   const coupleAttachKey = `${userAttach}_${partnerAttach}`;
-  const coupleMsg = COUPLE_MESSAGES[coupleAttachKey] || "Two unique energies building something only you two can.";
+  const coupleMsg = pickVariant(COUPLE_MESSAGES[coupleAttachKey], petFlavorSeed(window.AppState.userProfile), todayLocal(), 'couple')
+    || "Two unique energies building something only you two can.";
   const coupleName = generateMergedName(
     window.AppState.userProfile?.name || '',
     window.AppState.partnerProfile?.name || ''
@@ -1510,6 +1630,87 @@ export function refreshPetAffirmation() {
 
 // ─── Pet drawer (tap to open full info) ──────────────────────────────────────
 
+// ─── Daily pet question ──────────────────────────────────────────────────────
+// The pet asks YOU one weird question a day (deterministic per account+day,
+// same pattern as the lucky number). Answering gives +1 growth (daily cap
+// 'petq') and the pet reacts. Stored minimally in gd.petq.
+
+const PET_QUESTIONS = [
+  { q: "Should I be more majestic or more chaotic?", opts: ["Majestic", "Chaotic", "Both, alternating"] },
+  { q: "If I learned one human word, which should it be?", opts: ["Snack", "No", "Magnificent"] },
+  { q: "What do you think I dream about?", opts: ["You", "Snacks", "Conquering the couch"] },
+  { q: "Rate my vibe today. Honestly.", opts: ["Immaculate", "Acceptable", "Chaotic good"] },
+  { q: "If we swapped places for a day, would you behave?", opts: ["Perfectly", "Absolutely not"] },
+  { q: "Should I fear the vacuum cleaner?", opts: ["Yes, always", "It's a friend", "Fear keeps you sharp"] },
+  { q: "What's my best feature actually for?", opts: ["Style", "Balance", "Distraction tactics"] },
+  { q: "If I started a rumor about you, what should it be?", opts: ["Too kind for this world", "Secretly famous", "Undefeated at something"] },
+  { q: "Do you think the moon knows about us?", opts: ["Definitely", "It suspects", "We keep a low profile"] },
+  { q: "What should my villain origin story be?", opts: ["Skipped snack time", "The great bath incident", "You closed the app once"] },
+  { q: "Am I more of a morning creature or a night cryptid?", opts: ["Morning creature", "Night cryptid"] },
+  { q: "If I had a job, what would it be?", opts: ["Emotional support executive", "Professional napper", "Chief vibes officer"] },
+  { q: "What should we name our imaginary band?", opts: ["The Streak Keepers", "Lowercase Feelings", "Pixel & The Heartstrings"] },
+  { q: "Would you still love me if I were a bug?", opts: ["Obviously", "Depends on the bug"] },
+  { q: "Should I trust the birds?", opts: ["Never", "Only some", "They know too much"] },
+  { q: "What's today's mission?", opts: ["Survive beautifully", "Cause minor delight", "Guard the streak"] },
+];
+
+const PET_Q_REACTIONS = [
+  "Noted. Filed permanently under 'things I know about you now.'",
+  "Interesting. The council (me) will deliberate.",
+  "Correct answer. There were no wrong ones, but still — correct.",
+  "I knew you'd say that. We're basically the same creature.",
+  "Bold. I respect it. The archives will reflect your courage.",
+  "This changes everything. Well — one thing. It changes one thing.",
+  "Excellent taste. I expected nothing less and was still delighted.",
+  "Hmm. As suspected. You may pet the screen now.",
+];
+
+function todaysPetQuestion(profile) {
+  const seed = petFlavorSeed(profile) + hashString(todayLocal());
+  return PET_QUESTIONS[seed % PET_QUESTIONS.length];
+}
+
+export function answerPetQuestion(choiceIdx) {
+  const gd = window.AppState.gameData;
+  if (!gd.petq) gd.petq = { lastAnswered: null, count: 0, lastChoice: null };
+  gd.petq.lastAnswered = todayLocal();
+  gd.petq.count = (gd.petq.count || 0) + 1;
+  gd.petq.lastChoice = choiceIdx;
+  if (canAwardPetGrowthToday('petq')) {
+    recordPetGrowthToday('petq');
+    awardPetGrowth(1); // awardPetGrowth persists via saveGameData
+  } else {
+    saveGameData();
+  }
+  const drawerContent = document.getElementById('drawer-dynamic-content');
+  if (drawerContent) drawerContent.innerHTML = renderPetDrawer();
+}
+
+function petQuestionBlock(gd, userPet) {
+  const profile = window.AppState.userProfile || {};
+  const question = todaysPetQuestion(profile);
+  const pq = gd.petq || {};
+  const answeredToday = pq.lastAnswered === todayLocal();
+  if (answeredToday) {
+    const choice = question.opts[Math.min(pq.lastChoice || 0, question.opts.length - 1)];
+    const reaction = PET_Q_REACTIONS[(petFlavorSeed(profile) + hashString(todayLocal()) + (pq.lastChoice || 0)) % PET_Q_REACTIONS.length];
+    return `
+    <div class="card" style="margin-top:12px; background:var(--bg-dark);">
+      <div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px;">${userPet.name} asked today</div>
+      <div style="font-size:0.78rem; color:var(--text-secondary); line-height:1.5;">"${question.q}" — you said <strong style="color:var(--accent-primary);">${choice}</strong>. ${reaction}</div>
+    </div>`;
+  }
+  return `
+    <div class="card" style="margin-top:12px; background:var(--bg-dark); border-color:color-mix(in srgb, var(--accent-primary) 25%, transparent);">
+      <div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; color:var(--accent-primary); margin-bottom:8px;">${userPet.name} has a question</div>
+      <div style="font-size:0.85rem; color:var(--text-primary); font-weight:700; margin-bottom:10px;">"${question.q}"</div>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        ${question.opts.map((o, i) => `<button class="choice-btn" style="text-align:left;" onclick="answerPetQuestion(${i})">${o}</button>`).join('')}
+      </div>
+      <div style="font-size:0.62rem; color:var(--text-muted); margin-top:8px;">One a day. Answering counts as growth. This is science.</div>
+    </div>`;
+}
+
 export function renderPetDrawer() {
   const gd = window.AppState.gameData;
   migratePetData(gd);
@@ -1575,6 +1776,7 @@ export function renderPetDrawer() {
       </div>
       <div style="font-size:0.68rem; color:var(--text-muted); margin-top:8px; line-height:1.5;">Tracks how many different games you've tried, not just how often you visit — try one you haven't yet to grow it.</div>
     </div>
+    ${petQuestionBlock(gd, userPet)}
     <div class="card" style="margin-top:12px; background:var(--bg-dark);">
       <div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:10px;">About ${userPet.name}</div>
       <ul class="bullet-list dos">

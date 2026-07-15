@@ -15,6 +15,7 @@ import { saveGameData, canAwardPetGrowthToday, recordPetGrowthToday } from '../s
 import { awardPetGrowth } from '../pet.js';
 import { engine } from '../engine.js';
 import { WYR_BONUS_QUESTIONS } from '../content-bank.js';
+import { humorLevel } from '../composer.js';
 
 const WYR_QUESTIONS = [
   {
@@ -116,11 +117,147 @@ const WYR_QUESTIONS = [
     a: "Have a dog who's obsessed with you",
     b: "Have a cat who occasionally chooses you",
     signals: { a: { connected: 1 }, b: { independent: 1 } }
+  },
+  {
+    a: "Have every red light turn green for you",
+    b: "Always find a parking spot instantly",
+    signals: { a: { spontaneous: 1 }, b: { planner: 1 } }
+  },
+  {
+    a: "Be able to fall asleep instantly",
+    b: "Need only four hours of sleep, ever",
+    signals: { a: { homebody: 1 }, b: { adventurous: 1 } }
+  },
+  {
+    a: "Never lose your keys again",
+    b: "Never lose your train of thought again",
+    signals: { a: { planner: 1 }, b: { deep: 1 } }
+  },
+  {
+    a: "Always know the perfect gift",
+    b: "Always know the perfect thing to say",
+    signals: { a: { planner: 1 }, b: { connected: 1 } }
+  },
+  {
+    a: "Relive your best day once a year",
+    b: "Preview one future day once a year",
+    signals: { a: { lighthearted: 1 }, b: { planner: 1 } }
+  },
+  {
+    a: "Host the party everyone remembers",
+    b: "Be the guest everyone hopes shows up",
+    signals: { a: { connected: 1 }, b: { independent: 1 } }
+  },
+  {
+    a: "Have a personal chef",
+    b: "Have a personal driver",
+    signals: { a: { homebody: 1 }, b: { adventurous: 1 } }
+  },
+  {
+    a: "Be able to talk to animals",
+    b: "Speak every human language",
+    signals: { a: { lighthearted: 1 }, b: { connected: 1 } }
+  },
+  {
+    a: "Win every board game night forever",
+    b: "Never hit traffic again",
+    signals: { a: { lighthearted: 1 }, b: { planner: 1 } }
+  },
+  {
+    a: "Get one completely honest answer from anyone",
+    b: "Get one perfect do-over every month",
+    signals: { a: { deep: 1 }, b: { spontaneous: 1 } }
+  },
+  {
+    a: "Live one year in a foreign city",
+    b: "Take twelve perfect weekend trips",
+    signals: { a: { adventurous: 1 }, b: { planner: 1 } }
+  },
+  {
+    a: "Have your plants gossip about you approvingly",
+    b: "Have your mirror hype you up every morning",
+    signals: { a: { homebody: 1 }, b: { lighthearted: 1 } }
   }
 ];
 
-// Bonus pool merged in from the content bank (previously written but never wired).
+// ── Cursed Edition ────────────────────────────────────────────────────────────
+// Dark-humor dilemmas, mixed into the pool ONLY at the 'unhinged' humor
+// level (an explicit opt-in in Profile Settings). Same rule as everything
+// else: every question still declares real preference signals, so even the
+// cursed picks feed gd.wyr.preferences honestly.
+const CURSED_WYR_QUESTIONS = [
+  {
+    a: "Know exactly how every argument will end",
+    b: "Never remember any argument at all",
+    signals: { a: { planner: 1 }, b: { lighthearted: 1 } }
+  },
+  {
+    a: "Read the group chat's unfiltered opinion of you",
+    b: "Have everyone see your search history",
+    signals: { a: { deep: 1 }, b: { spontaneous: 1 } }
+  },
+  {
+    a: "Attend your own funeral (great turnout)",
+    b: "Read the eulogy drafts (heavily edited)",
+    signals: { a: { connected: 1 }, b: { deep: 1 } }
+  },
+  {
+    a: "Fight one horse-sized duck",
+    b: "Fight a hundred duck-sized horses",
+    signals: { a: { independent: 1 }, b: { connected: 1 } }
+  },
+  {
+    a: "Know the exact number of Mondays you have left",
+    b: "Know the date of the world's last pizza",
+    signals: { a: { planner: 1 }, b: { lighthearted: 1 } }
+  },
+  {
+    a: "Have your browser history read at family dinner",
+    b: "Have your DMs projected at your wedding",
+    signals: { a: { homebody: 1 }, b: { connected: 1 } }
+  },
+  {
+    a: "Hear your pet's honest review of you",
+    b: "Hear your neighbors' honest review of you",
+    signals: { a: { deep: 1 }, b: { connected: 1 } }
+  },
+  {
+    a: "Be haunted by one very polite ghost",
+    b: "Politely haunt someone of your choosing, later",
+    signals: { a: { homebody: 1 }, b: { adventurous: 1 } }
+  },
+  {
+    a: "Know every time someone screenshots your texts",
+    b: "Never find out who has you muted",
+    signals: { a: { deep: 1 }, b: { lighthearted: 1 } }
+  },
+  {
+    a: "Age only when you complain",
+    b: "Age only when you lie",
+    signals: { a: { lighthearted: 1 }, b: { deep: 1 } }
+  },
+  {
+    a: "Have your last words be a typo",
+    b: "Have your last words be a pun",
+    signals: { a: { spontaneous: 1 }, b: { lighthearted: 1 } }
+  },
+  {
+    a: "Restart this year with all your memories",
+    b: "Skip to next year with none of it remembered",
+    signals: { a: { planner: 1 }, b: { spontaneous: 1 } }
+  }
+];
+
+// Bonus pool merged in from the content bank (previously written but never
+// wired). Cursed questions are appended AFTER the base pool at pick time so
+// base question indexes stay stable if the humor level changes mid-session.
 const ALL_QUESTIONS = [...WYR_QUESTIONS, ...WYR_BONUS_QUESTIONS];
+
+function activePool() {
+  return humorLevel() === 'unhinged'
+    ? [...ALL_QUESTIONS, ...CURSED_WYR_QUESTIONS]
+    : ALL_QUESTIONS;
+}
 
 let currentQuestion = null;
 let shownIndices = [];
@@ -142,12 +279,13 @@ function init() {
 }
 
 function pickQuestion() {
-  if (shownIndices.length >= ALL_QUESTIONS.length) shownIndices = [];
+  const pool = activePool();
+  if (shownIndices.length >= pool.length) shownIndices = [];
   let qIndex;
-  do { qIndex = Math.floor(Math.random() * ALL_QUESTIONS.length); }
-  while (shownIndices.includes(qIndex) && shownIndices.length < ALL_QUESTIONS.length);
+  do { qIndex = Math.floor(Math.random() * pool.length); }
+  while (shownIndices.includes(qIndex) && shownIndices.length < pool.length);
   shownIndices.push(qIndex);
-  currentQuestion = { ...ALL_QUESTIONS[qIndex], index: qIndex };
+  currentQuestion = { ...pool[qIndex], index: qIndex };
 }
 
 function refreshHeaderStats() {
@@ -333,6 +471,9 @@ function select(choice) {
     revealScreen(_guess, choice);
   }
 }
+
+// Test-only export for the Node content harness (signals-coverage checks).
+export const __wyrInternals = { WYR_QUESTIONS, CURSED_WYR_QUESTIONS, activePool };
 
 export const wyrGame = {
   id: 'wouldyou',
