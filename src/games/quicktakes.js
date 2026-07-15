@@ -6,6 +6,7 @@
 
 import { saveGameData, canAwardPetGrowthToday, recordPetGrowthToday } from '../state.js';
 import { awardPetGrowth } from '../pet.js';
+import { accountSalt } from '../composer.js';
 
 const QUESTIONS = [
   { q: "Morning energy or night energy?",        a: "Morning person",    b: "Night owl",        sig: { a: { planner: 1 }, b: { spontaneous: 1 } } },
@@ -32,7 +33,19 @@ const QUESTIONS = [
   { q: "Night in with a show or night out?",      a: "Night in",         b: "Night out",        sig: { a: { homebody: 1 }, b: { adventurous: 1 } } },
   { q: "Check in daily or catch up weekly?",      a: "Check in daily",   b: "Catch up weekly",  sig: { a: { connected: 1 }, b: { independent: 1 } } },
   { q: "Get it done early or under pressure?",    a: "Early bird",       b: "Under pressure",   sig: { a: { planner: 1 }, b: { spontaneous: 1 } } },
-  { q: "Hype song or chill playlist?",            a: "Hype song",        b: "Chill playlist",   sig: { a: { adventurous: 1 }, b: { homebody: 1 } } }
+  { q: "Hype song or chill playlist?",            a: "Hype song",        b: "Chill playlist",   sig: { a: { adventurous: 1 }, b: { homebody: 1 } } },
+  { q: "Window seat or aisle?",                   a: "Window",           b: "Aisle",            sig: { a: { deep: 1 }, b: { planner: 1 } } },
+  { q: "Cook the thing or order the thing?",      a: "Cook it",          b: "Order it",         sig: { a: { homebody: 1 }, b: { spontaneous: 1 } } },
+  { q: "One deep friendship or five casual ones?",a: "One deep",         b: "Five casual",      sig: { a: { deep: 1 }, b: { connected: 1 } } },
+  { q: "Re-watch a favorite or risk something new?", a: "Re-watch",      b: "Something new",    sig: { a: { homebody: 1 }, b: { adventurous: 1 } } },
+  { q: "Notifications on or off?",                a: "On — stay reachable", b: "Off — find me later", sig: { a: { connected: 1 }, b: { independent: 1 } } },
+  { q: "Say the hard thing now or sleep on it?",  a: "Say it now",       b: "Sleep on it",      sig: { a: { spontaneous: 1 }, b: { planner: 1 } } },
+  { q: "Big party or dinner for four?",           a: "Big party",        b: "Dinner for four",  sig: { a: { adventurous: 1 }, b: { deep: 1 } } },
+  { q: "Playlist on shuffle or in order?",        a: "Shuffle",          b: "In order",         sig: { a: { spontaneous: 1 }, b: { planner: 1 } } },
+  { q: "Ask for help or figure it out solo?",     a: "Ask for help",     b: "Figure it out",    sig: { a: { connected: 1 }, b: { independent: 1 } } },
+  { q: "Front row or back corner?",               a: "Front row",        b: "Back corner",      sig: { a: { adventurous: 1 }, b: { homebody: 1 } } },
+  { q: "Overpack or underpack?",                  a: "Overpack",         b: "Underpack",        sig: { a: { planner: 1 }, b: { spontaneous: 1 } } },
+  { q: "Lead the group project or take it solo?", a: "Lead the group",   b: "Solo, please",     sig: { a: { connected: 1 }, b: { independent: 1 } } }
 ];
 
 const VIBE_LABELS = {
@@ -52,9 +65,10 @@ let _sessionIndex = 0;
 const ROUND_SIZE = 3;
 
 function pickSessionQuestions(gameData) {
-  // Rotate through the pool so questions vary each session
+  // Rotate through the pool so questions vary each session; the account salt
+  // means two fresh accounts don't both start at question one.
   const sessions = gameData?.quicktakes?.sessionCount || 0;
-  const offset = (sessions * ROUND_SIZE) % QUESTIONS.length;
+  const offset = (sessions * ROUND_SIZE + (accountSalt() % QUESTIONS.length)) % QUESTIONS.length;
   const result = [];
   for (let i = 0; i < ROUND_SIZE; i++) {
     result.push(QUESTIONS[(offset + i) % QUESTIONS.length]);

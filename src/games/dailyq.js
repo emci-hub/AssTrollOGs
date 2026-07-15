@@ -47,7 +47,17 @@ const DUO_QUESTIONS = [
   { q: "The thing I'd brag about us:", opts: ["We actually listen", "We laugh a lot", "We show up", "We keep choosing this"] },
   { q: "Where are we most in sync?", opts: ["Food decisions", "Humor", "Values", "Energy levels"] },
   { q: "Where are we most out of sync?", opts: ["Sleep schedules", "Social battery", "Tidiness", "Planning styles"] },
-  { q: "What should tonight look like?", opts: ["Early night", "Something spontaneous", "Proper conversation", "Total silliness"] }
+  { q: "What should tonight look like?", opts: ["Early night", "Something spontaneous", "Proper conversation", "Total silliness"] },
+  { q: "Tonight's dinner decision process will be...", opts: ["Decided in ten seconds", "A respectful negotiation", "The usual place, obviously", "Chaos, then leftovers"] },
+  { q: "Who texts back faster?", opts: ["Me", "Them", "Whoever's less busy", "Neither — we're a mystery"] },
+  { q: "Our most-used form of communication is...", opts: ["Memes", "Voice notes", "Actual conversations", "A look across the room"] },
+  { q: "If we started a small business together, it would be...", opts: ["A café", "Something outdoorsy", "A very niche online store", "Doomed but fun"] },
+  { q: "The thing we're weirdly competitive about:", opts: ["Games", "Directions", "Being right", "Who's more tired"] },
+  { q: "Our fridge says the most about...", opts: ["Our ambitions", "Our realities", "One of us specifically", "A household in transition"] },
+  { q: "Which fictional couple are we closest to?", opts: ["The bickering best friends", "The slow burn", "The chaotic duo", "The quietly solid ones"] },
+  { q: "What would our reality show be called?", opts: ["Keeping Up With The Couch", "Two People, One Blanket", "As Seen On The Group Chat", "The Quiet Life (Extended Cut)"] },
+  { q: "The next thing we should learn about each other:", opts: ["A childhood story", "A current worry", "A secret ambition", "An unpopular opinion"] },
+  { q: "Who's the morning person here?", opts: ["Me, obnoxiously", "Them, obnoxiously", "Neither — mornings are the enemy", "Both, disgustingly"] }
 ];
 
 const REFLECTION_QUESTIONS = [
@@ -70,7 +80,17 @@ const REFLECTION_QUESTIONS = [
   { q: "Who gets your most patient self?", opts: ["Strangers", "The people closest to me", "Coworkers", "Honestly, my phone"] },
   { q: "What's your relationship with your own mistakes lately?", opts: ["Learning from them", "Relitigating them nightly", "Ignoring them", "Finally forgiving a big one"] },
   { q: "This season of your life is about...", opts: ["Growth", "Repair", "Proof", "Rest"] },
-  { q: "What small thing consistently makes your day better?", opts: ["The first quiet coffee/tea", "A specific person's messages", "Movement", "Crossing something off"] }
+  { q: "What small thing consistently makes your day better?", opts: ["The first quiet coffee/tea", "A specific person's messages", "Movement", "Crossing something off"] },
+  { q: "What did you say yes to recently that you should have declined?", opts: ["A social thing", "Extra work", "A favor", "Nothing — I've been good"] },
+  { q: "What are you better at than you were six months ago?", opts: ["Boundaries", "Patience", "My actual craft", "Resting without guilt"] },
+  { q: "Which recurring thought deserves to be retired?", opts: ["The 3am replay", "The comparison one", "The 'what if I'd...' one", "The imposter one"] },
+  { q: "A completely free day tomorrow — what happens?", opts: ["Absolutely nothing, luxuriously", "The hobby I keep postponing", "Seeing someone I miss", "Getting ahead so next week hurts less"] },
+  { q: "The last time you surprised yourself was...", opts: ["Handling something hard", "Saying no", "Saying yes", "Can't remember — overdue"] },
+  { q: "What's currently taking more energy than it gives back?", opts: ["A person", "A habit", "A commitment", "My phone"] },
+  { q: "If your mood this week were weather, it'd be...", opts: ["Mostly sunny", "Fog, lifting", "Scattered storms", "One long overcast Tuesday"] },
+  { q: "What would your younger self love about your life now?", opts: ["The freedom", "The people", "The stuff I get to do", "That I turned out kind"] },
+  { q: "The bravest text you could send today is...", opts: ["An apology", "An invitation", "An honest answer", "A 'thinking of you'"] },
+  { q: "What do you need to hear right now?", opts: ["You're doing enough", "It's okay to rest", "Take the swing", "This part passes"] }
 ];
 
 // ── Daily selection ───────────────────────────────────────────────────────────
