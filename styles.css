@@ -1,18 +1,73 @@
 /* Premium Core Styling & Responsive Reset */
+/*
+ * Design tokens. This is the Dark theme's values (the default / fallback).
+ * Other themes (see themes.css) override the same variable names via
+ * [data-theme="..."] blocks on <html> — no component CSS below needs to
+ * know which theme is active. Names ending in `-dark`/`-card` etc. are
+ * historical (hundreds of existing var() references across src/*.js rely
+ * on them) and are kept as-is rather than renamed, to avoid a risky
+ * mass-rename; new tokens are additive.
+ */
 :root {
   --bg-dark: #09090b;
   --bg-card: #16161a;
   --bg-card-hover: #1e1e24;
+  --bg-elevated: #1c1c22;
   --border-color: #27272a;
   --border-highlight: #3f3f46;
   --accent-primary: #818cf8;
   --accent-secondary: #6366f1;
+  --accent-tertiary: #f472b6;
   --text-primary: #f4f4f5;
   --text-secondary: #a1a1aa;
-  --text-muted: #71717a;
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --text-muted: #8b8b95;
+  --text-inverse: #09090b;
   --success-color: #34d399;
   --danger-color: #f87171;
+  --warning-color: #f0a055;
+  --info-color: #5eabd4;
+
+  /* Fonts. Body text stays on the same legible family across every theme
+     (legibility shouldn't vary with taste); only --font-heading changes
+     per theme. --font-mono formalizes the "VIBE ID" techy treatment. */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-heading: var(--font-sans);
+  --font-mono: "SF Mono", SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+
+  /* Spacing scale — replaces the ad-hoc 8/10/12/14/16px mix used inline. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  /* Type scale — replaces the ad-hoc 0.6/0.65/0.68/0.7/0.72/0.75rem mix. */
+  --text-2xs: 0.68rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.82rem;
+  --text-base: 0.9rem;
+  --text-lg: 1.05rem;
+  --text-xl: 1.3rem;
+  --text-2xl: 1.6rem;
+
+  /* Radius / shadow scale. */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+}
+
+/* Respect the OS-level reduced-motion preference: kill animations/
+   transitions app-wide rather than special-casing each one. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 * {
@@ -29,6 +84,25 @@ button:focus-visible,
 .mood-btn:focus-visible {
   outline: 2px solid var(--accent-primary);
   outline-offset: 2px;
+}
+
+/* Tap/press feedback — a subtle press-down on every tappable control so
+   the app feels tactile rather than static. Disabled automatically by the
+   prefers-reduced-motion rule above (transition-duration collapses to
+   ~0). */
+.btn:active,
+.btn-outline:active,
+.btn-icon:active,
+.choice-btn:active,
+.interactive-card:active,
+.mood-btn:active,
+.toggle-btn:active,
+.mbti-grid-btn:active,
+.mbti-tab:active,
+.sparks-cell:active,
+.friend-list-row:active,
+.friend-avatar-chip:active {
+  transform: scale(0.97);
 }
 
 body {
@@ -72,17 +146,28 @@ body {
   background: rgba(9, 9, 10, 0.95);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border-color);
-  padding: 14px 20px;
+  /* Right padding reserves room for the absolutely-positioned gear icon
+     (32px wide, 10px from the edge) so header text never renders under
+     it — it previously had no clearance and got visually clipped. */
+  padding: 14px 52px 14px 20px;
   font-size: 0.75rem;
-  font-family: monospace;
+  font-family: var(--font-mono);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
   color: var(--text-secondary);
 }
 
 .sticky-header strong {
   color: var(--accent-primary);
+}
+
+.sticky-header > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Viewport Transition Containers */
@@ -104,6 +189,7 @@ header {
 }
 
 .section-title {
+  font-family: var(--font-heading);
   font-size: 1.1rem;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -120,6 +206,10 @@ header {
   letter-spacing: 0.08em;
   font-weight: 600;
   margin-bottom: 4px;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-heading);
 }
 
 h1 {
@@ -651,7 +741,7 @@ h1 {
   font-size: 0.9rem;
   cursor: pointer;
   width: 100%;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.2s ease, transform 0.1s ease;
   text-align: center;
   margin-top: auto;
 }
@@ -819,6 +909,11 @@ h1 {
 .vibe-id-tag {
   font-size: 0.7rem;
   color: var(--text-muted);
+  flex-shrink: 0;
+  max-width: 128px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* WYR personality trait pill */
@@ -1167,7 +1262,7 @@ h1 {
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
   cursor: pointer;
-  transition: border-color 0.2s, color 0.2s;
+  transition: border-color 0.2s, color 0.2s, transform 0.1s ease;
 }
 
 .btn-icon:hover {
