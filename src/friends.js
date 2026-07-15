@@ -23,6 +23,7 @@ import {
   FRIEND_ICEBREAKERS, FRIEND_JOKES, FRIEND_MESSAGES, FRIEND_OF_DAY_TIPS
 } from './content-bank.js';
 import { PSYCH_QUESTIONS, MBTI_TYPES } from './questions.js';
+import { accountSalt, pickVariant } from './composer.js';
 
 // ─── Hashing (module-local DJB2, same pattern used in pet.js/insights.js —
 // deliberately separate rather than shared, matching this codebase's own
@@ -84,10 +85,12 @@ function memoizedPick(key, forceRefresh, pickFn) {
 // the same score — a scannable number for the list, not a serious metric.
 
 export function computeFriendVibeScore(userProfile, friendProfile) {
+  // Salted per account so two accounts that entered the same friend don't
+  // land on the same "fun number" — still fully deterministic per pair.
   const seed = hashString([
     userProfile?.name, userProfile?.mbti, userProfile?.attachmentStyle,
     friendProfile?.name, friendProfile?.mbti, friendProfile?.attachmentStyle
-  ].map(v => (v || '').toString().toLowerCase()).join('|'));
+  ].map(v => (v || '').toString().toLowerCase()).join('|')) + accountSalt();
   return 40 + (seed % 61); // 40-100 — always reads as a decent vibe, never a harsh low score
 }
 

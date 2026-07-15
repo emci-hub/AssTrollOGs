@@ -20,6 +20,7 @@ import {
   COMBO_INSIGHTS, ATTACHMENT_PAIRINGS, CONFLICT_PAIRINGS, CONFLICT_SOLO
 } from './content-bank.js';
 import { engine } from './engine.js';
+import { accountSalt, pickVariant } from './composer.js';
 
 export function getTimePeriod(hour) {
   if (hour >= 5 && hour <= 11) return 'morning';
@@ -186,6 +187,9 @@ function hashContentString(str) {
 // exact same rotating content just because they share one trait and check
 // the app around the same time — blends several trait fields together, so
 // variety multiplies combinatorially instead of being keyed off one field.
+// The account salt (vibeSeed + save code entropy) is ADDED on top so two
+// accounts created with identical onboarding answers still diverge — added,
+// not XORed, so computeCoupleSeed's XOR can't cancel it back out.
 function computeContentSeed(profile) {
   if (!profile) return 0;
   const parts = [
@@ -196,7 +200,7 @@ function computeContentSeed(profile) {
     profile.loveLanguage || '',
     profile.expressionStyle || ''
   ];
-  return hashContentString(parts.join('|'));
+  return Math.abs((hashContentString(parts.join('|')) + accountSalt()) | 0);
 }
 
 // For content that's meant to represent "the two of you" jointly (Blueprint,

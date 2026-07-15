@@ -11,6 +11,7 @@
  */
 
 import { saveGameData, todayLocal, isToday, daysBetween } from './state.js';
+import { accountSalt } from './composer.js';
 
 // ─── Name generation ──────────────────────────────────────────────────────────
 
@@ -25,7 +26,10 @@ function generatePetName(profile) {
   const name = ((profile?.name) || 'Friend').trim();
   const attach = profile?.attachmentStyle || 'secure';
   const suffixes = NAME_SUFFIXES[attach] || NAME_SUFFIXES.secure;
-  const seed = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  // Account salt so two accounts with the same human name don't hatch pets
+  // with the same pet name. Names persist once minted, so existing pets are
+  // untouched — only newly created (or profile-edit-regenerated) pets differ.
+  const seed = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) + accountSalt();
   const prefix = name.slice(0, Math.min(3, name.length));
   const suffix = suffixes[seed % suffixes.length];
   const raw = prefix + suffix;
@@ -70,13 +74,21 @@ function computePetSeed(profile) {
   return hashString(`${name}|${location}|${mbti}|${attach}`);
 }
 
+// Seed for the pet's message-y flavor (lucky number, quirks, identity facts)
+// — computePetSeed + the account salt. Kept SEPARATE from computePetSeed so
+// visuals (hue/patterns) stay stable for existing accounts, while flavor
+// content diverges between two accounts created with identical answers.
+function petFlavorSeed(profile) {
+  return Math.abs((computePetSeed(profile) + accountSalt()) | 0);
+}
+
 // ─── Lucky number ───────────────────────────────────────────────────────────
 // Deterministic per-person, per-day (not random, not persisted — same
 // pattern as the rest of this file's seeding). Recomputes naturally at
 // render time as the local day rolls over, so it changes daily without
 // needing a new gameData field.
 function computeLuckyNumber(profile) {
-  const seed = computePetSeed(profile);
+  const seed = petFlavorSeed(profile);
   const dateHash = hashString(todayLocal());
   return ((seed + dateHash) % 9) + 1;
 }
@@ -1146,7 +1158,7 @@ const QUIRKS_OF_DAY = [
 ];
 
 function computeQuirkOfDay(profile) {
-  const seed = computePetSeed(profile);
+  const seed = petFlavorSeed(profile);
   const dateHash = hashString(todayLocal());
   const combined = seed + dateHash;
   // Roughly one day in three has a quirk — keeps it a nice surprise rather
@@ -1165,7 +1177,7 @@ const PET_TRAITS = ['naps in odd places', 'always faces the door', 'loves a good
 const FAVORITE_ACTIVITIES = ['watching the world go by', 'a good long stretch', 'exploring something new', 'quiet company', 'a little victory lap', 'curling up somewhere warm'];
 
 function derivePetIdentity(profile) {
-  const seed = computePetSeed(profile);
+  const seed = petFlavorSeed(profile);
   return {
     favoriteColor: FAVORITE_COLORS[seed % FAVORITE_COLORS.length],
     trait: PET_TRAITS[Math.floor(seed / 7) % PET_TRAITS.length],
