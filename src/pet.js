@@ -10,7 +10,7 @@
  * always recomputed at render time.
  */
 
-import { saveGameData, todayLocal, isToday } from './state.js';
+import { saveGameData, todayLocal, isToday, daysBetween } from './state.js';
 
 // ─── Name generation ──────────────────────────────────────────────────────────
 
@@ -471,6 +471,24 @@ function deriveMood(gameData) {
   if (triviaTotal >= 5 && triviaCorrect / triviaTotal >= 0.8) return 'proud';
   if (wyrAnswered >= 5) return 'curious';
   return 'happy';
+}
+
+// The couple pet gets its own mood derivation that reads real relationship
+// signals (Weekly Check-In recency, Guess & Reveal / Daily Duo accuracy)
+// instead of falling straight to the generic trivia/streak thresholds —
+// it's meant to feel like it's reading the actual state of the
+// relationship, not just leveling up in parallel with it.
+function deriveCoupleMood(gameData) {
+  const gd = gameData || {};
+  const checkin = gd.checkin || {};
+  if (checkin.lastCheckin && daysBetween(checkin.lastCheckin, todayLocal()) <= 3) return 'excited';
+  const duo = gd.duo || {};
+  if ((duo.guesses || 0) >= 5) {
+    const acc = duo.correctGuesses / duo.guesses;
+    if (acc >= 0.7) return 'proud';
+    if (acc < 0.4) return 'curious';
+  }
+  return deriveMood(gameData);
 }
 
 // ─── Color blending ───────────────────────────────────────────────────────────
@@ -1058,7 +1076,7 @@ function pickAffirmation(attach, gameData, offset) {
 // played, a streak just extended) instead of always pulling a generic pool
 // line — falls back to pickAffirmation() when nothing notable happened.
 
-function pickPetReaction(gameData) {
+function pickPetReaction(gameData, profile) {
   const gd = gameData || {};
   const today = todayLocal();
 
@@ -1083,7 +1101,76 @@ function pickPetReaction(gameData) {
     return `is proud of the ${gd.streak.current}-day streak you're on.`;
   }
 
+  const quirk = computeQuirkOfDay(profile);
+  if (quirk) return quirk;
+
   return null;
+}
+
+// ─── Bond meter ─────────────────────────────────────────────────────────────
+// Stage tracks time invested; Bond tracks breadth of interaction instead —
+// how many different games have ever been played, not just how often the
+// app was opened. Nudges toward trying Check-In/Daily Reflection instead of
+// only ever tapping Mood Check. Fully derived from existing gameData, no
+// new persisted field needed.
+const BOND_GAMES = [
+  { id: 'trivia', check: gd => (gd.trivia?.total || 0) > 0, label: 'Trivia' },
+  { id: 'wyr', check: gd => (gd.wyr?.answered || 0) > 0, label: 'Would You Rather / Guess & Reveal' },
+  { id: 'dailyq', check: gd => (gd.dailyq?.answered || 0) > 0 || (gd.reflection?.entries?.length || 0) > 0, label: 'Daily Duo / Reflection' },
+  { id: 'checkin', check: gd => (gd.checkin?.entries?.length || 0) > 0, label: 'Weekly Check-In' },
+  { id: 'bingo', check: gd => (gd.bingo?.checked || 0) > 0, label: 'Personality Sparks / Hot Takes' },
+  { id: 'mood', check: gd => (gd.mood?.history?.length || 0) > 0, label: 'Mood Check' },
+  { id: 'quicktakes', check: gd => (gd.quicktakes?.sessionCount || 0) > 0, label: 'QuickTakes' }
+];
+
+function computeBondLevel(gameData) {
+  const gd = gameData || {};
+  return BOND_GAMES.filter(g => g.check(gd)).length;
+}
+
+// ─── Quirk of the day ───────────────────────────────────────────────────────
+// A small, deterministic (seed + date) chance that today has a little
+// character flourish — same render-time-only pattern as lucky number, so
+// every day feels slightly different even when nothing "big" happened.
+// Fragments, not full sentences — kept consistent with the mood/game/streak
+// reactions above so the caller can concatenate "${petName} ${fragment}".
+const QUIRKS_OF_DAY = [
+  'keeps circling the same spot before settling down today.',
+  'perked right up the moment you opened the app.',
+  'seems to be practicing some kind of new trick.',
+  'is extra sparkly today for no particular reason.',
+  "hasn't stopped humming a little tune all day.",
+  'found a new favorite spot and is very pleased about it.',
+  'is in an unusually playful mood today.',
+  'keeps tilting its head like it heard something interesting.'
+];
+
+function computeQuirkOfDay(profile) {
+  const seed = computePetSeed(profile);
+  const dateHash = hashString(todayLocal());
+  const combined = seed + dateHash;
+  // Roughly one day in three has a quirk — keeps it a nice surprise rather
+  // than constant noise.
+  if (combined % 3 !== 0) return null;
+  const idx = combined % QUIRKS_OF_DAY.length;
+  return QUIRKS_OF_DAY[idx];
+}
+
+// ─── Procedural pet identity ────────────────────────────────────────────────
+// A handful of small deterministic "facts" so the pet reads as a character
+// with its own tiny profile that reveals itself over time, mirroring how
+// the user's own profile unfolds during onboarding — not just a stat block.
+const FAVORITE_COLORS = ['sunset orange', 'deep teal', 'soft lavender', 'forest green', 'warm gold', 'sky blue', 'rose pink', 'slate gray'];
+const PET_TRAITS = ['naps in odd places', 'always faces the door', 'loves a good stretch first thing', 'hums when things are calm', 'gets extra curious at dusk', 'circles twice before settling', 'perks up at new sounds', 'has a favorite corner it returns to'];
+const FAVORITE_ACTIVITIES = ['watching the world go by', 'a good long stretch', 'exploring something new', 'quiet company', 'a little victory lap', 'curling up somewhere warm'];
+
+function derivePetIdentity(profile) {
+  const seed = computePetSeed(profile);
+  return {
+    favoriteColor: FAVORITE_COLORS[seed % FAVORITE_COLORS.length],
+    trait: PET_TRAITS[Math.floor(seed / 7) % PET_TRAITS.length],
+    favoriteActivity: FAVORITE_ACTIVITIES[Math.floor(seed / 13) % FAVORITE_ACTIVITIES.length]
+  };
 }
 
 // ─── Pet data helpers ─────────────────────────────────────────────────────────
@@ -1124,7 +1211,7 @@ function tickCouplePet(petData, gameData) {
     petData.totalDays += 1;
     petData.lastSeen = today;
   }
-  petData.mood = deriveMood(gameData);
+  petData.mood = deriveCoupleMood(gameData);
   petData.stage = getStage(petData.totalDays).stage;
   return petData;
 }
@@ -1199,7 +1286,7 @@ export function renderPetSection() {
   // A fresh session opens with a contextual reaction to what actually
   // happened today (if anything did); tapping "New Message" moves past it
   // into the regular rotating pool.
-  const petReaction = _affirmOffset === 0 ? pickPetReaction(gd) : null;
+  const petReaction = _affirmOffset === 0 ? pickPetReaction(gd, window.AppState.userProfile) : null;
   let affirmText, isWarning, affirmLabel;
   if (petReaction) {
     affirmText = `${userPet.name} ${petReaction}`;
@@ -1375,6 +1462,8 @@ export function renderPetDrawer() {
   const ascension = ascensionTier(userPet.totalDays);
   const finish = ascensionFinish(ascension);
   const svg = buildPetSvg(visuals, userPet.stage, userPet.mood, stageInfo.size, milestones, false, solo, ascension);
+  const bondLevel = computeBondLevel(gd);
+  const identity = derivePetIdentity(window.AppState.userProfile || {});
 
   const stageBar = STAGES.map(s => {
     const cls = s.stage === userPet.stage ? 'active' : s.stage < userPet.stage ? 'past' : '';
@@ -1414,12 +1503,30 @@ export function renderPetDrawer() {
       </div>
     </div>` : ''}
     <div class="card" style="margin-top:12px; background:var(--bg-dark);">
+      <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">
+        <div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; color:var(--text-muted);">Bond</div>
+        <div style="font-size:0.65rem; color:var(--text-muted);">${bondLevel}/${BOND_GAMES.length} games explored</div>
+      </div>
+      <div style="height:6px; border-radius:4px; background:var(--border-color); overflow:hidden;">
+        <div style="height:100%; width:${(bondLevel/BOND_GAMES.length)*100}%; background:var(--accent-primary); border-radius:4px;"></div>
+      </div>
+      <div style="font-size:0.68rem; color:var(--text-muted); margin-top:8px; line-height:1.5;">Tracks how many different games you've tried, not just how often you visit — try one you haven't yet to grow it.</div>
+    </div>
+    <div class="card" style="margin-top:12px; background:var(--bg-dark);">
+      <div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:10px;">About ${userPet.name}</div>
+      <ul class="bullet-list dos">
+        <li>Favorite color: ${identity.favoriteColor}</li>
+        <li>Quirk: ${identity.trait}</li>
+        <li>Loves: ${identity.favoriteActivity}</li>
+      </ul>
+    </div>
+    <div class="card" style="margin-top:12px; background:var(--bg-dark);">
       <div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:10px;">How ${userPet.name} grows</div>
       <ul class="bullet-list dos">
         <li>Open the app each day${solo ? ' — solo pets earn 2 pts per visit' : ''}</li>
         <li>Earn milestones to unlock accessories</li>
         <li>Get a 7-day streak to unlock the halo</li>
-        <li>Reach Day ${STAGES[4].minDays} to hit Legendary</li>
+        <li>Reach Day ${STAGES[4].minDays} to hit Legendary, then keep going to Ascend</li>
       </ul>
     </div>
   `;
@@ -1432,5 +1539,6 @@ export function renderPetDrawer() {
 export const __internals = {
   derivePetVisuals, deriveCoupleVisuals, buildPetSvg, getStage, clampStage,
   speciesArchetype, mbtiTemperament, bodyVariant,
-  ascensionTier, ascensionFinish, isRareFinish, computeLuckyNumber
+  ascensionTier, ascensionFinish, isRareFinish, computeLuckyNumber,
+  computeBondLevel, computeQuirkOfDay, derivePetIdentity, deriveCoupleMood
 };
