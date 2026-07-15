@@ -27,7 +27,7 @@ import { initPet, renderPetSection, refreshPetAffirmation } from './pet.js';
 import { updateStreak, migrateGameData, todayLocal, persistGameData } from './state.js';
 import { cloudLoad, cloudLoadByCode } from './supabase.js';
 import { renderFriendsSection } from './friends.js';
-import { applyStoredTheme } from './theme.js';
+import { applyStoredTheme, renderAppearanceSection } from './theme.js';
 
 // Re-applies the saved theme (the inline boot script in index.html already
 // did this before first paint to avoid a flash — this just keeps theme.js
@@ -136,6 +136,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     switchView('daily-screen');
     initPet();
     renderFriendsSection();
+    renderAppearanceSection();
 
     // Restore save code from localStorage into AppState
     const storedCode = localStorage.getItem('vibeSaveCode');
@@ -188,6 +189,7 @@ window.openPetDrawer = () => openDrawer('pet');
 window._renderPetSection = renderPetSection;
 window.initPet = initPet;
 window._renderFriendsSection = renderFriendsSection;
+window._renderAppearanceSection = renderAppearanceSection;
 window.toggleSaveCodeEntry = toggleSaveCodeEntry;
 window.formatSaveCodeInput = formatSaveCodeInput;
 window.submitSaveCode = submitSaveCode;
@@ -219,6 +221,7 @@ window.loadSavedProfile = () => {
     switchView('daily-screen');
     initPet();
     renderFriendsSection();
+    renderAppearanceSection();
 
     const storedCode = localStorage.getItem('vibeSaveCode');
     if (storedCode) {

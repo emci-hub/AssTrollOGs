@@ -48,3 +48,27 @@ export function setTheme(id) {
 export function applyStoredTheme() {
   setTheme(getActiveTheme());
 }
+
+// ─── Appearance section (dashboard) ────────────────────────────────────────
+
+export function renderAppearanceSection() {
+  const container = document.getElementById('appearance-section');
+  if (!container) return;
+  const active = getActiveTheme();
+  container.innerHTML = `
+    <div class="theme-swatch-grid">
+      ${THEMES.map(t => `
+        <button class="theme-swatch-btn ${t.id === active ? 'active' : ''}" onclick="selectTheme('${t.id}')">
+          <span class="theme-swatch-dot" style="background:${t.swatch};"></span>
+          <span class="theme-swatch-emoji">${t.emoji}</span>
+          <span class="theme-swatch-label">${t.label}</span>
+        </button>
+      `).join('')}
+    </div>
+  `;
+}
+
+window.selectTheme = function(id) {
+  setTheme(id);
+  renderAppearanceSection();
+};

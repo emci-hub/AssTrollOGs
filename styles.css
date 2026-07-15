@@ -102,7 +102,8 @@ button:focus-visible,
 .mbti-tab:active,
 .sparks-cell:active,
 .friend-list-row:active,
-.friend-avatar-chip:active {
+.friend-avatar-chip:active,
+.theme-swatch-btn:active {
   transform: scale(0.97);
 }
 
@@ -1288,6 +1289,57 @@ h1 {
 
 .friend-fun-row:last-child {
   border-bottom: none;
+}
+
+/* ─── Appearance / theme switcher ────────────────────────────────────────── */
+
+.theme-swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.theme-swatch-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 14px 8px;
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.1s ease;
+}
+
+.theme-swatch-btn:hover {
+  border-color: var(--border-highlight);
+}
+
+.theme-swatch-btn.active {
+  border-color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 10%, var(--bg-card));
+}
+
+.theme-swatch-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--border-highlight);
+}
+
+.theme-swatch-emoji {
+  font-size: 1.1rem;
+}
+
+.theme-swatch-label {
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.theme-swatch-btn.active .theme-swatch-label {
+  color: var(--accent-primary);
 }
 
 /* ─── Mood Check game ────────────────────────────────────────────────────── */

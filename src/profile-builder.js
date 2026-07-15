@@ -452,6 +452,8 @@ export function finalizeEngineData() {
   hydrateDashboardViews(storagePayload);
   switchView('daily-screen');
   if (typeof window.initPet === 'function') window.initPet();
+  if (typeof window._renderFriendsSection === 'function') window._renderFriendsSection();
+  if (typeof window._renderAppearanceSection === 'function') window._renderAppearanceSection();
 }
 
 // ─── Save Code UI helpers (called from inline onclick in Step 0) ──────────────
@@ -536,6 +538,8 @@ export async function submitSaveCode() {
     hydrateDashboardViews(parsed);
     switchView('daily-screen');
     if (typeof window.initPet === 'function') window.initPet();
+    if (typeof window._renderFriendsSection === 'function') window._renderFriendsSection();
+    if (typeof window._renderAppearanceSection === 'function') window._renderAppearanceSection();
 
   } catch (e) {
     if (errEl) { errEl.textContent = e.message; errEl.style.display = 'block'; }
