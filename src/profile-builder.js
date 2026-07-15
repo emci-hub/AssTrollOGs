@@ -519,14 +519,20 @@ export async function submitSaveCode() {
 
     // Store the code and device mapping locally
     const codeFormatted = result.saveCode || code;
-    localStorage.setItem('persistent_profile_data', JSON.stringify(parsed));
     localStorage.setItem('vibeSaveCode', codeFormatted);
     window.AppState.saveCode = codeFormatted;
+
+    // Update the streak BEFORE persisting, so the restore-day open (and the
+    // mood reset above) are captured in what gets written locally and synced.
+    if (typeof window.updateStreak === 'function') window.updateStreak();
+    parsed.gameData = window.AppState.gameData;
+    parsed.cachedDate = todayLocal();
+    parsed.lastSavedAt = new Date().toISOString();
+    localStorage.setItem('persistent_profile_data', JSON.stringify(parsed));
 
     // Upsert this device's own row, tagged with the shared save code (fire-and-forget)
     cloudSave(parsed, codeFormatted);
 
-    if (typeof window.updateStreak === 'function') window.updateStreak();
     hydrateDashboardViews(parsed);
     switchView('daily-screen');
     if (typeof window.initPet === 'function') window.initPet();

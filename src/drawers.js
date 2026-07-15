@@ -11,6 +11,7 @@ import { hydrateDashboardViews } from './dashboard.js';
 import { renderPetDrawer } from './pet.js';
 import { renderGrowthDrawer } from './growth.js';
 import { cloudSave } from './supabase.js';
+import { buildStoragePayload, getActiveSaveCode } from './state.js';
 
 let _insightOffsets = { groove: 0, journey: 0, decoder: 0, vibe: 0 };
 
@@ -427,26 +428,29 @@ window.saveProfileSettings = function() {
   if (love) window.AppState.userProfile.loveLanguage = love;
   if (expr) window.AppState.userProfile.expressionStyle = expr;
 
+  // Patch the cached package if it's readable; rebuild it from AppState when
+  // it's missing or corrupt so a profile edit is never silently dropped.
+  let parsed = null;
   const cachedPackage = localStorage.getItem('persistent_profile_data');
   if (cachedPackage) {
-    const parsed = JSON.parse(cachedPackage);
-    parsed.userProfile = window.AppState.userProfile;
-    if (parsed.tempAnswers) {
-      parsed.tempAnswers.userName = name;
-      parsed.tempAnswers.location = location;
-      if (attach) parsed.tempAnswers.attachment = attach;
-      if (conflict) parsed.tempAnswers.conflict = conflict;
-      if (love) parsed.tempAnswers.loveLanguage = love;
-      if (expr) parsed.tempAnswers.expression = expr;
-    }
-    parsed.lastSavedAt = new Date().toISOString();
-    localStorage.setItem('persistent_profile_data', JSON.stringify(parsed));
-
-    // The save code is permanent — profile edits sync to cloud under the
-    // same code, so a code written down long ago keeps working.
-    const code = window.AppState.saveCode || localStorage.getItem('vibeSaveCode');
-    cloudSave(parsed, code);
+    try { parsed = JSON.parse(cachedPackage); } catch (_) {}
   }
+  if (!parsed) parsed = buildStoragePayload();
+  parsed.userProfile = window.AppState.userProfile;
+  if (parsed.tempAnswers) {
+    parsed.tempAnswers.userName = name;
+    parsed.tempAnswers.location = location;
+    if (attach) parsed.tempAnswers.attachment = attach;
+    if (conflict) parsed.tempAnswers.conflict = conflict;
+    if (love) parsed.tempAnswers.loveLanguage = love;
+    if (expr) parsed.tempAnswers.expression = expr;
+  }
+  parsed.lastSavedAt = new Date().toISOString();
+  localStorage.setItem('persistent_profile_data', JSON.stringify(parsed));
+
+  // The save code is permanent — profile edits sync to cloud under the
+  // same code, so a code written down long ago keeps working.
+  cloudSave(parsed, getActiveSaveCode());
 
   hydrateDashboardViews({
     userProfile: window.AppState.userProfile,

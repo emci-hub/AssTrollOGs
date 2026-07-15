@@ -24,7 +24,7 @@ import { toggleDeveloperPanel, devJumpStep, devForceDashboard, syncDevInputs, cl
          devShowSaveCode, devForceCloudSync } from './dev-tools.js';
 import { gameRegistry } from './games/index.js';
 import { initPet, renderPetSection, refreshPetAffirmation } from './pet.js';
-import { updateStreak, migrateGameData, todayLocal } from './state.js';
+import { updateStreak, migrateGameData, todayLocal, persistGameData } from './state.js';
 import { cloudLoad, cloudLoadByCode } from './supabase.js';
 import { renderFriendsSection } from './friends.js';
 
@@ -116,12 +116,16 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (devUNameEl) devUNameEl.value = cachedPackage.userProfile?.name || '';
     if (devLocEl) devLocEl.value = cachedPackage.userProfile?.location || '';
 
+    // Run the streak update BEFORE persisting, so on the first open of a new
+    // local day the streak bump (and the mood reset above) survive even if
+    // the user closes the app without playing anything. persistGameData also
+    // syncs the rollover to the cloud; on a same-day reopen nothing changed,
+    // so nothing is written.
+    updateStreak();
     if (cachedPackage.cachedDate !== currentCalendarDay) {
-      cachedPackage.cachedDate = currentCalendarDay;
-      localStorage.setItem('persistent_profile_data', JSON.stringify(cachedPackage));
+      persistGameData();
     }
 
-    updateStreak();
     hydrateDashboardViews(cachedPackage);
     switchView('daily-screen');
     initPet();
