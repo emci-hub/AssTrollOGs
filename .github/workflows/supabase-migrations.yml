@@ -1,0 +1,35 @@
+# Applies new files in supabase/migrations/ to the Supabase project whenever
+# they land on main — the free-tier alternative to Supabase's paid GitHub
+# integration. Requires two repository secrets (Settings -> Secrets and
+# variables -> Actions):
+#   SUPABASE_ACCESS_TOKEN — from https://supabase.com/dashboard/account/tokens
+#   SUPABASE_DB_PASSWORD  — the project's database password
+#                           (Project Settings -> Database; reset it if unknown)
+name: Apply Supabase migrations
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+  workflow_dispatch:
+
+jobs:
+  push-migrations:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: plsugxnukitbuxbtfgow
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link to the Supabase project
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+
+      - name: Apply pending migrations
+        run: supabase db push
