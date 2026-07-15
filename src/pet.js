@@ -81,6 +81,68 @@ function computeLuckyNumber(profile) {
   return ((seed + dateHash) % 9) + 1;
 }
 
+// ─── Rare finish ────────────────────────────────────────────────────────────
+// A small, permanent, deterministic chance (~1 in 20) that a pet gets a
+// distinct two-tone "rare" finish instead of its normal solid palette — the
+// Pokémon-shiny pattern, reusing the couple pet's existing shiny-gradient
+// renderer rather than needing new silhouette art.
+function isRareFinish(profile) {
+  return computePetSeed(profile) % 20 === 0;
+}
+
+function deriveRareAccentColor(profile) {
+  const seed = computePetSeed(profile);
+  const hue = ((seed % 360) + 160) % 360;
+  return hslToHex(hue, 70, 60);
+}
+
+// ─── Ascension (post-Legendary) ────────────────────────────────────────────
+// Stage 5 (Legendary, day 40) isn't the ceiling. Growth keeps accumulating
+// on a slower curve past it — every +25 days is another Ascension tier,
+// uncapped. Rather than needing infinite unique silhouettes, each tier
+// layers a prestige finish from a small fixed rotation (bronze -> silver ->
+// gold -> platinum -> diamond -> prism, then loops with an extra ring per
+// lap) — the number keeps climbing forever, cosmetically, without an
+// infinite art budget.
+const PRESTIGE_FINISHES = ['bronze', 'silver', 'gold', 'platinum', 'diamond', 'prism'];
+const PRESTIGE_COLORS = {
+  bronze: '#b08d57', silver: '#c9d2da', gold: '#f5c842',
+  platinum: '#e8ecf1', diamond: '#7fd8e6', prism: '#c9a0f5'
+};
+
+function ascensionTier(totalDays) {
+  if (!totalDays || totalDays < 40) return 0;
+  return Math.floor((totalDays - 40) / 25) + 1;
+}
+
+function ascensionFinish(tier) {
+  if (!tier || tier <= 0) return null;
+  const idx = (tier - 1) % PRESTIGE_FINISHES.length;
+  const lap = Math.floor((tier - 1) / PRESTIGE_FINISHES.length);
+  const name = PRESTIGE_FINISHES[idx];
+  return { name, color: PRESTIGE_COLORS[name], lap, tier };
+}
+
+function stageLabelWithAscension(stageLabel, totalDays) {
+  const tier = ascensionTier(totalDays);
+  if (tier <= 0) return stageLabel;
+  const finish = ascensionFinish(tier);
+  const name = finish.name.charAt(0).toUpperCase() + finish.name.slice(1);
+  return finish.lap > 0 ? `${name} Ascension (lap ${finish.lap + 1})` : `${name} Ascension`;
+}
+
+// Extra rings around the aura, one per completed lap through the prestige
+// rotation plus the current tier's own ring — visibly "more going on" the
+// longer a pet has been ascending, without needing new geometry per tier.
+function ascensionRingsSvg(finish, cx, cy, r) {
+  if (!finish) return '';
+  const count = Math.min(finish.lap + 1, 4);
+  return Array.from({ length: count }, (_, i) => {
+    const rad = 1.55 + i * .14;
+    return `<ellipse cx="${cx}" cy="${cy}" rx="${r*rad}" ry="${r*rad*.9}" fill="none" stroke="${finish.color}" stroke-width="${r*.03}" opacity="${.6 - i*.1}"/>`;
+  }).join('');
+}
+
 function hslToHex(h, s, l) {
   s /= 100; l /= 100;
   const k = n => (n + h / 30) % 12;
@@ -199,7 +261,9 @@ function derivePetVisuals(profile) {
     edgeTreatment: edgeTreatmentType(profile),
     weapon: profile?.loveLanguage || 'words',
     auraShape: profile?.attachmentStyle || 'secure',
-    luckyNumber: computeLuckyNumber(profile)
+    luckyNumber: computeLuckyNumber(profile),
+    rare: isRareFinish(profile),
+    rareAccent: isRareFinish(profile) ? deriveRareAccentColor(profile) : null
   };
 }
 
@@ -866,7 +930,7 @@ function accessorySvg(stage, milestones, colors, cx, cy, r, isSolo = false, arch
 
 // ─── SVG builder ─────────────────────────────────────────────────────────────
 
-function buildPetSvg(visuals, stage, mood, size, milestones = [], isCouple = false, isSolo = false) {
+function buildPetSvg(visuals, stage, mood, size, milestones = [], isCouple = false, isSolo = false, ascension = 0) {
   const { colors, earShape, patternA, patternB, edgeTreatment, archetype, variant, secondaryArchetype } = visuals;
   const arch = archetype || 'wisp';
   const v = variant || ATTACHMENT_VARIANT.secure;
@@ -878,7 +942,8 @@ function buildPetSvg(visuals, stage, mood, size, milestones = [], isCouple = fal
   const shape = getArchetypeStageShape(arch, stg);
   const ry = r * (shape.ryMul || .9);
   const gid = `pg_${Math.round(r)}_${stg}${isCouple ? 'c' : ''}`;
-  const shiny = isCouple && stg >= 5;
+  const finish = stg >= 5 ? ascensionFinish(ascension) : null;
+  const shiny = (isCouple && stg >= 5) || !!visuals.rare;
 
   const mouth =
     mood === 'excited' ? `M ${cx-r*.28} ${cy+r*.3} Q ${cx} ${cy+r*.56} ${cx+r*.28} ${cy+r*.3}` :
@@ -895,6 +960,7 @@ function buildPetSvg(visuals, stage, mood, size, milestones = [], isCouple = fal
     : '';
   const auraIntensity = auraIntensityForStage(stg);
   const aura = auraShapeSvg(visuals.auraShape || 'secure', colors, cx, cy, r, auraIntensity, visuals.luckyNumber);
+  const ascensionRings = ascensionRingsSvg(finish, cx, cy, r);
   const pat = patternLayersSvg(patternA, patternB, colors, cx, cy, r, ry, gid);
   const edge = bodyEdgeTreatmentSvg(edgeTreatment, colors, cx, cy, r, ry);
   const sparkle = shiny ? shinySparkleSvg(cx, cy, r) : '';
@@ -905,7 +971,8 @@ function buildPetSvg(visuals, stage, mood, size, milestones = [], isCouple = fal
 
   const accessories = accessorySvg(stg, milestones, colors, cx, cy, r, isSolo, arch, visuals.weapon);
 
-  const { a, b } = visuals.shinyColors || { a: colors, b: colors };
+  const rareColors = visuals.rare ? { a: colors, b: { body: visuals.rareAccent, cheek: '#ffffff', eye: colors.eye } } : null;
+  const { a, b } = visuals.shinyColors || rareColors || { a: colors, b: colors };
   const gradientDef = shiny
     ? `<linearGradient id="${gid}" x1="15%" y1="10%" x2="85%" y2="90%">
         <stop offset="0%" stop-color="${a.cheek}"/>
@@ -921,7 +988,7 @@ function buildPetSvg(visuals, stage, mood, size, milestones = [], isCouple = fal
 
   return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">
     <defs>${gradientDef}</defs>
-    ${aura}${accessories}${secondaryAccent}${features}
+    ${ascensionRings}${aura}${accessories}${secondaryAccent}${features}
     <ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${ry}" fill="url(#${gid})"/>
     ${pat}${edge}
     <ellipse cx="${cx-r*.43}" cy="${cy+r*.19}" rx="${r*.23}" ry="${r*.15}" fill="${colors.cheek}" opacity=".48"/>
@@ -1125,7 +1192,9 @@ export function renderPetSection() {
   const userAttach = window.AppState.userProfile?.attachmentStyle || 'secure';
   const userVisuals = derivePetVisuals(window.AppState.userProfile || {});
   const userStageInfo = getStage(userPet.totalDays);
-  const userSvg = buildPetSvg(userVisuals, userPet.stage, userPet.mood, userStageInfo.size, milestones, false, solo);
+  const userAscension = ascensionTier(userPet.totalDays);
+  const userSvg = buildPetSvg(userVisuals, userPet.stage, userPet.mood, userStageInfo.size, milestones, false, solo, userAscension);
+  const userStageLabel = stageLabelWithAscension(userStageInfo.label, userPet.totalDays);
 
   // A fresh session opens with a contextual reaction to what actually
   // happened today (if anything did); tapping "New Message" moves past it
@@ -1153,6 +1222,10 @@ export function renderPetSection() {
 
   const nextStage = STAGES.find(s => s.minDays > userPet.totalDays);
   const daysToNext = nextStage ? nextStage.minDays - userPet.totalDays : 0;
+  const nextAscensionAt = 40 + userAscension * 25 + 25;
+  const progressLabel = nextStage
+    ? `${daysToNext} pts to ${nextStage.label}`
+    : `${nextAscensionAt - userPet.totalDays} pts to next Ascension`;
 
   if (solo) {
     if (titleEl) titleEl.textContent = 'Your Companion';
@@ -1162,7 +1235,7 @@ export function renderPetSection() {
           <div class="pet-float-anim">${userSvg}</div>
           <div style="text-align:center;">
             <div class="pet-name-tag-lg">${userPet.name}</div>
-            <div class="pet-stage-badge">${userStageInfo.label} · Day ${userPet.totalDays}</div>
+            <div class="pet-stage-badge">${userStageLabel} · Day ${userPet.totalDays}</div>
           </div>
         </div>
         <div class="pet-affirmation-block" style="border-color:${affirmColor}; background:${affirmBg};">
@@ -1170,7 +1243,7 @@ export function renderPetSection() {
           <div style="font-size:0.8rem; color:var(--text-secondary); line-height:1.5;">${affirmText}</div>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
-          <span style="font-size:0.65rem; color:var(--text-muted);">${nextStage ? `${daysToNext} pts to ${nextStage.label}` : 'Fully evolved!'}</span>
+          <span style="font-size:0.65rem; color:var(--text-muted);">${progressLabel}</span>
           <button class="btn btn-outline" style="font-size:0.65rem; padding:4px 10px;" onclick="refreshPetAffirmation()">New Message</button>
         </div>
       </div>
@@ -1191,9 +1264,14 @@ export function renderPetSection() {
   const partnerAttach = window.AppState.partnerProfile?.attachmentStyle || 'secure';
   const partnerVisuals = derivePetVisuals(window.AppState.partnerProfile || {});
   const partnerStageInfo = getStage(partnerPet.totalDays);
-  const partnerSvg = buildPetSvg(partnerVisuals, partnerPet.stage, partnerPet.mood, partnerStageInfo.size, milestones, false, solo);
+  const partnerAscension = ascensionTier(partnerPet.totalDays);
+  const partnerSvg = buildPetSvg(partnerVisuals, partnerPet.stage, partnerPet.mood, partnerStageInfo.size, milestones, false, solo, partnerAscension);
+  const partnerStageLabel = stageLabelWithAscension(partnerStageInfo.label, partnerPet.totalDays);
 
-  // Couple pet — grows independently, tracked in gd.pet.couple
+  // Couple pet — grows independently, tracked in gd.pet.couple. Fusion:
+  // if EITHER individual pet has ascended, the couple pet gets that many
+  // extra aura rings too, regardless of the couple pet's own tier — your
+  // own growth visibly changes something your partner sees as well.
   const couplePet = gd.pet.couple || makeCouplePetData();
   const coupleVisuals = deriveCoupleVisuals(userVisuals, partnerVisuals);
   const coupleAttachKey = `${userAttach}_${partnerAttach}`;
@@ -1204,7 +1282,9 @@ export function renderPetSection() {
   );
   const coupleStageInfo = getStage(couplePet.totalDays);
   const coupleShiny = couplePet.stage >= 5;
-  const coupleSvg = buildPetSvg(coupleVisuals, couplePet.stage, couplePet.mood, coupleStageInfo.size, milestones, true, false);
+  const coupleFusionAscension = Math.max(ascensionTier(couplePet.totalDays), userAscension, partnerAscension);
+  const coupleSvg = buildPetSvg(coupleVisuals, couplePet.stage, couplePet.mood, coupleStageInfo.size, milestones, true, false, coupleFusionAscension);
+  const coupleStageLabel = stageLabelWithAscension(coupleStageInfo.label, couplePet.totalDays);
 
   container.innerHTML = `
     <div class="pet-section-card">
@@ -1212,12 +1292,12 @@ export function renderPetSection() {
         <div class="pet-card-mini" onclick="openPetDrawer()" title="Your pet" style="cursor:pointer;">
           <div class="pet-float-anim">${userSvg}</div>
           <div class="pet-name-tag-lg">${userPet.name}</div>
-          <div class="pet-stage-badge">${userStageInfo.label} · Day ${userPet.totalDays}</div>
+          <div class="pet-stage-badge">${userStageLabel} · Day ${userPet.totalDays}</div>
         </div>
         <div class="pet-card-mini" onclick="openPetDrawer()" title="${partnerPet.name}" style="cursor:pointer;">
           <div class="pet-float-anim">${partnerSvg}</div>
           <div class="pet-name-tag-lg">${partnerPet.name}</div>
-          <div class="pet-stage-badge">${partnerStageInfo.label} · Day ${partnerPet.totalDays}</div>
+          <div class="pet-stage-badge">${partnerStageLabel} · Day ${partnerPet.totalDays}</div>
         </div>
       </div>
 
@@ -1228,7 +1308,7 @@ export function renderPetSection() {
           <div style="flex:1;">
             <div style="font-size:0.92rem; font-weight:700; color:var(--text-primary); margin-bottom:5px;">${coupleName}</div>
             <div style="font-size:0.73rem; font-style:italic; color:var(--text-secondary); line-height:1.5;">"${coupleMsg}"</div>
-            <div style="font-size:0.6rem; color:var(--text-muted); margin-top:4px;">${coupleShiny ? '✦ Shiny Legendary' : coupleStageInfo.label} · grows with both · Day ${couplePet.totalDays}</div>
+            <div style="font-size:0.6rem; color:var(--text-muted); margin-top:4px;">${coupleFusionAscension > 0 ? '✦ ' + coupleStageLabel : (coupleShiny ? '✦ Shiny Legendary' : coupleStageLabel)} · grows with both · Day ${couplePet.totalDays}</div>
           </div>
         </div>
       </div>
@@ -1292,7 +1372,9 @@ export function renderPetDrawer() {
   const stageInfo = getStage(userPet.totalDays);
   const nextStage = STAGES.find(s => s.minDays > userPet.totalDays);
   const solo = window.AppState.soloMode || !window.AppState.partnerProfile?.name;
-  const svg = buildPetSvg(visuals, userPet.stage, userPet.mood, stageInfo.size, milestones, false, solo);
+  const ascension = ascensionTier(userPet.totalDays);
+  const finish = ascensionFinish(ascension);
+  const svg = buildPetSvg(visuals, userPet.stage, userPet.mood, stageInfo.size, milestones, false, solo, ascension);
 
   const stageBar = STAGES.map(s => {
     const cls = s.stage === userPet.stage ? 'active' : s.stage < userPet.stage ? 'past' : '';
@@ -1305,6 +1387,7 @@ export function renderPetDrawer() {
   if (userPet.stage >= 4) unlocked.push('Glasses');
   if (userPet.stage >= 5) unlocked.push('Crown');
   if (userPet.stage >= 5) unlocked.push(solo ? 'Enchanted Weapon' : 'Weapon');
+  if (visuals.rare) unlocked.push('✦ Rare Finish');
   if (milestones.includes('trivia_master')) unlocked.push('Diploma');
   if (milestones.includes('streak_7')) unlocked.push('Halo');
   if (milestones.includes('memory_sharp') && userPet.stage < 4) unlocked.push('Crystal');
@@ -1312,7 +1395,7 @@ export function renderPetDrawer() {
   return `
     <div class="subtitle">Your Companion</div>
     <h2 style="margin-bottom:4px;">${userPet.name}</h2>
-    <p class="card-body" style="color:var(--text-muted); margin-bottom:8px;">${stageInfo.label} · Day ${userPet.totalDays}${solo ? ' · Solo (grows 2x)' : ''}</p>
+    <p class="card-body" style="color:var(--text-muted); margin-bottom:8px;">${ascension > 0 ? stageLabelWithAscension(stageInfo.label, userPet.totalDays) : stageInfo.label} · Day ${userPet.totalDays}${solo ? ' · Solo (grows 2x)' : ''}</p>
     <div style="text-align:center; margin-bottom:16px;">
       <span style="font-size:0.68rem; font-weight:700; background:rgba(245,200,66,0.14); border:1px solid rgba(245,200,66,0.4); color:#c99a1f; border-radius:20px; padding:3px 12px;">✦ Lucky number today: ${visuals.luckyNumber}</span>
     </div>
@@ -1322,7 +1405,7 @@ export function renderPetDrawer() {
     <div class="pet-stage-track">${stageBar}</div>
     ${nextStage
       ? `<div style="text-align:center; font-size:0.72rem; color:var(--text-muted); margin-top:12px;">${nextStage.minDays - userPet.totalDays} more pts to <strong style="color:var(--accent-primary);">${nextStage.label}</strong></div>`
-      : `<div style="text-align:center; font-size:0.72rem; color:var(--accent-primary); margin-top:12px; font-weight:700;">Fully evolved. Legendary status.</div>`}
+      : `<div style="text-align:center; font-size:0.72rem; color:var(--accent-primary); margin-top:12px; font-weight:700;">${finish ? `${finish.name.charAt(0).toUpperCase()+finish.name.slice(1)} Ascension${finish.lap > 0 ? ` · lap ${finish.lap+1}` : ''} — ${40 + ascension*25 + 25 - userPet.totalDays} pts to next tier` : 'Legendary status. Keep growing for Ascension.'}</div>`}
     ${unlocked.length > 0 ? `
     <div class="card" style="margin-top:16px; background:var(--bg-dark);">
       <div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px;">Unlocked items</div>
@@ -1348,5 +1431,6 @@ export function renderPetDrawer() {
 // rasterized and reviewed without a browser. Not used by the app itself.
 export const __internals = {
   derivePetVisuals, deriveCoupleVisuals, buildPetSvg, getStage, clampStage,
-  speciesArchetype, mbtiTemperament, bodyVariant
+  speciesArchetype, mbtiTemperament, bodyVariant,
+  ascensionTier, ascensionFinish, isRareFinish, computeLuckyNumber
 };
