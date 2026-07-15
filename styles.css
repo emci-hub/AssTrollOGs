@@ -143,7 +143,7 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(9, 9, 10, 0.95);
+  background: color-mix(in srgb, var(--bg-dark) 95%, transparent);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border-color);
   /* Right padding reserves room for the absolutely-positioned gear icon
@@ -308,7 +308,7 @@ h1 {
 }
 
 .choice-btn.selected {
-  background-color: rgba(129, 140, 248, 0.15);
+  background-color: color-mix(in srgb, var(--accent-primary) 15%, transparent);
   border-color: var(--accent-primary);
 }
 
@@ -355,7 +355,7 @@ h1 {
 
 .toggle-btn.active {
   background-color: var(--accent-primary);
-  color: var(--bg-dark);
+  color: var(--text-inverse);
   border-color: var(--accent-primary);
 }
 
@@ -382,7 +382,7 @@ h1 {
 .mbti-tab.active {
   border-color: var(--accent-primary);
   color: var(--accent-primary);
-  background-color: rgba(129, 140, 248, 0.05);
+  background-color: color-mix(in srgb, var(--accent-primary) 5%, transparent);
 }
 
 .mbti-grid {
@@ -405,7 +405,7 @@ h1 {
 
 .mbti-grid-btn.active {
   background-color: var(--accent-primary);
-  color: var(--bg-dark);
+  color: var(--text-inverse);
   border-color: var(--accent-primary);
 }
 
@@ -601,14 +601,14 @@ h1 {
   font-weight: 700;
   font-family: monospace;
   letter-spacing: 0.08em;
-  color: var(--bg-dark);
+  color: var(--text-inverse);
   background: var(--accent-primary);
   padding: 2px 7px;
   border-radius: 4px;
 }
 
 .dev-btn-unlock {
-  background: rgba(129, 140, 248, 0.12);
+  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
   border-color: var(--accent-primary);
   color: var(--accent-primary);
   padding: 7px 28px;
@@ -616,12 +616,12 @@ h1 {
 }
 
 .dev-btn-unlock:hover {
-  background: rgba(129, 140, 248, 0.22);
+  background: color-mix(in srgb, var(--accent-primary) 22%, transparent);
   color: var(--text-primary);
 }
 
 .dev-btn-lock {
-  border-color: rgba(248, 113, 113, 0.5);
+  border-color: color-mix(in srgb, var(--danger-color) 50%, transparent);
   color: #f87171;
 }
 
@@ -676,7 +676,7 @@ h1 {
 /* ─── Save Code ───────────────────────────────────────────────────────────── */
 
 .save-code-card {
-  border-color: rgba(129, 140, 248, 0.3);
+  border-color: color-mix(in srgb, var(--accent-primary) 30%, transparent);
 }
 
 .save-code-display-row {
@@ -713,7 +713,7 @@ h1 {
 }
 
 .save-code-copy-btn:hover {
-  background: rgba(129, 140, 248, 0.12);
+  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
 }
 
 /* Step 0 save code restore panel */
@@ -733,7 +733,7 @@ h1 {
 /* Generic Action Buttons */
 .btn {
   background-color: var(--accent-primary);
-  color: var(--bg-dark);
+  color: var(--text-inverse);
   border: none;
   padding: 14px;
   border-radius: 12px;
@@ -789,7 +789,7 @@ h1 {
 }
 
 .bingo-cell.checked {
-  background-color: rgba(129, 140, 248, 0.2);
+  background-color: color-mix(in srgb, var(--accent-primary) 20%, transparent);
   border-color: var(--accent-primary);
   color: var(--text-primary);
   text-decoration: line-through;
@@ -813,7 +813,7 @@ h1 {
 }
 
 .sparks-cell.checked {
-  background-color: rgba(129, 140, 248, 0.2);
+  background-color: color-mix(in srgb, var(--accent-primary) 20%, transparent);
   border-color: var(--accent-primary);
   color: var(--text-primary);
 }
@@ -877,7 +877,7 @@ h1 {
 }
 
 .memory-card-back {
-  background-color: rgba(129, 140, 248, 0.15);
+  background-color: color-mix(in srgb, var(--accent-primary) 15%, transparent);
   border: 1px solid var(--accent-primary);
   color: var(--text-primary);
   transform: rotateY(180deg);
@@ -895,8 +895,8 @@ h1 {
   font-size: 0.6rem;
   font-weight: 700;
   color: var(--success-color);
-  background: rgba(52, 211, 153, 0.12);
-  border: 1px solid rgba(52, 211, 153, 0.3);
+  background: color-mix(in srgb, var(--success-color) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--success-color) 30%, transparent);
   border-radius: 20px;
   padding: 2px 7px;
   margin-left: 8px;
@@ -921,8 +921,8 @@ h1 {
   font-size: 0.68rem;
   font-weight: 700;
   color: var(--accent-primary);
-  background: rgba(129, 140, 248, 0.12);
-  border: 1px solid rgba(129, 140, 248, 0.3);
+  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 30%, transparent);
   border-radius: 20px;
   padding: 3px 10px;
   letter-spacing: 0.03em;
@@ -937,22 +937,22 @@ h1 {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(52, 211, 153, 0.07);
-  border: 1px solid rgba(52, 211, 153, 0.25);
+  background: color-mix(in srgb, var(--success-color) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--success-color) 25%, transparent);
   border-radius: 10px;
   padding: 10px 14px;
 }
 
 .milestone-inner.milestone-new {
-  background: rgba(52, 211, 153, 0.14);
-  border-color: rgba(52, 211, 153, 0.5);
+  background: color-mix(in srgb, var(--success-color) 14%, transparent);
+  border-color: color-mix(in srgb, var(--success-color) 50%, transparent);
   animation: milestoneGlow 1.2s ease-out;
 }
 
 @keyframes milestoneGlow {
-  0%   { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.4); }
-  50%  { box-shadow: 0 0 12px 4px rgba(52, 211, 153, 0.3); }
-  100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--success-color) 40%, transparent); }
+  50%  { box-shadow: 0 0 12px 4px color-mix(in srgb, var(--success-color) 30%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--success-color) 0%, transparent); }
 }
 
 .milestone-label {
@@ -1078,7 +1078,7 @@ h1 {
 .pet-stage-badge {
   font-size: 0.6rem;
   color: var(--accent-primary);
-  background: rgba(129,140,248,0.12);
+  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
   border-radius: 20px;
   padding: 2px 8px;
   font-weight: 700;
@@ -1308,7 +1308,7 @@ h1 {
 .mood-btn:hover {
   transform: scale(1.06);
   border-color: var(--accent-primary);
-  background: rgba(129,140,248,0.08);
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
 }
 
 .mood-btn:active {
@@ -1330,7 +1330,7 @@ h1 {
 
 .qt-choice-btn:hover {
   border-color: var(--accent-primary);
-  background: rgba(129,140,248,0.08);
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
 }
 
 .qt-choice-btn:active {
