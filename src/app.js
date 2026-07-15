@@ -23,7 +23,7 @@ import { toggleDeveloperPanel, devJumpStep, devForceDashboard, syncDevInputs, cl
          devExportProfile, devImportProfile, devRefreshInspector,
          devShowSaveCode, devForceCloudSync } from './dev-tools.js';
 import { gameRegistry } from './games/index.js';
-import { initPet, renderPetSection, refreshPetAffirmation } from './pet.js';
+import { initPet, renderPetSection, refreshPetAffirmation, answerPetQuestion } from './pet.js';
 import { updateStreak, migrateGameData, todayLocal, persistGameData } from './state.js';
 import { cloudLoad, cloudLoadByCode } from './supabase.js';
 import { renderFriendsSection } from './friends.js';
@@ -183,6 +183,7 @@ window.refreshDayAtAGlance = refreshDayAtAGlance;
 window.refreshSpotlight = refreshSpotlight;
 window.refreshBlueprint = refreshBlueprint;
 window.refreshPetAffirmation = refreshPetAffirmation;
+window.answerPetQuestion = answerPetQuestion;
 window.refreshSaveCodeDisplay = refreshSaveCodeDisplay;
 window.copySaveCode = copySaveCode;
 window.openPetDrawer = () => openDrawer('pet');

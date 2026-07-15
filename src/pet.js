@@ -10,7 +10,7 @@
  * always recomputed at render time.
  */
 
-import { saveGameData, todayLocal, isToday, daysBetween } from './state.js';
+import { saveGameData, todayLocal, isToday, daysBetween, canAwardPetGrowthToday, recordPetGrowthToday } from './state.js';
 import { accountSalt, pickVariant, kickerFor, maybeRareLine } from './composer.js';
 
 // ─── Name generation ──────────────────────────────────────────────────────────
@@ -1630,6 +1630,87 @@ export function refreshPetAffirmation() {
 
 // ─── Pet drawer (tap to open full info) ──────────────────────────────────────
 
+// ─── Daily pet question ──────────────────────────────────────────────────────
+// The pet asks YOU one weird question a day (deterministic per account+day,
+// same pattern as the lucky number). Answering gives +1 growth (daily cap
+// 'petq') and the pet reacts. Stored minimally in gd.petq.
+
+const PET_QUESTIONS = [
+  { q: "Should I be more majestic or more chaotic?", opts: ["Majestic", "Chaotic", "Both, alternating"] },
+  { q: "If I learned one human word, which should it be?", opts: ["Snack", "No", "Magnificent"] },
+  { q: "What do you think I dream about?", opts: ["You", "Snacks", "Conquering the couch"] },
+  { q: "Rate my vibe today. Honestly.", opts: ["Immaculate", "Acceptable", "Chaotic good"] },
+  { q: "If we swapped places for a day, would you behave?", opts: ["Perfectly", "Absolutely not"] },
+  { q: "Should I fear the vacuum cleaner?", opts: ["Yes, always", "It's a friend", "Fear keeps you sharp"] },
+  { q: "What's my best feature actually for?", opts: ["Style", "Balance", "Distraction tactics"] },
+  { q: "If I started a rumor about you, what should it be?", opts: ["Too kind for this world", "Secretly famous", "Undefeated at something"] },
+  { q: "Do you think the moon knows about us?", opts: ["Definitely", "It suspects", "We keep a low profile"] },
+  { q: "What should my villain origin story be?", opts: ["Skipped snack time", "The great bath incident", "You closed the app once"] },
+  { q: "Am I more of a morning creature or a night cryptid?", opts: ["Morning creature", "Night cryptid"] },
+  { q: "If I had a job, what would it be?", opts: ["Emotional support executive", "Professional napper", "Chief vibes officer"] },
+  { q: "What should we name our imaginary band?", opts: ["The Streak Keepers", "Lowercase Feelings", "Pixel & The Heartstrings"] },
+  { q: "Would you still love me if I were a bug?", opts: ["Obviously", "Depends on the bug"] },
+  { q: "Should I trust the birds?", opts: ["Never", "Only some", "They know too much"] },
+  { q: "What's today's mission?", opts: ["Survive beautifully", "Cause minor delight", "Guard the streak"] },
+];
+
+const PET_Q_REACTIONS = [
+  "Noted. Filed permanently under 'things I know about you now.'",
+  "Interesting. The council (me) will deliberate.",
+  "Correct answer. There were no wrong ones, but still — correct.",
+  "I knew you'd say that. We're basically the same creature.",
+  "Bold. I respect it. The archives will reflect your courage.",
+  "This changes everything. Well — one thing. It changes one thing.",
+  "Excellent taste. I expected nothing less and was still delighted.",
+  "Hmm. As suspected. You may pet the screen now.",
+];
+
+function todaysPetQuestion(profile) {
+  const seed = petFlavorSeed(profile) + hashString(todayLocal());
+  return PET_QUESTIONS[seed % PET_QUESTIONS.length];
+}
+
+export function answerPetQuestion(choiceIdx) {
+  const gd = window.AppState.gameData;
+  if (!gd.petq) gd.petq = { lastAnswered: null, count: 0, lastChoice: null };
+  gd.petq.lastAnswered = todayLocal();
+  gd.petq.count = (gd.petq.count || 0) + 1;
+  gd.petq.lastChoice = choiceIdx;
+  if (canAwardPetGrowthToday('petq')) {
+    recordPetGrowthToday('petq');
+    awardPetGrowth(1); // awardPetGrowth persists via saveGameData
+  } else {
+    saveGameData();
+  }
+  const drawerContent = document.getElementById('drawer-dynamic-content');
+  if (drawerContent) drawerContent.innerHTML = renderPetDrawer();
+}
+
+function petQuestionBlock(gd, userPet) {
+  const profile = window.AppState.userProfile || {};
+  const question = todaysPetQuestion(profile);
+  const pq = gd.petq || {};
+  const answeredToday = pq.lastAnswered === todayLocal();
+  if (answeredToday) {
+    const choice = question.opts[Math.min(pq.lastChoice || 0, question.opts.length - 1)];
+    const reaction = PET_Q_REACTIONS[(petFlavorSeed(profile) + hashString(todayLocal()) + (pq.lastChoice || 0)) % PET_Q_REACTIONS.length];
+    return `
+    <div class="card" style="margin-top:12px; background:var(--bg-dark);">
+      <div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px;">${userPet.name} asked today</div>
+      <div style="font-size:0.78rem; color:var(--text-secondary); line-height:1.5;">"${question.q}" — you said <strong style="color:var(--accent-primary);">${choice}</strong>. ${reaction}</div>
+    </div>`;
+  }
+  return `
+    <div class="card" style="margin-top:12px; background:var(--bg-dark); border-color:color-mix(in srgb, var(--accent-primary) 25%, transparent);">
+      <div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; color:var(--accent-primary); margin-bottom:8px;">${userPet.name} has a question</div>
+      <div style="font-size:0.85rem; color:var(--text-primary); font-weight:700; margin-bottom:10px;">"${question.q}"</div>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        ${question.opts.map((o, i) => `<button class="choice-btn" style="text-align:left;" onclick="answerPetQuestion(${i})">${o}</button>`).join('')}
+      </div>
+      <div style="font-size:0.62rem; color:var(--text-muted); margin-top:8px;">One a day. Answering counts as growth. This is science.</div>
+    </div>`;
+}
+
 export function renderPetDrawer() {
   const gd = window.AppState.gameData;
   migratePetData(gd);
@@ -1695,6 +1776,7 @@ export function renderPetDrawer() {
       </div>
       <div style="font-size:0.68rem; color:var(--text-muted); margin-top:8px; line-height:1.5;">Tracks how many different games you've tried, not just how often you visit — try one you haven't yet to grow it.</div>
     </div>
+    ${petQuestionBlock(gd, userPet)}
     <div class="card" style="margin-top:12px; background:var(--bg-dark);">
       <div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:10px;">About ${userPet.name}</div>
       <ul class="bullet-list dos">

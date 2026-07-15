@@ -960,22 +960,26 @@ export const FRIEND_ICEBREAKERS = {
   direct:     [
     "Ask {friend} straight up what they're most excited about right now — they'll actually tell you.",
     "Ask {friend} what's the most useful piece of advice anyone's given them this year.",
-    "Ask {friend} what they'd change about their week if they could change one thing."
+    "Ask {friend} what they'd change about their week if they could change one thing.",
+    "Ask {friend} what they'd do with a surprise week off — you'll get a real plan, not a shrug."
   ],
   indirect:   [
     "Bring up something you've both been circling around and see if {friend} opens up about it.",
     "Ask {friend} what's been on their mind lately — then actually wait for the real answer.",
-    "Mention something small you noticed about {friend} lately; it usually opens the door to more."
+    "Mention something small you noticed about {friend} lately; it usually opens the door to more.",
+    "Send {friend} a 'this reminded me of you' — it opens more doors than a direct question ever does."
   ],
   reflective: [
     "Ask {friend} something they've been mulling over — they'll have a more interesting answer than you expect.",
     "Ask {friend} what they've changed their mind about recently.",
-    "Give {friend} a slightly bigger question than usual and let the pause happen — they're thinking, not stalling."
+    "Give {friend} a slightly bigger question than usual and let the pause happen — they're thinking, not stalling.",
+    "Ask {friend} what opinion they've quietly revised lately. Give it a beat — the answer will be good."
   ],
   analytical: [
     "Ask {friend} how they'd actually solve a problem you're dealing with — they'll enjoy being asked.",
     "Ask {friend} what they're currently trying to get better at.",
-    "Ask {friend} for their honest breakdown of something you both have an opinion on."
+    "Ask {friend} for their honest breakdown of something you both have an opinion on.",
+    "Ask {friend} to rank something silly — sandwiches, movie sequels — and watch a full framework appear."
   ]
 };
 
@@ -994,7 +998,15 @@ export const FRIEND_JOKES = [
   "You've reached peak trust: they know your order and just orders it for you.",
   "Friendship achievement unlocked: comfortable arguing about where to eat for twenty minutes.",
   "You're close enough now that 'I'm fine' actually gets questioned instead of accepted.",
-  "You've hit the tier where showing up in pajamas is not just allowed, it's expected."
+  "You've hit the tier where showing up in pajamas is not just allowed, it's expected.",
+  "You've reached the level where 'look at this' needs no context and gets full engagement.",
+  "Certified: you could sit in the same room doing separate things and call it hanging out.",
+  "This friendship runs on 60% memes, 30% snacks, and 10% emotional support deployed with sniper precision.",
+  "You know their family drama by season and episode number.",
+  "You've unlocked 'texting them from the same room' status.",
+  "Officially close enough to say 'that outfit? no.' and be thanked for it.",
+  "You two have a restaurant. You don't own it. But it's yours.",
+  "Friendship tier: will confidently back up their story to strangers with zero details."
 ];
 
 // ── Send-this messages ────────────────────────────────────────────────────────
@@ -1005,27 +1017,32 @@ export const FRIEND_MESSAGES = {
   words:   [
     "hey — just thinking about you, you're one of my favorite people 🤍",
     "random reminder that you're genuinely great at what you do",
-    "not gonna make this weird but I appreciate you, that's it, that's the text"
+    "not gonna make this weird but I appreciate you, that's it, that's the text",
+    "you handled that thing recently better than most people would have. just saying"
   ],
   time:    [
     "we haven't hung out in a bit, you free this week?",
     "want to just do nothing together this weekend? no agenda",
-    "I miss actually spending time with you, let's fix that soon"
+    "I miss actually spending time with you, let's fix that soon",
+    "no agenda, just: when are you free? I'll bring nothing but my presence"
   ],
   service: [
     "if you need help with anything this week, I'm around, just say the word",
     "let me know if there's anything I can take off your plate",
-    "I'm running errands anyway, want me to grab you anything?"
+    "I'm running errands anyway, want me to grab you anything?",
+    "I'm at the store — tell me one thing you keep forgetting to buy"
   ],
   touch:   [
     "bring it in next time I see you, I mean it",
     "virtual hug incoming, consider yourself hugged",
-    "next time we're in the same room I'm not letting you leave without a hug"
+    "next time we're in the same room I'm not letting you leave without a hug",
+    "saving you a hug. it's accruing interest daily"
   ],
   gifts:   [
     "saw something today that made me think of you",
     "I have a little something for you next time I see you",
-    "found the thing you mentioned wanting — got you"
+    "found the thing you mentioned wanting — got you",
+    "don't ask questions but what's your shelf situation, size-wise"
   ]
 };
 

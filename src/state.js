@@ -107,6 +107,8 @@ export function defaultGameData() {
     pettycourt: { cases: 0, agreements: 0, lastPlayed: null },
     calledit: { active: null, made: 0, right: 0, lastPlayed: null },
     capsule: { entries: [], lastPlayed: null },
+    // Daily pet question (pet.js petQuestionBlock) — one a day, +1 growth.
+    petq: { lastAnswered: null, count: 0, lastChoice: null },
     pet: { user: null, partner: null, couple: null, friends: {} },
     mood: { today: null, lastChecked: null, streak: 0, history: [] },
     quicktakes: { sessionCount: 0, lastPlayed: null },
