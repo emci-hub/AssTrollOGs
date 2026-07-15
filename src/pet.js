@@ -240,10 +240,10 @@ function speciesArchetype(profile) {
 }
 
 const ATTACHMENT_VARIANT = {
-  secure:   { sizeMul: 1.00, spike: 1.00, asym: 0, featureBias: 0 },
-  anxious:  { sizeMul: 1.04, spike: 1.35, asym: 0, featureBias: 1 },
-  avoidant: { sizeMul: 0.92, spike: 0.75, asym: 0, featureBias: -1 },
-  fearful:  { sizeMul: 0.98, spike: 1.10, asym: 1, featureBias: 0 }
+  secure:   { sizeMul: 1.00, spike: 1.00, asym: 0 },
+  anxious:  { sizeMul: 1.04, spike: 1.35, asym: 0 },
+  avoidant: { sizeMul: 0.92, spike: 0.75, asym: 0 },
+  fearful:  { sizeMul: 0.98, spike: 1.10, asym: 1 }
 };
 
 function bodyVariant(profile) {
