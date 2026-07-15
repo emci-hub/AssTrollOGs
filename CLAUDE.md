@@ -19,7 +19,9 @@ A mobile-first personality + relationship dashboard (430px max-width app contain
 | File | Purpose |
 |---|---|
 | `index.html` | Single page shell. All screens live here. Dev panel (gear icon) top-right. |
-| `styles.css` | All styles. CSS variables in `:root`. Key classes: `.screen`, `.card`, `.choice-btn`, `.sparks-cell`, `.mood-btn`, `.qt-choice-btn`, `.memory-card` |
+| `styles.css` | All component styles. Design tokens in `:root` (Dark theme's values — the default): color layers, `--font-heading`/`--font-sans`/`--font-mono`, spacing scale (`--space-1..6`), type scale (`--text-2xs..2xl`), radius scale (`--radius-sm/md/lg/shell`). Key classes: `.screen`, `.card`, `.interactive-card` (gets a `›` chevron affordance), `.choice-btn`, `.btn`/`.btn-outline` (full-width by design) vs `.btn-icon` (compact, for refresh/secondary actions — never reuse `.btn` for small buttons, it's `width:100%`), `.sparks-cell`, `.mood-btn`, `.qt-choice-btn`, `.memory-card`. Hardcoded `rgba()` tints were converted to `color-mix(in srgb, var(--x) N%, transparent)` so they stay correct under every theme. |
+| `themes.css` | Theme overrides. Dark is the default (`:root` in `styles.css`); `[data-theme="light\|cool\|fun\|robot\|anime"]` blocks on `<html>` override the same token names — no component CSS/JS needs to know which theme is active. Body text stays on `--font-sans` in every theme; only `--font-heading` varies (Manrope/Sora/Fredoka/Space Mono/Bungee). `.dev-panel` gets its own fixed (always-Dark) token block at the bottom, explicitly excluded from theme switching. |
+| `src/theme.js` | Theme engine. `THEMES` (id/label/emoji/swatch metadata for the switcher), `getActiveTheme()`/`setTheme(id)`/`applyStoredTheme()` (persisted to `localStorage['vibeTheme']`), `renderAppearanceSection()` (the dashboard's theme-swatch grid) + `window.selectTheme()`. `index.html` has a tiny inline `<script>` in `<head>` that applies the saved theme before first paint (avoids a flash of the wrong theme); this module is the source of truth for everything after that. |
 | `src/app.js` | Entry point. Imports all modules, binds window globals, handles init (cloud+local load, profile restore). |
 | `src/state.js` | `window.AppState`, `defaultGameData()`, `migrateGameData()`, `saveGameData()` (render-triggering wrapper) + `persistGameData()` (localStorage write + debounced cloud sync, rebuilds the package via `buildStoragePayload()` if the cached one is missing/corrupt), `getActiveSaveCode()` (AppState → localStorage fallback), `flushCloudSave()` (also auto-flushes on `pagehide`/tab-hidden), `updateStreak()`, `checkMilestones()`, `canAwardPetGrowthToday()`, `recordPetGrowthToday()`, local-date helpers `todayLocal()`/`isToday()`/`daysBetween()`. `SCHEMA_VERSION = 3`. |
 | `src/supabase.js` | Supabase client singleton, `getDeviceId()`, `cloudSave()`, `cloudLoad()`, `cloudLoadByCode()`. No auth — device UUID key. Reads go through RPCs (`get_session_by_device` / `get_session_by_code`); the table has NO open SELECT policy. |
@@ -235,6 +237,24 @@ Daily visit awards +2 (solo) or +1 (partner) automatically in `initPet()`; the c
 
 ---
 
+## Theming
+
+6 themes: **Dark** (default), **Light**, **Cool**, **Fun**, **Robot**, **Anime**. Switched via a small "Appearance" section on the dashboard (between Friends and Profile Settings) — a 3×2 grid of swatch buttons (`renderAppearanceSection()` in `theme.js`). Selecting one calls `window.selectTheme(id)`, which sets `data-theme` on `<html>`, persists to `localStorage['vibeTheme']`, and takes effect **instantly** with no reload — every color/font in the app is read through a CSS variable, so nothing needs to be told the theme changed.
+
+**Architecture:** `styles.css`'s `:root` defines the full token set using Dark's values (colors, `--font-heading`, spacing/type/radius scales). `themes.css` has one `[data-theme="..."]` block per other theme that overrides the same variable names — component CSS never branches on theme. `index.html` has an inline `<script>` in `<head>` (before the stylesheet links) that reads `localStorage['vibeTheme']` and sets the attribute before first paint, so there's no flash of the wrong theme on load; `theme.js`'s `applyStoredTheme()` re-does this once the app boots and is the source of truth for anything that reads the active theme afterward.
+
+**Font strategy:** body/reading text stays on `--font-sans` (the original system-font stack) in **every** theme — legibility shouldn't vary with which skin someone picked. Only `--font-heading` changes (applied to `h1`/`h2`/`h3`/`.section-title` only, never body/card text): Manrope (Dark/Light), Sora (Cool), Fredoka (Fun), Space Mono (Robot — also forces uppercase on `.section-title`/`.subtitle`, leaning into the pre-existing "VIBE ID" monospace motif), Bungee (Anime, a bold single-weight poster font). Loaded via Google Fonts `<link>` tags in `index.html`.
+
+**Fun** additionally bumps `--radius-sm/md/lg/shell` up (rounder cards/buttons — reads bouncier, not just recolored). **Robot** additionally sets `--radius-*` down to near-0 (sharp corners) and adds a faint repeating-linear-gradient "scanline" texture + neon glow shadow on `.app-container`. **Anime** additionally adds a diagonal gradient background on `.app-container`.
+
+**Dev Console exception:** `.dev-panel` in `themes.css` re-declares the entire Dark token set at that selector's scope, explicitly opting it out of `data-theme` switching — it should always look the same "terminal" way regardless of which theme the end user picked, so whoever's using it isn't thrown by their own theme choice. `.floating-dev-trigger` (the gear icon chip) is intentionally NOT in this exception — it's themed normally (via `color-mix()` against `--bg-card`) so it doesn't render as a jarring solid-dark square on light backgrounds.
+
+**Hardcoded-color policy:** anything that's part of a deliberately-theme-independent system stays hardcoded on purpose and should NOT be "fixed" into tokens — `pet.js`'s procedural pet-body/accessory/ascension colors (own system, same rationale as the pet's per-profile body color), `theme.js`'s `THEMES` swatch metadata (previews each theme's *own* color regardless of which is active, can't reference live variables), `dev-tools.js` (see above), and `mood.js`/`quicktakes.js`'s categorical trait-color palettes (deliberately fixed "tag colors," not semantic warning/danger/success). Everything else — including the ~25 previously-hardcoded `rgba()` tints now converted to `color-mix()` — should read through tokens; if you add new hardcoded colors, check which category it falls into before deciding whether to tokenize.
+
+**Contrast:** verified via a Playwright harness that reads the actual computed `--text-*` values per theme and checks WCAG contrast ratios against both `--bg-dark` and `--bg-card`. All 6 themes clear 4.5:1 for `--text-primary`/`--text-secondary`; `--text-muted` clears it everywhere except it needed a manual fix in Fun (see Changelog).
+
+---
+
 ## Known Bugs / Open Work
 
 _Add confirmed bugs here with file:line. Mark [FIXED] when resolved._
@@ -242,6 +262,13 @@ _Add confirmed bugs here with file:line. Mark [FIXED] when resolved._
 | Status | Description | File |
 |---|---|---|
 | FIXED | The solo Legendary weapon (sword) was positioned at `cx - r*.86`, inside the body ellipse's own horizontal radius (`rx=r`) — for most of its length it was painted over by the body fill drawn afterward, leaving only a tiny sliver of the tip visible. Replaced with a weapon slot held at `cx - r*1.14` (outside `rx`), also extended to partner mode. | `pet.js` |
+| FIXED | The header's "VIBE ID" text had no clearance from the absolutely-positioned gear icon and rendered underneath it, visibly truncating to as little as one character. | `styles.css` |
+| FIXED | `.btn`'s `width:100%` default was being inherited by every icon-sized secondary button (New Insight/Tips/Read, pet's New Message, the insight drawer's Next Read, Friends' refresh icons) since they all reused `.btn.btn-outline` — they stretched full-width and visually collided with adjacent titles/text instead of sitting compact. New `.btn-icon` class fixes this; never reuse `.btn`/`.btn-outline` for a small button again. | `index.html`, `pet.js`, `drawers.js`, `friends.js` |
+| FIXED | ~25 `rgba()` color tints (selected states, badges, glow borders, the sticky header's translucent background) were hardcoded to Dark theme's specific accent/success/danger RGB values — any other theme's differently-colored accent would have shown mismatched purple-tinted highlights regardless of its own palette. Converted to `color-mix(in srgb, var(--x) N%, transparent)`. | `styles.css` |
+| FIXED | 5 places used `var(--bg-dark)` as button TEXT color on an accent-colored background (`.btn`, `.toggle-btn.active`, `.mbti-tab.active`, `.mbti-grid-btn.active`) — worked by accident in Dark theme only because `--bg-dark` happens to be near-black there; in Light theme `--bg-dark` becomes near-white, which would make that text invisible. Switched to the new `--text-inverse` token. | `styles.css` |
+| FIXED | Fun theme's `--text-muted` measured 3.11:1 / 3.36:1 contrast against its backgrounds — below the 4.5:1 WCAG AA threshold for normal-size text (it cleared only the 3:1 "large text" minimum), caught by a Playwright-driven contrast check rather than eyeballing it. Darkened from `#9b84a6` to `#7d6787`. | `themes.css` |
+| FIXED | `.floating-dev-trigger` (gear icon chip) used a hardcoded dark `rgba()` instead of theme tokens, rendering as a jarring solid dark square on Light/Fun/Anime. Now uses `color-mix()` against `--bg-card`. | `styles.css` |
+| FIXED | Neither onboarding-completion path (`finalizeEngineData()`'s fresh-profile save, and the save-code restore flow) called the Friends/Appearance section renderers — both sections stayed empty until the next full reload or the first `saveGameData()` call from any game action. Added the same guarded `window._render*` calls `initPet()` already used there. | `profile-builder.js` |
 | FIXED | Guardian archetype's paws/mane-ruff and Flit archetype's legs used fixed `r`-relative offsets that assumed `ry≈r`; for archetypes with a notably smaller or larger `ry` than `r`, those features landed inside the body ellipse and were entirely hidden by the body fill. Repositioned relative to the actual `ry` at render time. | `pet.js` |
 | FIXED | Trivia question category strings used `attachmentStyle` etc. instead of `attachment` | `trivia.js` |
 | FIXED | `insights.js` `getWeakestCategoryLabel` had wrong key names — tips never surfaced | `insights.js` |
@@ -300,6 +327,22 @@ Hardened the whole save pipeline. No `SCHEMA_VERSION` bump — no `gameData` sha
 - `saveProfileSettings()`: unguarded `JSON.parse` replaced with try/catch + rebuild-from-AppState (`buildStoragePayload()`), and the local save-code fallback replaced with `getActiveSaveCode()`.
 
 Verified with a Node harness (mocked `window`/`document`/`localStorage`, stubbed `dashboard.js`/`supabase.js`, real `state.js`): rebuild-on-missing, patch-on-present, rebuild-on-corrupt, debounce (3 saves → 1 upsert), pagehide flush, save-code fallback — 18 checks, 0 failures. `npm run build` clean.
+
+### 2026-07-15 — UI Theming Overhaul: Design Tokens, 6 Themes, Legibility Pass
+
+Full theming system across 6 phases, all CSS/markup-level — no `SCHEMA_VERSION` bump, no application logic touched (re-verified both the 1071-check pet suite and the 109-check friends suite at the end, 0 failures).
+
+**Phase 1 — Design tokens + quick fixes.** Expanded `:root` into a full semantic token set (background layers, a 3rd accent color, warning/info colors, `--text-inverse`) plus new spacing/type/radius scales — additive only, nothing renamed. Added `--font-heading` (applied to headings/`.section-title` only, body text unaffected) as the hook the theme engine needs. Fixed the header ID truncation bug, added a consolidated `:active` tap-feedback rule app-wide, added `prefers-reduced-motion` support, and bumped `--text-muted` for better baseline contrast.
+
+**Phase 2 — Theme engine.** New `themes.css` with the 6 theme token blocks; new `src/theme.js` (`THEMES` metadata, get/set/persist/apply). `index.html` gained an inline pre-paint boot script (avoids a flash of the wrong theme) and the 5 Google Fonts the themes need. Along the way, converted ~25 hardcoded `rgba()` tints to `color-mix()` and fixed 5 `--bg-dark`-as-text-color bugs — both were "worked by accident in Dark only" bugs that would have broken visibly under Light.
+
+**Phase 3 — Switcher UI.** New "Appearance" dashboard section (between Friends and Profile Settings) — a swatch grid that applies + persists + live-updates with no reload.
+
+**Phase 4 — Legibility/arrangement polish.** Every dashboard section title and interactive-card title got a consistent emoji icon (previously only Pet/Mood/Friends had any); Deep Insights' 4 cards got colored left-border accents matching their icons; `.interactive-card` got a `›` chevron affordance so tappable cards read as tappable; every full-width "New X" refresh pill across the whole app got converted to the compact `.btn-icon`; Live Metrics deltas got directional arrows; two empty states got icons.
+
+**Phase 5 — Hardcoded-color sweep.** Audited every remaining hex color in `src/*.js`; converted the genuine UI-chrome ones (profile-builder's save-code error, Friends' Fun Zone label/Remove button/vibe-score top tier, pet's affirmation warning color) to tokens, and explicitly left everything else alone with documented reasons (pet's own procedural coloring, theme swatch metadata, the dev-panel exception, mood/quicktakes' categorical palettes) — see the Theming section above.
+
+**Phase 6 — Regression.** Playwright harness screenshots 4 screens across all 6 themes and computes real WCAG contrast ratios from the actual computed CSS values. Caught and fixed one real accessibility issue (Fun theme's `--text-muted`) that a visual-only pass would likely have missed.
 
 ### 2026-07-15 — Friends Feature: Unbounded Roster, Friendship Pets, Platonic Content
 
