@@ -11,7 +11,7 @@
  */
 
 import { saveGameData, todayLocal, isToday, daysBetween } from './state.js';
-import { accountSalt } from './composer.js';
+import { accountSalt, pickVariant, kickerFor, maybeRareLine } from './composer.js';
 
 // ─── Name generation ──────────────────────────────────────────────────────────
 
@@ -446,23 +446,89 @@ const WARNINGS = {
   ]
 };
 
+// Arrays of variants per pairing — the shown line rotates daily via
+// pickVariant, so the couple card doesn't repeat one sentence forever.
 const COUPLE_MESSAGES = {
-  'secure_secure':    "Two grounded people building something real. Rare and powerful.",
-  'secure_anxious':   "Stability meets depth. One anchors, one deepens. Together: unshakeable.",
-  'secure_avoidant':  "Patience and space. This pair grows by giving each other room.",
-  'secure_fearful':   "One steady hand for someone learning to reach out. Beautiful dynamic.",
-  'anxious_secure':   "Your depth is held safely here. That is everything.",
-  'anxious_anxious':  "Two big hearts who just get it. Keep choosing each other.",
-  'anxious_avoidant': "Fire and cool air. Opposites that teach each other something irreplaceable.",
-  'anxious_fearful':  "Both brave in different ways. The vulnerability here runs deep.",
-  'avoidant_secure':  "Freedom with a soft landing. What healthy independence looks like.",
-  'avoidant_anxious': "Intensity finds calm here, and calm finds life. Perfect balance.",
-  'avoidant_avoidant':"Two people who respect each other's space absolutely. Quietly powerful.",
-  'avoidant_fearful': "Two careful hearts moving at their own pace. Extraordinary patience.",
-  'fearful_secure':   "One learning to trust, one showing up consistently. This is healing.",
-  'fearful_anxious':  "Vulnerability all the way down. Terrifying and incredibly real.",
-  'fearful_avoidant': "The push-pull that creates the most honest dynamic of all.",
-  'fearful_fearful':  "Two people brave enough to try anyway. That courage is remarkable."
+  'secure_secure': [
+    "Two grounded people building something real. Rare and powerful.",
+    "Two calm people who chose each other on purpose. The pet has never once worried about you two.",
+    "Steady plus steady. Your couple pet gets to just be a pet — no drama absorption duties.",
+  ],
+  'secure_anxious': [
+    "Stability meets depth. One anchors, one deepens. Together: unshakeable.",
+    "One of you is the harbor, one of you is the lighthouse — someone's always watching the water. Solid system.",
+    "Anchor and antenna. Between you, nothing gets missed and nothing gets rocked.",
+  ],
+  'secure_avoidant': [
+    "Patience and space. This pair grows by giving each other room.",
+    "Closeness that doesn't crowd, space that doesn't sting. This pet was raised in a well-ventilated home.",
+    "One opens the door, one appreciates that it stays open. Balance, achieved quietly.",
+  ],
+  'secure_fearful': [
+    "One steady hand for someone learning to reach out. Beautiful dynamic.",
+    "One steady hand, one careful heart, and a little pet watching trust get built brick by brick.",
+    "Consistency meets caution and wins it over slowly. The pet has front-row seats to something rare.",
+  ],
+  'anxious_secure': [
+    "Your depth is held safely here. That is everything.",
+    "Deep feeling, safely held. The pet reports the emotional weather here is 'warm, occasional flurries, always clearing.'",
+    "Your intensity finally has a place to land. The pet approves of the landing pad.",
+  ],
+  'anxious_anxious': [
+    "Two big hearts who just get it. Keep choosing each other.",
+    "Two hearts with the sensitivity dialed to max. This pet has never once felt unnoticed.",
+    "You both feel everything, which means nothing important slips by. The pet is extremely well-monitored.",
+  ],
+  'anxious_avoidant': [
+    "Fire and cool air. Opposites that teach each other something irreplaceable.",
+    "Fire and cool air make weather — and weather makes things grow. Ask the pet, it's thriving.",
+    "One reaches, one recharges, both keep choosing this. The pet calls that a working climate.",
+  ],
+  'anxious_fearful': [
+    "Both brave in different ways. The vulnerability here runs deep.",
+    "Both brave in different directions. The pet was born from that courage and it shows.",
+    "Two kinds of careful, one shared heart. The vulnerability here could power a small city.",
+  ],
+  'avoidant_secure': [
+    "Freedom with a soft landing. What healthy independence looks like.",
+    "Independence with a home address. The pet respects the arrangement enormously.",
+    "Freedom that comes back. That's the rarest trick, and you two do it casually.",
+  ],
+  'avoidant_anxious': [
+    "Intensity finds calm here, and calm finds life. Perfect balance.",
+    "Cool air and warm current — the mix keeps this little one's climate interesting.",
+    "One brings space, one brings spark. The pet inherited both and it's honestly a great combination.",
+  ],
+  'avoidant_avoidant': [
+    "Two people who respect each other's space absolutely. Quietly powerful.",
+    "Two orbits, respectfully maintained, one shared moon. The pet enjoys the quiet.",
+    "Nobody crowds anybody in this house. The pet has never once been smothered and is slightly smug about it.",
+  ],
+  'avoidant_fearful': [
+    "Two careful hearts moving at their own pace. Extraordinary patience.",
+    "Two careful hearts at their own pace — the pet learned patience from professionals.",
+    "Slow, deliberate, real. This pet knows exactly how it was raised: no rush, no tests.",
+  ],
+  'fearful_secure': [
+    "One learning to trust, one showing up consistently. This is healing.",
+    "One learning to trust, one making trust easy to learn. The pet is literal proof of progress.",
+    "Someone keeps showing up, and someone's learning to believe it. The pet believes it already.",
+  ],
+  'fearful_anxious': [
+    "Vulnerability all the way down. Terrifying and incredibly real.",
+    "All the feelings, fully felt, nowhere to hide — and nobody hiding. Remarkable, honestly.",
+    "Vulnerability squared. This pet is made of pure honesty and it glows a little because of it.",
+  ],
+  'fearful_avoidant': [
+    "The push-pull that creates the most honest dynamic of all.",
+    "Push and pull, but the pet notices you both always end up in the same room eventually.",
+    "The most honest dynamic in the book: nobody performs here. The pet finds that very restful.",
+  ],
+  'fearful_fearful': [
+    "Two people brave enough to try anyway. That courage is remarkable.",
+    "Two people who tried anyway. The pet exists because courage beat caution — twice.",
+    "Both brave enough to stay. The pet is a small monument to trying anyway.",
+  ],
 };
 
 // ─── Mood ─────────────────────────────────────────────────────────────────────
@@ -1094,14 +1160,38 @@ function pickPetReaction(gameData, profile) {
 
   if (gd.mood?.lastChecked === today && gd.mood?.today) {
     const MOOD_REACTIONS = {
-      glowing: "noticed you're glowing today and has been doing a happy little wiggle about it.",
-      curious: "picked up on your curious mood and has been extra alert all day.",
-      chill: "matched your chill energy and has been lazing around contentedly.",
-      tense: "sensed the tension today and has been sticking close by.",
-      low: "noticed today's a low one and is staying extra close.",
-      fired: "caught your fired-up energy and has been bouncing off the walls."
+      glowing: [
+        "noticed you're glowing today and has been doing a happy little wiggle about it.",
+        "has been basking in your glow like it's a heat lamp.",
+        "declared today a 'good day' in its official records, citing your glow.",
+      ],
+      curious: [
+        "picked up on your curious mood and has been extra alert all day.",
+        "keeps investigating things alongside you in solidarity.",
+        "matched your curiosity and has now sniffed everything in the room twice.",
+      ],
+      chill: [
+        "matched your chill energy and has been lazing around contentedly.",
+        "achieved a level of relaxation science can't explain, in your honor.",
+        "has been doing absolutely nothing with you, which is its favorite activity.",
+      ],
+      tense: [
+        "sensed the tension today and has been sticking close by.",
+        "is on quiet standby duty today — close, calm, not asking questions.",
+        "noticed the tension and has assigned itself to emotional support detail.",
+      ],
+      low: [
+        "noticed today's a low one and is staying extra close.",
+        "moved a little closer today. No reason given. None needed.",
+        "is keeping today's energy soft on purpose. It's got you.",
+      ],
+      fired: [
+        "caught your fired-up energy and has been bouncing off the walls.",
+        "has been doing laps to keep up with your energy.",
+        "caught your fire and is now, legally speaking, a small comet.",
+      ],
     };
-    const line = MOOD_REACTIONS[gd.mood.today];
+    const line = pickVariant(MOOD_REACTIONS[gd.mood.today], petFlavorSeed(profile), today, 'reaction');
     if (line) return line;
   }
 
@@ -1360,8 +1450,15 @@ export function renderPetSection() {
   // happened today (if anything did); tapping "New Message" moves past it
   // into the regular rotating pool.
   const petReaction = _affirmOffset === 0 ? pickPetReaction(gd, window.AppState.userProfile) : null;
+  const rareTransmission = _affirmOffset === 0 ? maybeRareLine('pet') : null;
   let affirmText, isWarning, affirmLabel;
-  if (petReaction) {
+  if (rareTransmission) {
+    // ~1-in-50 days the pet's message slot carries a rare collectible line
+    // instead — the shiny-pet pattern applied to messages.
+    affirmText = rareTransmission;
+    isWarning = false;
+    affirmLabel = `${userPet.name}'s rare transmission`;
+  } else if (petReaction) {
     affirmText = `${userPet.name} ${petReaction}`;
     isWarning = false;
     affirmLabel = `From ${userPet.name}`;
@@ -1375,6 +1472,12 @@ export function renderPetSection() {
     affirmLabel = isWarning
       ? (solo ? 'Watch out for' : `A heads-up for ${uName || 'you'}`)
       : (solo ? 'Today for you' : `Today for ${uName || 'you'}`);
+  }
+  // The pet is the app's comedian: some (non-warning, non-rare) messages get
+  // a joke tacked on — level-gated and mood-guarded in composer.kickerFor.
+  if (!isWarning && !rareTransmission) {
+    const petKick = kickerFor('pet', petFlavorSeed(window.AppState.userProfile), _affirmOffset, todayLocal(), 'pet-affirm');
+    if (petKick) affirmText += ` ${petKick.replace(/\{pet\}/g, userPet.name)}`;
   }
   const affirmColor = isWarning ? 'var(--warning-color)' : 'var(--success-color)';
   const affirmBg = isWarning
@@ -1437,7 +1540,8 @@ export function renderPetSection() {
   const couplePet = gd.pet.couple || makeCouplePetData();
   const coupleVisuals = deriveCoupleVisuals(userVisuals, partnerVisuals);
   const coupleAttachKey = `${userAttach}_${partnerAttach}`;
-  const coupleMsg = COUPLE_MESSAGES[coupleAttachKey] || "Two unique energies building something only you two can.";
+  const coupleMsg = pickVariant(COUPLE_MESSAGES[coupleAttachKey], petFlavorSeed(window.AppState.userProfile), todayLocal(), 'couple')
+    || "Two unique energies building something only you two can.";
   const coupleName = generateMergedName(
     window.AppState.userProfile?.name || '',
     window.AppState.partnerProfile?.name || ''

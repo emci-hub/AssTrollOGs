@@ -106,6 +106,10 @@ export function defaultGameData() {
     mood: { today: null, lastChecked: null, streak: 0, history: [] },
     quicktakes: { sessionCount: 0, lastPlayed: null },
     petGrowthLog: {},
+    // App-level user preferences that should sync across devices with the
+    // rest of the save. humorLevel: 'chill' | 'playful' | 'unhinged' —
+    // controls the joke kickers (composer.js); dark humor only at 'unhinged'.
+    settings: { humorLevel: 'playful' },
     // Friends list — each entry is a lightweight, locally-entered snapshot
     // of someone else's profile (same shape as partnerProfile), not a live
     // synced account. `streak` tracks consecutive days you've visited that
@@ -160,6 +164,10 @@ export function migrateGameData(gd) {
   if (!Array.isArray(gd.duo?.history)) gd.duo.history = [];
   if (!Array.isArray(gd.reflection?.entries)) gd.reflection.entries = [];
   if (!Array.isArray(gd.checkin?.entries)) gd.checkin.entries = [];
+
+  // Settings — additive, defensively backfilled like every prior addition.
+  if (!gd.settings) gd.settings = { humorLevel: 'playful' };
+  if (!gd.settings.humorLevel) gd.settings.humorLevel = 'playful';
 
   // Friends — additive, defensively backfilled like every prior addition.
   if (!Array.isArray(gd.friends)) gd.friends = [];

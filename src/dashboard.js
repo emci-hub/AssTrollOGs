@@ -14,6 +14,8 @@ import { engine } from './engine.js';
 import { insights } from './insights.js';
 import { renderGrowthCard } from './growth.js';
 import { updateStreak, checkMilestones, MILESTONE_LABELS } from './state.js';
+import { accountSalt, pickVariant, humorLevel } from './composer.js';
+import { MILESTONE_TOASTS, MILESTONE_TOAST_GENERIC } from './jokes.js';
 
 let _fortuneOffset = 0;
 let _focusOffset = 0;
@@ -114,10 +116,16 @@ export function hydrateDashboardViews(data) {
       const latest = allMilestones[allMilestones.length - 1];
       const label = MILESTONE_LABELS[latest] || latest;
       const isNew = newMilestones.includes(latest);
+      // Newly earned milestones get a composed celebration line (suppressed
+      // at the 'chill' humor level — the badge alone is the sincere version).
+      const toast = isNew && humorLevel() !== 'chill'
+        ? pickVariant(MILESTONE_TOASTS[latest] || MILESTONE_TOAST_GENERIC, accountSalt(), latest)
+        : null;
       milestoneEl.innerHTML = `
         <div class="milestone-inner ${isNew ? 'milestone-new' : ''}">
           <span class="milestone-label">${isNew ? 'NEW — ' : ''}${label}</span>
           <span class="milestone-count">${allMilestones.length} milestone${allMilestones.length !== 1 ? 's' : ''} earned</span>
+          ${toast ? `<span style="display:block; width:100%; font-size:0.68rem; color:var(--text-secondary); margin-top:4px; line-height:1.4;">${toast}</span>` : ''}
         </div>`;
       milestoneEl.style.display = '';
     } else {

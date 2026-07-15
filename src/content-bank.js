@@ -477,28 +477,111 @@ export const MBTI_FRAGMENTS = {
 // The single biggest personalization multiplier: messages keyed by the
 // INTERSECTION of two traits read as "how did it know that about me" where
 // single-trait content reads generic. Keys: `${attachmentStyle}_${loveLanguage}`.
+// Each key holds an ARRAY of variants — surfaces pick one via composer's
+// pickVariant() with their own surface tag, so the same key never echoes the
+// same sentence across the glance/decoder/vibe on the same day.
 
 export const COMBO_INSIGHTS = {
-  secure_words:   "You're steady enough that you rarely fish for compliments — which means people forget you still like hearing them. Being low-maintenance doesn't mean no-maintenance.",
-  secure_time:    "Your calm makes shared time easy — but easy time can drift into parallel time. Presence is your love language; make some of it undivided.",
-  secure_service: "You help without keeping score, and your stability makes it look effortless. Just check that 'I've got it handled' isn't quietly becoming 'I never ask.'",
-  secure_touch:   "You're grounded, and physical closeness is how you top that up. On off days, you tend to give the reassuring touch you'd actually like to receive.",
-  secure_gifts:   "You notice what people mention wanting and quietly remember it. That thoughtfulness is your steadiness made visible — let people do the same for you.",
-  anxious_words:  "Words land deep for you — which is exactly why silence lands deeper. When it's quiet, remember: no message is usually no message, not a message.",
-  anxious_time:   "Undivided attention is how you know things are okay. Distracted time can feel like distance to you when it's often just a busy day — ask before concluding.",
-  anxious_service:"You show care by doing, and you notice every unreciprocated favor. Say the need out loud instead of doing one more thing and hoping it's noticed.",
-  anxious_touch:  "Closeness calms your whole nervous system — a hand on the shoulder does what an hour of reassurance can't. It's okay to ask for it plainly.",
-  anxious_gifts:  "Small tokens tell you that you were thought about while apart — that's the real gift. Careful not to read a forgetful week as a verdict.",
-  avoidant_words: "You'd rather show it than say it, but the people who love you can't read actions fluently forever. One direct sentence buys a week of understood silence.",
-  avoidant_time:  "You want togetherness without an agenda — side-by-side counts. Tell people that quiet company IS your version of quality time, or they'll keep filling it with talk.",
-  avoidant_service:"Doing useful things is how you say what you'd never phrase out loud. It works — as long as someone occasionally tells the people it's aimed at.",
-  avoidant_touch: "You keep distance verbally but recharge on physical closeness — a combination people misread constantly. Let one person in on the secret.",
-  avoidant_gifts: "A precise, well-chosen gift is your way of proving you pay attention without having to narrate it. The precision is the point — and it's noticed.",
-  fearful_words:  "Kind words matter enormously to you and are also the hardest to trust. Practice letting a compliment just be true for one full minute before auditing it.",
-  fearful_time:   "You crave real time together and get twitchy when you have it. Shorter, more frequent doses build the safety that marathon closeness can't.",
-  fearful_service:"You do a lot for people you're not sure will stay. Notice when helping is generosity and when it's quietly buying insurance.",
-  fearful_touch:  "Physical closeness is both the thing you want and the thing that trips the alarm. You get to set the pace — slow counts as progress.",
-  fearful_gifts:  "You remember every thoughtful thing anyone's given you — evidence, to you, that they saw the real you. Keep some of that evidence in view on doubtful days."
+  secure_words: [
+    "You're steady enough that you rarely fish for compliments — which means people forget you still like hearing them. Being low-maintenance doesn't mean no-maintenance.",
+    "Steady people give the best compliments and collect the fewest. Say one out loud today — and notice how rarely anyone thinks to hand you one back.",
+    "You don't need kind words to stay standing — which is exactly why they hit so well when they arrive. Let someone know they still count.",
+  ],
+  secure_time: [
+    "Your calm makes shared time easy — but easy time can drift into parallel time. Presence is your love language; make some of it undivided.",
+    "You're easy to be around, so people relax and half-attend. You've earned better than background-mode company — ask for one fully-present hour.",
+    "Comfortable silence is your superpower and your loophole. Some of that shared time should still have eye contact in it.",
+  ],
+  secure_service: [
+    "You help without keeping score, and your stability makes it look effortless. Just check that 'I've got it handled' isn't quietly becoming 'I never ask.'",
+    "You default to 'don't worry, I've got it' so smoothly that nobody checks anymore. Being reliable shouldn't mean being unassisted.",
+    "You keep everyone's plates spinning and call it nothing. Once in a while, hand someone a plate on purpose — they'd be glad to hold it.",
+  ],
+  secure_touch: [
+    "You're grounded, and physical closeness is how you top that up. On off days, you tend to give the reassuring touch you'd actually like to receive.",
+    "You're the calm one, and a good hug is how you refill that calm. Don't wait until you're running low to collect.",
+    "Grounded people still need grounding. The hand on YOUR shoulder matters as much as the ones you offer.",
+  ],
+  secure_gifts: [
+    "You notice what people mention wanting and quietly remember it. That thoughtfulness is your steadiness made visible — let people do the same for you.",
+    "You clock the little things people mention and circle back weeks later — quiet proof you were listening. Let someone catch you wanting something too.",
+    "Your gift-giving is reconnaissance plus love. The same attention pointed at yourself once a month wouldn't hurt.",
+  ],
+  anxious_words: [
+    "Words land deep for you — which is exactly why silence lands deeper. When it's quiet, remember: no message is usually no message, not a message.",
+    "You replay conversations hunting for the sentence that explains everything. Sometimes the sentence is just 'they were tired.'",
+    "Words are your love language and your crime scene — you can read too much into both. Today, take one kind thing said to you at face value.",
+  ],
+  anxious_time: [
+    "Undivided attention is how you know things are okay. Distracted time can feel like distance to you when it's often just a busy day — ask before concluding.",
+    "Half-attention feels like a verdict to you when it's usually just a Tuesday. Ask for the real thing instead of grading the counterfeit.",
+    "You count minutes together like evidence. Good news: presence you ASK for counts exactly the same as presence you're offered.",
+  ],
+  anxious_service: [
+    "You show care by doing, and you notice every unreciprocated favor. Say the need out loud instead of doing one more thing and hoping it's noticed.",
+    "You do the extra thing, then watch to see if it registered. Skip the surveillance step — say 'it would help me if…' and let them show up.",
+    "Your care shows up as doing, and your worry shows up as doing MORE. If you're on favor number three, it might be time for a sentence instead.",
+  ],
+  anxious_touch: [
+    "Closeness calms your whole nervous system — a hand on the shoulder does what an hour of reassurance can't. It's okay to ask for it plainly.",
+    "For you, a hug is data — real-time proof that things are okay. Asking for one isn't needy; it's efficient.",
+    "Your nervous system settles skin-first, words-second. Whoever loves you should know that shortcut exists.",
+  ],
+  anxious_gifts: [
+    "Small tokens tell you that you were thought about while apart — that's the real gift. Careful not to read a forgetful week as a verdict.",
+    "A small token says 'you crossed my mind while we were apart' — the exact reassurance your radar hunts for. Tell people that's the magic, so they can aim for it.",
+    "You keep every thoughtful thing anyone's given you, mentally and literally. Revisit that shelf on the doubtful days — it's evidence, and it's admissible.",
+  ],
+  avoidant_words: [
+    "You'd rather show it than say it, but the people who love you can't read actions fluently forever. One direct sentence buys a week of understood silence.",
+    "You edit your feelings down to their most efficient sentence, then often don't send it. Send it. Efficiency was already achieved.",
+    "'They know how I feel' is doing a lot of unverified work in your life. One plain sentence per week keeps the legend accurate.",
+  ],
+  avoidant_time: [
+    "You want togetherness without an agenda — side-by-side counts. Tell people that quiet company IS your version of quality time, or they'll keep filling it with talk.",
+    "Your ideal evening is together-but-parallel — two books, one couch. That's real closeness; just say so, or it reads as distance with furniture.",
+    "You don't need constant company, which makes the company you choose meaningful. Occasionally tell people they made the shortlist.",
+  ],
+  avoidant_service: [
+    "Doing useful things is how you say what you'd never phrase out loud. It works — as long as someone occasionally tells the people it's aimed at.",
+    "You fix, carry, and handle — your love has a toolbox. A word of narration ('this was for you') turns invisible care into visible care.",
+    "Your favors are fluent, your feelings are subtitled. Every so often, turn the subtitles on for someone.",
+  ],
+  avoidant_touch: [
+    "You keep distance verbally but recharge on physical closeness — a combination people misread constantly. Let one person in on the secret.",
+    "You'll dodge the conversation and accept the hug — a contradiction only to people who haven't been paying attention. Let someone in on the user manual.",
+    "Physical closeness recharges you in a way talking never will. That's not a flaw in the system; it IS the system.",
+  ],
+  avoidant_gifts: [
+    "A precise, well-chosen gift is your way of proving you pay attention without having to narrate it. The precision is the point — and it's noticed.",
+    "Your gifts are precise because your attention is precise — you just never mention the hours of noticing behind them. The noticing is the romantic part; leak it occasionally.",
+    "You'd rather hand someone the perfect object than the perfect sentence. Fair — just remember some people need the receipt read aloud.",
+  ],
+  fearful_words: [
+    "Kind words matter enormously to you and are also the hardest to trust. Practice letting a compliment just be true for one full minute before auditing it.",
+    "You want the kind words and cross-examine them on arrival. Try letting one through customs unchecked today.",
+    "Compliments can feel like setups when you've been burned. They're mostly just compliments. The audit can skip a day.",
+  ],
+  fearful_time: [
+    "You crave real time together and get twitchy when you have it. Shorter, more frequent doses build the safety that marathon closeness can't.",
+    "You want closeness in doses you control — that's not broken, that's dosage awareness. Small and often beats rare and overwhelming.",
+    "Leaving early isn't failing at connection; it's succeeding at knowing your limits. Stay ten minutes past comfortable once in a while, just to update the data.",
+  ],
+  fearful_service: [
+    "You do a lot for people you're not sure will stay. Notice when helping is generosity and when it's quietly buying insurance.",
+    "You over-deliver for people before they've earned it, hoping usefulness buys safety. You're allowed to just be liked — no invoice necessary.",
+    "Notice the difference between helping because you care and helping so they can't have a reason to leave. One fills you, one drains you.",
+  ],
+  fearful_touch: [
+    "Physical closeness is both the thing you want and the thing that trips the alarm. You get to set the pace — slow counts as progress.",
+    "You flinch first, then wish you hadn't. Both reactions are honest — the second one is allowed to win sometimes.",
+    "Slow is a pace, not a failure. Anyone worth your closeness will match it without a countdown clock.",
+  ],
+  fearful_gifts: [
+    "You remember every thoughtful thing anyone's given you — evidence, to you, that they saw the real you. Keep some of that evidence in view on doubtful days.",
+    "You remember who gave you what and exactly what it meant — your trust keeps receipts. On the hard days, read the receipts, not the fears.",
+    "A thoughtful gift tells you someone saw the real you and stayed. Keep one where you can see it — portable evidence.",
+  ],
 };
 
 // ── Attachment pairing matrix (partner mode) ─────────────────────────────────
@@ -506,22 +589,86 @@ export const COMBO_INSIGHTS = {
 // order matters ("you" is always the primary user). {partner} is interpolated.
 
 export const ATTACHMENT_PAIRINGS = {
-  secure_secure:   "Two steady people. Your risk isn't conflict — it's coasting. Calm this reliable deserves to be spent on something, not just maintained.",
-  secure_anxious:  "You're the anchor; {partner} reads the water. When {partner} checks in more than usual, it isn't doubt in you — it's their radar running. A little unprompted reassurance from you goes miles.",
-  secure_avoidant: "You're comfortable close; {partner} recharges at a distance. The win condition is simple: you don't chase, and {partner} announces the retreats. Space with a return time never feels like rejection.",
-  secure_fearful:  "Your consistency is quietly rewriting what closeness feels like for {partner}. Don't rush the timeline — every uneventful week is the evidence that matters.",
-  anxious_secure:  "{partner}'s calm is real, not indifference — secure people just don't broadcast much. When your radar pings, ask instead of decoding; you'll get a straight answer.",
-  anxious_anxious: "You both feel everything and notice everything — incredible closeness, shared spirals. When one of you starts scanning for problems, the other's job is to NOT join the search party.",
-  anxious_avoidant:"The classic loop: you reach for closeness under stress, {partner} reaches for space, and each move triggers the other's. Naming which mode you're each in — out loud — breaks the cycle faster than anything else.",
-  anxious_fearful: "You pursue when worried; {partner} both wants that and braces against it. Gentle consistency beats grand reassurance here — small and steady is what actually lands.",
-  avoidant_secure: "{partner} gives you room without keeping score, which is exactly why this works. Repay it in the only currency that matters: occasionally coming back before you're asked to.",
-  avoidant_anxious:"Your silences read louder to {partner} than they feel to you. A three-word status update — 'recharging, all good' — costs you nothing and saves {partner} an evening of theories.",
-  avoidant_avoidant:"Nobody crowds anybody. The risk is two well-respected bubbles that stop touching. One of you has to be the one who reaches out each week — trade off whose turn it is.",
-  avoidant_fearful:"You withdraw to recharge; {partner} withdraws to test the water. Same move, different meanings — so say which one it is. 'I need an evening' is kindness here, not oversharing.",
-  fearful_secure:  "{partner} keeps showing up, and part of you keeps waiting for the catch. There's no catch. Let the boring, reliable weeks count as data too.",
-  fearful_anxious: "You both want proof this is safe and you both collect it differently — {partner} by drawing closer, you by stepping back to watch. Tell each other what a test looks like, so nobody fails one they didn't know they were taking.",
-  fearful_avoidant:"Push-pull squared: your guardedness reads as distance to {partner}, whose distance confirms your guardedness. Someone has to make the first small honest move — it's allowed to be you.",
-  fearful_fearful: "Two careful hearts, both braced. The good news: nobody here rushes anybody. The work: making sure 'careful' doesn't quietly become the whole relationship."
+  secure_secure: [
+    "Two steady people. Your risk isn't conflict — it's coasting. Calm this reliable deserves to be spent on something, not just maintained.",
+    "Neither of you sets off the other's alarms — which means the alarms never force a deep conversation either. Schedule the depth on purpose.",
+    "Calm plus calm is a superpower until it becomes autopilot. One deliberately curious question this week keeps the engine warm.",
+  ],
+  secure_anxious: [
+    "You're the anchor; {partner} reads the water. When {partner} checks in more than usual, it isn't doubt in you — it's their radar running. A little unprompted reassurance from you goes miles.",
+    "{partner}'s check-ins aren't a complaint about you — they're weather readings. Answer the weather, not an accusation nobody made.",
+    "You steady the ship without noticing; {partner} notices everything. Between you, nothing important gets missed — as long as you say the calm out loud.",
+  ],
+  secure_avoidant: [
+    "You're comfortable close; {partner} recharges at a distance. The win condition is simple: you don't chase, and {partner} announces the retreats. Space with a return time never feels like rejection.",
+    "You don't take {partner}'s space personally, which is rare and exactly why this works. The upgrade: {partner} telling you when they'll be back.",
+    "Your ease makes room for {partner}'s distance without drama. Just don't let 'no drama' quietly become 'no contact.'",
+  ],
+  secure_fearful: [
+    "Your consistency is quietly rewriting what closeness feels like for {partner}. Don't rush the timeline — every uneventful week is the evidence that matters.",
+    "For {partner}, your predictability is the plot twist. Keep being uneventful — it's the most romantic thing available.",
+    "{partner} is watching for the catch. Your job isn't to argue there isn't one — it's to keep being the same person next week.",
+  ],
+  anxious_secure: [
+    "{partner}'s calm is real, not indifference — secure people just don't broadcast much. When your radar pings, ask instead of decoding; you'll get a straight answer.",
+    "You bring the weather report; {partner} brings the climate. When your radar pings, remember {partner}'s calm is data too.",
+    "{partner} won't always narrate their feelings — secure people forget it's needed. It's okay to ask for the narration; you'll get it.",
+  ],
+  anxious_anxious: [
+    "You both feel everything and notice everything — incredible closeness, shared spirals. When one of you starts scanning for problems, the other's job is to NOT join the search party.",
+    "Two sets of antennae means nothing goes unnoticed, including things that aren't there. Agree on a code phrase for 'I'm spiraling, not leaving.'",
+    "You both give reassurance beautifully and request it terribly. Trade openly — the supply is genuinely unlimited here.",
+  ],
+  anxious_avoidant: [
+    "The classic loop: you reach for closeness under stress, {partner} reaches for space, and each move triggers the other's. Naming which mode you're each in — out loud — breaks the cycle faster than anything else.",
+    "Your reach and {partner}'s retreat are both fear wearing different coats. Name the coat, not the person, and the argument gets 80% smaller.",
+    "The pursuit-distance loop has one exit: a schedule. Closeness with a plan calms you; space with a deadline calms {partner}.",
+  ],
+  anxious_fearful: [
+    "You pursue when worried; {partner} both wants that and braces against it. Gentle consistency beats grand reassurance here — small and steady is what actually lands.",
+    "You reassure by approaching; {partner} receives reassurance best in small, undemanding doses. Little and often is the whole playbook.",
+    "When {partner} pulls back mid-closeness, it's not a review of you — it's an old reflex checking the exits. Stay findable, not adjacent.",
+  ],
+  avoidant_secure: [
+    "{partner} gives you room without keeping score, which is exactly why this works. Repay it in the only currency that matters: occasionally coming back before you're asked to.",
+    "{partner} doesn't count your absences, which makes them safe. Make the returns visible — that's the half of the loop that's yours.",
+    "This works because {partner} reads your silence correctly. Reward the accuracy: surface early once in a while, unprompted.",
+  ],
+  avoidant_anxious: [
+    "Your silences read louder to {partner} than they feel to you. A three-word status update — 'recharging, all good' — costs you nothing and saves {partner} an evening of theories.",
+    "Your quiet costs you nothing and charges {partner} interest. A three-word status update is the cheapest kindness you own.",
+    "{partner} fills your silences with theories; you can replace theories with one sentence. Cheap trade. Take it.",
+  ],
+  avoidant_avoidant: [
+    "Nobody crowds anybody. The risk is two well-respected bubbles that stop touching. One of you has to be the one who reaches out each week — trade off whose turn it is.",
+    "Two well-guarded castles, excellent treaties, occasionally forgotten mail. Put a recurring reminder on the drawbridge.",
+    "You respect each other's space so well you could go a month without noticing. Whoever notices first sends the meme — that's the ritual.",
+  ],
+  avoidant_fearful: [
+    "You withdraw to recharge; {partner} withdraws to test the water. Same move, different meanings — so say which one it is. 'I need an evening' is kindness here, not oversharing.",
+    "Your retreat is neutral; {partner}'s retreat is a test. Label yours clearly ('recharging, back at 8') so it never grades as a fail.",
+    "You both speak fluent distance. The relationship grows in the short honest windows between retreats — protect those minutes.",
+  ],
+  fearful_secure: [
+    "{partner} keeps showing up, and part of you keeps waiting for the catch. There's no catch. Let the boring, reliable weeks count as data too.",
+    "{partner}'s consistency will out-argue your doubt eventually. Your only job is to not disqualify the evidence on a technicality.",
+    "Part of you audits {partner}'s reliability for hidden fees. Years from now the audit comes back clean — you're allowed to enjoy it early.",
+  ],
+  fearful_anxious: [
+    "You both want proof this is safe and you both collect it differently — {partner} by drawing closer, you by stepping back to watch. Tell each other what a test looks like, so nobody fails one they didn't know they were taking.",
+    "{partner} collects proof by coming closer; you collect it by watching from cover. Swap findings weekly — same investigation, both cleared.",
+    "Your step back can trigger {partner}'s step forward and suddenly it's a dance nobody chose. Calling 'not a test' out loud stops the music.",
+  ],
+  fearful_avoidant: [
+    "Push-pull squared: your guardedness reads as distance to {partner}, whose distance confirms your guardedness. Someone has to make the first small honest move — it's allowed to be you.",
+    "Your guardedness and {partner}'s distance keep confirming each other like two mirrors. One small honest move breaks the loop — speed matters more than who goes first.",
+    "You both protect the soft parts by hiding them, then wonder why the armor is lonely. Trade one small vulnerability a week — that's the whole trick.",
+  ],
+  fearful_fearful: [
+    "Two careful hearts, both braced. The good news: nobody here rushes anybody. The work: making sure 'careful' doesn't quietly become the whole relationship.",
+    "Two people checking the exits and staying anyway. That's not dysfunction — that's courage with a floor plan.",
+    "Nobody here rushes anybody, which is lovely — and nobody volunteers first, which is the whole risk. Take turns going first on purpose.",
+  ],
 };
 
 // ── Conflict style pairings (partner mode, groove drawer) ────────────────────
@@ -529,24 +676,80 @@ export const ATTACHMENT_PAIRINGS = {
 // phrasing, so 10 entries cover all 16 combinations.
 
 export const CONFLICT_PAIRINGS = {
-  'collaborative|collaborative': "You both want to stay in the conversation until it's actually solved. Your only trap is over-processing small stuff — some disagreements just need a shrug and dinner.",
-  'collaborative|compromising':  "One of you wants to dig to the root; the other wants a fair deal by Tuesday. Agree upfront which kind of problem this is — a dig-deep one or a split-the-difference one.",
-  'accommodating|collaborative': "One of you talks it all the way through; the other folds early to keep the peace. Watch for false agreement — 'fine' given quickly isn't the same as fine.",
-  'avoiding|collaborative':      "One of you processes by talking now, the other by cooling off first. The fix is a scheduled return: 'pause now, finish at 8' gives one of you the space and the other the certainty.",
-  'compromising|compromising':   "You two settle things fast and fair — efficient, low-drama. Just make sure the big recurring topics get one full airing eventually, instead of fifty small trades.",
-  'accommodating|compromising':  "Deals get made quickly here, but one of you may be paying more than they let on. Every so often, re-open a 'settled' topic and ask if it actually feels settled.",
-  'avoiding|compromising':       "One of you wants it resolved fast; the other wants it postponed. A short, bounded pause satisfies both: real cool-down, guaranteed landing.",
-  'accommodating|accommodating': "You'd both rather bend than battle — so nothing ever blows up, and nothing ever quite gets said. Take turns going first with the honest version.",
-  'accommodating|avoiding':      "One of you yields, the other retreats — conflict just evaporates without resolving. Pick your smallest live issue and practice finishing it on purpose.",
-  'avoiding|avoiding':           "You both step back when it gets tense, which keeps things calm and keeps things unresolved. Put a return-time on every pause, or the pause becomes the policy."
+  'collaborative|collaborative': [
+    "You both want to stay in the conversation until it's actually solved. Your only trap is over-processing small stuff — some disagreements just need a shrug and dinner.",
+    "Two people who won't leave a thread loose. Beautiful — until you're processing a parking mix-up like a UN summit. Add a 'small stuff' tier.",
+    "You'll both stay at the table forever, which means nobody has to. Set a timer on the small ones; save the marathon energy for what deserves it.",
+  ],
+  'collaborative|compromising': [
+    "One of you wants to dig to the root; the other wants a fair deal by Tuesday. Agree upfront which kind of problem this is — a dig-deep one or a split-the-difference one.",
+    "One of you wants the root cause; the other wants a working deal by dinner. Both are right on different problems — say which type this one is, out loud, first.",
+    "Watch for the deal that closes too fast for one of you and too slow for the other. A 'good for now, revisit later' label satisfies both engines.",
+  ],
+  'accommodating|collaborative': [
+    "One of you talks it all the way through; the other folds early to keep the peace. Watch for false agreement — 'fine' given quickly isn't the same as fine.",
+    "One of you asks 'but how do you really feel?' and the other says 'fine' at speed. The follow-up question is the whole relationship right there — keep asking it, gently.",
+    "The talker needs to hear the real objection; the peacekeeper needs it to be safe to raise one. Trade: fewer probing questions, more honest first answers.",
+  ],
+  'avoiding|collaborative': [
+    "One of you processes by talking now, the other by cooling off first. The fix is a scheduled return: 'pause now, finish at 8' gives one of you the space and the other the certainty.",
+    "One of you heals by talking, the other by cooling. The magic phrase is 'pause now, eight tonight' — space with a receipt.",
+    "Pushing for the conversation NOW gets you a worse conversation. Booking it for later gets you the good one. Book it.",
+  ],
+  'compromising|compromising': [
+    "You two settle things fast and fair — efficient, low-drama. Just make sure the big recurring topics get one full airing eventually, instead of fifty small trades.",
+    "You two could settle a border dispute in twenty minutes. Just audit the trades occasionally — fast deals sometimes bury slow feelings.",
+    "Efficient, fair, done by Tuesday. Once a season, pick one 'settled' thing and ask if it actually settled — the answer is occasionally interesting.",
+  ],
+  'accommodating|compromising': [
+    "Deals get made quickly here, but one of you may be paying more than they let on. Every so often, re-open a 'settled' topic and ask if it actually feels settled.",
+    "The deals close quickly because one of you funds them quietly. Every so often, check who's been paying and rebalance.",
+    "'Whatever works for you' and 'let's split it' get along suspiciously well. Make sure the split is actually a split.",
+  ],
+  'avoiding|compromising': [
+    "One of you wants it resolved fast; the other wants it postponed. A short, bounded pause satisfies both: real cool-down, guaranteed landing.",
+    "One wants it settled today, the other wants it shelved. Compromise on the calendar, not just the issue: short pause, fixed landing.",
+    "'Can we deal with this Thursday?' is a full sentence and a fair deal — it gives one of you the space and the other the certainty.",
+  ],
+  'accommodating|accommodating': [
+    "You'd both rather bend than battle — so nothing ever blows up, and nothing ever quite gets said. Take turns going first with the honest version.",
+    "You're both so busy yielding that the actual preference count in this relationship is zero. Take turns having one on purpose.",
+    "Nothing blows up here, and nothing surfaces either. Institute the weekly minor grievance — one each, small, survivable, said.",
+  ],
+  'accommodating|avoiding': [
+    "One of you yields, the other retreats — conflict just evaporates without resolving. Pick your smallest live issue and practice finishing it on purpose.",
+    "One folds, one fades — conflict doesn't resolve here, it evaporates and rains down later. Catch one small issue while it's still small.",
+    "Between the yielding and the retreating, disagreements go missing like socks. Pick one lost sock a month and actually find it.",
+  ],
+  'avoiding|avoiding': [
+    "You both step back when it gets tense, which keeps things calm and keeps things unresolved. Put a return-time on every pause, or the pause becomes the policy.",
+    "Two cool-down artists — nothing ever escalates, and nothing ever quite lands either. Every pause needs a return time or it becomes the policy.",
+    "You'll both step back so gracefully the issue thinks it got away. It didn't; it's waiting. Schedule the reunion on your terms.",
+  ],
 };
 
 // Solo conflict-style lines for the groove drawer.
 export const CONFLICT_SOLO = {
-  collaborative: "In conflict you instinctively look for the version where both people win — a genuine skill. Just notice when the other person needs empathy first and solutions second.",
-  compromising:  "You settle things quickly and fairly, and people appreciate it. Once in a while, check whether 'meeting in the middle' is costing you something you actually cared about.",
-  accommodating: "You keep the peace by bending — generous, and easy to overdraw. The resentment ledger fills up quietly; say the honest thing while it's still small.",
-  avoiding:      "You need space before you can engage, and that's legitimate — cool-down produces your best conversations. Just attach a return time, so space reads as process, not exit."
+  collaborative: [
+    "In conflict you instinctively look for the version where both people win — a genuine skill. Just notice when the other person needs empathy first and solutions second.",
+    "You'll stay in the hard conversation until it's actually done — rare. Just check whether the other person wanted a solution or a witness first.",
+    "Your instinct is to fix the disagreement AND the relationship in one sitting. Sometimes the sitting needs to be two sittings.",
+  ],
+  compromising: [
+    "You settle things quickly and fairly, and people appreciate it. Once in a while, check whether 'meeting in the middle' is costing you something you actually cared about.",
+    "You close disputes fast and fair — people underrate how much peace that buys. Occasionally re-open one old deal and check it aged well for you too.",
+    "Meeting in the middle is your reflex. Worth asking now and then: was the middle actually the middle, or just the fastest exit?",
+  ],
+  accommodating: [
+    "You keep the peace by bending — generous, and easy to overdraw. The resentment ledger fills up quietly; say the honest thing while it's still small.",
+    "You bend early to keep things warm — generous, and the ledger fills quietly. Say the small honest thing while it still costs almost nothing.",
+    "Your peace-keeping is real work, even if nobody sees the invoice. One held preference per week keeps the resentment account at zero.",
+  ],
+  avoiding: [
+    "You need space before you can engage, and that's legitimate — cool-down produces your best conversations. Just attach a return time, so space reads as process, not exit.",
+    "Your pauses genuinely produce your best conversations — the trick is making sure they end. Name the return time and the pause becomes strategy, not exit.",
+    "You cool off before you engage, which is wisdom with bad PR. Announce the cooldown and even the impatient people will respect it.",
+  ],
 };
 
 // ── Growth Compass content ───────────────────────────────────────────────────
@@ -604,22 +807,70 @@ export const GROWTH_AREAS = {
 // `${userAttachment}_${friendAttachment}`, order matters. {friend} token.
 
 export const FRIEND_ATTACHMENT_PAIRINGS = {
-  secure_secure:    "Two low-drama friends who just show up for each other. The only risk is taking it so for granted you forget to actually make plans.",
-  secure_anxious:   "You're the steady one; {friend} is the one who double-checks the group chat. A quick 'all good, just busy' from you goes a long way when you go quiet for a bit.",
-  secure_avoidant:  "You're easy to be around and {friend} needs real space sometimes — that's a good match, as long as {friend}'s disappearances come with a heads-up instead of just silence.",
-  secure_fearful:   "Your consistency is doing quiet work here — {friend} is watching to see if you're still around next month, and you keep being around. That's the whole friendship, actually.",
-  anxious_secure:   "{friend}'s calm isn't distance, it's just how they're built — when you're overthinking a slow reply, a straight question beats a spiral every time.",
-  anxious_anxious:  "You both notice everything and worry about half of it. Great for remembering birthdays, risky for reading a busy week as a falling-out.",
-  anxious_avoidant: "You check in more when it's quiet; {friend} goes quiet to recharge. Neither of you is doing anything wrong — just say which mode you're in instead of guessing at theirs.",
-  anxious_fearful:  "You both want to know the friendship is solid and you check for proof in different ways. Say the reassurance out loud sometimes instead of waiting for it to be inferred.",
-  avoidant_secure:  "{friend} gives you room without keeping score, which is exactly why this one's easy. Occasionally being the one who reaches out first costs you nothing and means a lot.",
-  avoidant_anxious: "Your radio silence reads louder to {friend} than it feels to you. A two-word 'still alive' text saves them a week of wondering.",
-  avoidant_avoidant:"Low-maintenance, easygoing, and genuinely at risk of not talking for six months without either of you meaning to. Someone has to send the first meme.",
-  avoidant_fearful: "You go quiet to recharge; {friend} goes quiet to test if you'll still be there. Same silence, different meaning — worth naming which one it is.",
-  fearful_secure:   "{friend} keeps showing up plainly, no drama, no test. Let the boring reliable weeks count as proof, not a fluke.",
-  fearful_anxious:  "You're both watching for signs this friendship is real, just from different angles. Compare notes sometimes instead of running separate investigations.",
-  fearful_avoidant: "Your caution reads as distance to {friend}, whose distance confirms your caution. One small honest text breaks the loop — it can be you.",
-  fearful_fearful:  "Two people who want this to be real and are bracing just in case it isn't. Nobody here is going to rush the other, which is its own kind of trust."
+  secure_secure: [
+    "Two low-drama friends who just show up for each other. The only risk is taking it so for granted you forget to actually make plans.",
+    "The friendship equivalent of a well-run household: nothing dramatic, everything works. Just remember to actually book the hangout.",
+  ],
+  secure_anxious: [
+    "You're the steady one; {friend} is the one who double-checks the group chat. A quick 'all good, just busy' from you goes a long way when you go quiet for a bit.",
+    "You're unbothered; {friend} triple-texts. Meet in the middle: reply speeds under 48 hours keep the peace basically forever.",
+  ],
+  secure_avoidant: [
+    "You're easy to be around and {friend} needs real space sometimes — that's a good match, as long as {friend}'s disappearances come with a heads-up instead of just silence.",
+    "You give {friend} room without making it weird — the whole friendship runs on that. A random check-in from you lands bigger than you think.",
+  ],
+  secure_fearful: [
+    "Your consistency is doing quiet work here — {friend} is watching to see if you're still around next month, and you keep being around. That's the whole friendship, actually.",
+    "{friend} counts your consistency quietly. Every uneventful month you stick around is a deposit — the account is growing even when it's silent.",
+  ],
+  anxious_secure: [
+    "{friend}'s calm isn't distance, it's just how they're built — when you're overthinking a slow reply, a straight question beats a spiral every time.",
+    "{friend} not replying for a day means {friend} is busy, not gone. Their calm is a feature; borrow some.",
+  ],
+  anxious_anxious: [
+    "You both notice everything and worry about half of it. Great for remembering birthdays, risky for reading a busy week as a falling-out.",
+    "You two could turn 'left on read' into a two-hour summit. Powerful empathy, dangerous math — verify before you co-spiral.",
+  ],
+  anxious_avoidant: [
+    "You check in more when it's quiet; {friend} goes quiet to recharge. Neither of you is doing anything wrong — just say which mode you're in instead of guessing at theirs.",
+    "You want a reply; {friend} wants a minute. Both reasonable. The friendship works best with low-pressure pings and zero read-receipt forensics.",
+  ],
+  anxious_fearful: [
+    "You both want to know the friendship is solid and you check for proof in different ways. Say the reassurance out loud sometimes instead of waiting for it to be inferred.",
+    "You both quietly wonder if the other one's mad. Ninety percent of the time, nobody is mad. Ask early, laugh about it, repeat.",
+  ],
+  avoidant_secure: [
+    "{friend} gives you room without keeping score, which is exactly why this one's easy. Occasionally being the one who reaches out first costs you nothing and means a lot.",
+    "{friend} never guilt-trips your vanishing acts, which is exactly why you owe them the occasional first text. Cheap rent for a great deal.",
+  ],
+  avoidant_anxious: [
+    "Your radio silence reads louder to {friend} than it feels to you. A two-word 'still alive' text saves them a week of wondering.",
+    "Your six quiet days read as six alarming days to {friend}. One emoji spends a fraction of your energy and refunds all of theirs.",
+  ],
+  avoidant_avoidant: [
+    "Low-maintenance, easygoing, and genuinely at risk of not talking for six months without either of you meaning to. Someone has to send the first meme.",
+    "The friendship that survives on two texts a quarter and one perfect hangout a year. Elite tier — just don't let the year become three.",
+  ],
+  avoidant_fearful: [
+    "You go quiet to recharge; {friend} goes quiet to test if you'll still be there. Same silence, different meaning — worth naming which one it is.",
+    "Both of you disappear; only one of you is testing the water. Label your absences and this friendship basically runs itself.",
+  ],
+  fearful_secure: [
+    "{friend} keeps showing up plainly, no drama, no test. Let the boring reliable weeks count as proof, not a fluke.",
+    "{friend} shows up, no tricks, no tests. Let the streak of normal weeks count for something — it's the most honest data you'll get.",
+  ],
+  fearful_anxious: [
+    "You're both watching for signs this friendship is real, just from different angles. Compare notes sometimes instead of running separate investigations.",
+    "{friend} worries out loud; you worry in private. Pool the intel occasionally — you'll both find out the friendship was fine the whole time.",
+  ],
+  fearful_avoidant: [
+    "Your caution reads as distance to {friend}, whose distance confirms your caution. One small honest text breaks the loop — it can be you.",
+    "You read {friend}'s space as a verdict; {friend} reads your caution as distance. It's neither. One 'we good? we're good' a month clears the docket.",
+  ],
+  fearful_fearful: [
+    "Two people who want this to be real and are bracing just in case it isn't. Nobody here is going to rush the other, which is its own kind of trust.",
+    "Two careful people who both showed up anyway. Nobody's rushing anything, and honestly, that patience IS the friendship.",
+  ],
 };
 
 // ── Friends: conflict/friction pairing (platonic tone) ───────────────────────
@@ -628,16 +879,46 @@ export const FRIEND_ATTACHMENT_PAIRINGS = {
 // rather than romantic-relationship conflict.
 
 export const FRIEND_CONFLICT_PAIRINGS = {
-  'collaborative|collaborative': "If something's actually bothering either of you, you'll both talk it out properly — good instinct, just don't turn a scheduling mix-up into a summit.",
-  'collaborative|compromising':  "One of you wants to actually talk it through, the other wants to split the difference and move on. Ask which kind of issue it is before picking a mode.",
-  'accommodating|collaborative': "One of you will happily talk it out; the other tends to just say 'it's fine' to end it faster. Double-check that 'fine' actually means fine.",
-  'avoiding|collaborative':      "One of you wants to hash it out now, the other needs a beat first. 'Let's talk tomorrow' works better than pushing for it on the spot.",
-  'compromising|compromising':   "You both just want a fair fix and to get on with hanging out — efficient. Just don't let every actual gripe get quietly traded away instead of said.",
-  'accommodating|compromising':  "Plans get sorted fast here, but one of you may be the one always bending. Every so often, ask if the usual arrangement still works for both of you.",
-  'avoiding|compromising':       "One of you wants it settled today, the other needs to sit with it first. A short 'let's revisit this in a couple days' works for both.",
-  'accommodating|accommodating': "Neither of you wants to be the one who makes it weird, so small annoyances just don't get mentioned. Practice saying the minor thing before it becomes a bigger thing.",
-  'accommodating|avoiding':      "One of you smooths it over, the other just steps back — either way, nothing actually gets said. Try naming one small thing on purpose next time.",
-  'avoiding|avoiding':           "You both just let things go quiet when it's off between you, which is peaceful and also how friendships fade without anyone deciding to end them. Check in occasionally, even when nothing's wrong."
+  'collaborative|collaborative': [
+    "If something's actually bothering either of you, you'll both talk it out properly — good instinct, just don't turn a scheduling mix-up into a summit.",
+    "You'd both rather clear the air than let it hum. Great — just don't schedule a debrief over who picked the restaurant.",
+  ],
+  'collaborative|compromising': [
+    "One of you wants to actually talk it through, the other wants to split the difference and move on. Ask which kind of issue it is before picking a mode.",
+    "One of you wants the full conversation; the other wants the quick fix and tacos. Say which one the moment needs — you can both do either.",
+  ],
+  'accommodating|collaborative': [
+    "One of you will happily talk it out; the other tends to just say 'it's fine' to end it faster. Double-check that 'fine' actually means fine.",
+    "'It's fine' from one of you ends conversations the other one wanted to have. A second 'is it though?' is allowed and usually useful.",
+  ],
+  'avoiding|collaborative': [
+    "One of you wants to hash it out now, the other needs a beat first. 'Let's talk tomorrow' works better than pushing for it on the spot.",
+    "One processes now, one processes later. 'Later today' beats 'later, vaguely' — put a loose time on it and it resolves itself.",
+  ],
+  'compromising|compromising': [
+    "You both just want a fair fix and to get on with hanging out — efficient. Just don't let every actual gripe get quietly traded away instead of said.",
+    "You settle friction fast and get back to the fun — the point of a friendship, honestly. Just say the real gripe once a year, for the archives.",
+  ],
+  'accommodating|compromising': [
+    "Plans get sorted fast here, but one of you may be the one always bending. Every so often, ask if the usual arrangement still works for both of you.",
+    "The plans always work out because one of you always folds first. Rotate who folds. It's fairer and funnier.",
+  ],
+  'avoiding|compromising': [
+    "One of you wants it settled today, the other needs to sit with it first. A short 'let's revisit this in a couple days' works for both.",
+    "One wants it squashed today, one needs a lap around the block. A 48-hour shelf works for both — nothing rots that fast between friends.",
+  ],
+  'accommodating|accommodating': [
+    "Neither of you wants to be the one who makes it weird, so small annoyances just don't get mentioned. Practice saying the minor thing before it becomes a bigger thing.",
+    "Neither of you will say the annoying thing, so it compounds interest instead. Small callouts, said kindly, are friendship maintenance — do one.",
+  ],
+  'accommodating|avoiding': [
+    "One of you smooths it over, the other just steps back — either way, nothing actually gets said. Try naming one small thing on purpose next time.",
+    "One smooths, one vanishes, and the issue gets quietly archived. Un-archive one tiny thing a season — it keeps the whole system honest.",
+  ],
+  'avoiding|avoiding': [
+    "You both just let things go quiet when it's off between you, which is peaceful and also how friendships fade without anyone deciding to end them. Check in occasionally, even when nothing's wrong.",
+    "When it's weird between you, you both go quiet and wait it out. It usually works — just make sure someone eventually breaks the silence with a meme.",
+  ],
 };
 
 // ── Friendship titles ─────────────────────────────────────────────────────────
@@ -753,9 +1034,29 @@ export const FRIEND_MESSAGES = {
 // the daily spotlight card. {friend} token.
 
 export const FRIEND_OF_DAY_TIPS = {
-  words:   "A quick 'thinking of you' text would land really well with {friend} today.",
-  time:    "{friend} would probably love it if you actually made plans instead of just saying you should.",
-  service: "Check if there's something small you could take off {friend}'s plate today.",
-  touch:   "Next time you see {friend}, don't skip the hug.",
-  gifts:   "You know that thing {friend} mentioned wanting? Today's a good day to remember it."
+  words: [
+    "A quick 'thinking of you' text would land really well with {friend} today.",
+    "Tell {friend} the specific thing they're weirdly good at. Watch them deny it and love it.",
+    "{friend} runs on words — one genuine compliment today outperforms a week of likes.",
+  ],
+  time: [
+    "{friend} would probably love it if you actually made plans instead of just saying you should.",
+    "Even 20 minutes of actual hangout beats a month of 'we should hang out.' {friend} would say yes today.",
+    "Put a real date on the calendar with {friend} — 'soon' has been load-bearing for too long.",
+  ],
+  service: [
+    "Check if there's something small you could take off {friend}'s plate today.",
+    "{friend} is the type to never ask for help. Offer something specific — vague offers get declined automatically.",
+    "One tiny favor, unprompted, would make {friend}'s whole week. Bonus: you already know which one.",
+  ],
+  touch: [
+    "Next time you see {friend}, don't skip the hug.",
+    "{friend} is a hugger who respects that not everyone is. Be the one who initiates this time.",
+    "High-five, shoulder squeeze, actual hug — {friend}'s battery charges on contact. Deliver in person when you can.",
+  ],
+  gifts: [
+    "You know that thing {friend} mentioned wanting? Today's a good day to remember it.",
+    "{friend} remembers every small thing you've ever given them. Add to the collection — tiny counts.",
+    "See something dumb that's SO {friend}? That's not a coincidence, that's a purchase.",
+  ],
 };

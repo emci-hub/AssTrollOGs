@@ -20,7 +20,7 @@ import {
   COMBO_INSIGHTS, ATTACHMENT_PAIRINGS, CONFLICT_PAIRINGS, CONFLICT_SOLO
 } from './content-bank.js';
 import { engine } from './engine.js';
-import { accountSalt, pickVariant } from './composer.js';
+import { accountSalt, pickVariant, kickerFor, maybeRareLine } from './composer.js';
 
 export function getTimePeriod(hour) {
   if (hour >= 5 && hour <= 11) return 'morning';
@@ -155,20 +155,29 @@ export function analyzeWyrLean(preferences) {
 }
 
 const TREND_NOTES = {
-  lifting: "Your last few check-ins have been trending brighter — whatever changed recently, it's working.",
-  dipping: "Your recent check-ins have been running heavier than usual. Worth naming what's been draining you lately."
+  lifting: [
+    "Your last few check-ins have been trending brighter — whatever changed recently, it's working.",
+    "The last few days have been climbing — whatever you changed, your mood noticed.",
+    "Mood's been trending up lately. Keep whatever's on the playlist.",
+  ],
+  dipping: [
+    "Your recent check-ins have been running heavier than usual. Worth naming what's been draining you lately.",
+    "The last stretch has been running heavy. Lighten one load on purpose this week.",
+    "Recent days have leaned grey. Worth naming the drain before it names itself.",
+  ],
 };
 
-function moodTrendNote(gameData) {
+function moodTrendNote(gameData, ...seedParts) {
   const trend = analyzeMoodTrend(gameData?.mood?.history);
   if (!trend) return null;
   if (trend.tenseStreak >= 3) {
     return `That's ${trend.tenseStreak} tense-or-low days in a row — your pattern says protect some recovery time, don't push harder.`;
   }
-  return TREND_NOTES[trend.trend] || null;
+  return pickVariant(TREND_NOTES[trend.trend], ...seedParts, 'trend') || null;
 }
 
 // Conflict pairings are written order-neutral and keyed by the sorted pair.
+// Returns the raw table entry (an array of variants) — callers pickVariant.
 function getConflictPairing(styleA, styleB) {
   if (!styleA || !styleB) return null;
   return CONFLICT_PAIRINGS[[styleA, styleB].sort().join('|')] || null;
@@ -304,9 +313,14 @@ export const insights = {
     const bodyPool = bodies[attach] || bodies.secure;
     const rotation = (baseKey + seed + (fortuneOffset || 0)) % (solo ? 3 : 4);
     let body;
-    const comboLine = COMBO_INSIGHTS[`${attach}_${profiles.user?.loveLanguage}`];
+    // Variant picks are tagged with a per-surface label ('glance-…') so the
+    // decoder/vibe drawers, which read the same tables, land on different
+    // variants instead of echoing the glance on the same day.
+    const comboLine = pickVariant(COMBO_INSIGHTS[`${attach}_${profiles.user?.loveLanguage}`],
+      seed, baseKey, fortuneOffset || 0, 'glance-combo');
     const pairingLine = !solo
-      ? ATTACHMENT_PAIRINGS[`${attach}_${profiles.partner?.attachmentStyle}`]
+      ? pickVariant(ATTACHMENT_PAIRINGS[`${attach}_${profiles.partner?.attachmentStyle}`],
+          seed, baseKey, fortuneOffset || 0, 'glance-pair')
       : null;
     if (rotation === 1 && comboLine) {
       body = comboLine;
@@ -328,25 +342,73 @@ export const insights = {
     const moodToday = gd.mood?.today;
     const rawName = profiles.user?.name;
     const MOOD_NOTES = rawName ? {
-      glowing: `Something in you is lit up today, ${rawName} — lean into it.`,
-      curious: `That curious energy today is worth following, ${rawName}.`,
-      chill:   `Today feels calm, ${rawName}. Use that stillness well.`,
-      tense:   `Notice the tension, ${rawName} — it often points to something important.`,
-      low:     `Low days are still valid days, ${rawName}. Be gentle with yourself.`,
-      fired:   `You brought real fire today, ${rawName} — channel it somewhere that counts.`
+      glowing: [
+        `Something in you is lit up today, ${rawName} — lean into it.`,
+        `Glow like today's, ${rawName}, deserves to be pointed at something you love.`,
+        `Whatever lit you up today, ${rawName} — take notes, that's the recipe.`,
+      ],
+      curious: [
+        `That curious energy today is worth following, ${rawName}.`,
+        `Follow the curiosity, ${rawName} — it has better taste than the to-do list.`,
+        `That itch to poke at things today? Trust it, ${rawName}.`,
+      ],
+      chill: [
+        `Today feels calm, ${rawName}. Use that stillness well.`,
+        `Calm days are for the deep breaths the busy ones owe you, ${rawName}.`,
+        `Still water today, ${rawName} — a good day to think the slow thoughts.`,
+      ],
+      tense: [
+        `Notice the tension, ${rawName} — it often points to something important.`,
+        `Tension's up today, ${rawName} — it usually knows something before you do. Ask it what.`,
+        `Wound a bit tight today, ${rawName}? Loosen one thing on purpose.`,
+      ],
+      low: [
+        `Low days are still valid days, ${rawName}. Be gentle with yourself.`,
+        `Low battery is a state, not a verdict, ${rawName}. Charge accordingly.`,
+        `Heavy day, ${rawName}. Do the minimum kindly and call it a win.`,
+      ],
+      fired: [
+        `You brought real fire today, ${rawName} — channel it somewhere that counts.`,
+        `That fire today, ${rawName} — aim it before it aims itself.`,
+        `Big energy day, ${rawName}. Pick one target and make it count.`,
+      ],
     } : {
-      glowing: 'Something in you is lit up today — lean into it.',
-      curious: 'That curious energy today is worth following.',
-      chill:   'Today feels calm. Use that stillness well.',
-      tense:   'Notice the tension — it often points to something important.',
-      low:     'Low days are still valid days. Be gentle with yourself.',
-      fired:   'You brought real fire today — channel it somewhere that counts.'
+      glowing: [
+        'Something in you is lit up today — lean into it.',
+        "Glow like today's deserves to be pointed at something you love.",
+        'Whatever lit you up today — take notes, that\'s the recipe.',
+      ],
+      curious: [
+        'That curious energy today is worth following.',
+        'Follow the curiosity — it has better taste than the to-do list.',
+        'That itch to poke at things today? Trust it.',
+      ],
+      chill: [
+        'Today feels calm. Use that stillness well.',
+        'Calm days are for the deep breaths the busy ones owe you.',
+        'Still water today — a good day to think the slow thoughts.',
+      ],
+      tense: [
+        'Notice the tension — it often points to something important.',
+        "Tension's up today — it usually knows something before you do. Ask it what.",
+        'Wound a bit tight today? Loosen one thing on purpose.',
+      ],
+      low: [
+        'Low days are still valid days. Be gentle with yourself.',
+        'Low battery is a state, not a verdict. Charge accordingly.',
+        'Heavy day. Do the minimum kindly and call it a win.',
+      ],
+      fired: [
+        'You brought real fire today — channel it somewhere that counts.',
+        'That fire today — aim it before it aims itself.',
+        'Big energy day. Pick one target and make it count.',
+      ],
     };
-    const moodNote = moodToday ? MOOD_NOTES[moodToday] : null;
+    const moodNote = moodToday ? pickVariant(MOOD_NOTES[moodToday], seed, baseKey, fortuneOffset || 0, 'mood') : null;
     let composed = moodNote ? `${finalBody} ${moodNote}` : finalBody;
 
     // Mood TREND note — reflects the stored 7-day pattern, not just today.
-    const trendNote = (fortuneOffset || 0) % 2 === 1 ? moodTrendNote(gd) : null;
+    const trendNote = (fortuneOffset || 0) % 2 === 1 ? moodTrendNote(gd, seed, baseKey) : null;
     if (trendNote) composed += ` ${trendNote}`;
 
     // Occasionally sprinkle in an MBTI-flavored line for extra personality
@@ -368,6 +430,13 @@ export const insights = {
       if (tip) composed += ` Try this: ${tip}`;
     }
 
+    // Humor seasoning: some reads carry a joke kicker (level-gated, see
+    // composer.js), and ~1-in-50 days a rare collectible line shows up.
+    const kicker = kickerFor('general', seed, baseKey, fortuneOffset || 0, 'glance');
+    if (kicker) composed += ` ${kicker}`;
+    const rare = maybeRareLine('glance');
+    if (rare) composed += ` ${rare}`;
+
     const ctx = templateCtx(profiles, gd);
     return { headline: fillTemplate(headline, ctx), body: fillTemplate(composed, ctx) };
   },
@@ -384,12 +453,28 @@ export const insights = {
 
     // Relationship-status bonus tip
     const REL_BONUS = {
-      early:        'Stay curious about each other — you\'re still learning the best parts.',
-      committed:    'Deepen what\'s already working — depth beats novelty at this stage.',
-      cohabitating: 'Protect small daily rituals — they hold more than big gestures do.',
-      longdistance: 'Quality over quantity — make your time together fully intentional.'
+      early: [
+        "Stay curious about each other — you're still learning the best parts.",
+        "You're in the finding-out chapter — the questions matter more than the answers right now.",
+        'Early days: bank the good small stuff, it becomes the origin story.',
+      ],
+      committed: [
+        "Deepen what's already working — depth beats novelty at this stage.",
+        "You've chosen each other — now choose the maintenance too. It's cheaper than repairs.",
+        "Committed is a verb wearing an adjective's clothes. Keep verbing.",
+      ],
+      cohabitating: [
+        'Protect small daily rituals — they hold more than big gestures do.',
+        'Sharing a home means the little rituals ARE the romance. Guard them.',
+        'Under one roof, the small courtesies do the heavy lifting. Keep them stocked.',
+      ],
+      longdistance: [
+        'Quality over quantity — make your time together fully intentional.',
+        'Distance taxes everything except intention. Pay in intention.',
+        'Miles apart means every minute together is concentrated — dilute nothing.',
+      ],
     };
-    const relTip = REL_BONUS[relStatus] || REL_BONUS.early;
+    const relTip = pickVariant(REL_BONUS[relStatus] || REL_BONUS.early, seed, offset, 'rel');
 
     // Pick DO tips from love-language bank
     const lovePool = SPOTLIGHT_DOS[user.loveLanguage] || SPOTLIGHT_DOS.words;
@@ -460,6 +545,9 @@ export const insights = {
       if (mbtiFlavor) blueprint += ` ${mbtiFlavor}`;
     }
 
+    const kicker = kickerFor('general', seed, offset, 'blueprint');
+    if (kicker) blueprint += ` ${kicker}`;
+
     return fillTemplate(blueprint, templateCtx(profiles, gd));
   },
 
@@ -485,10 +573,10 @@ export const insights = {
         // Conflict style finally drives content — this drawer is the natural
         // home for it: the couple's pairing dynamic, or the solo read.
         if (solo) {
-          const conflictLine = CONFLICT_SOLO[user.conflictStyle];
+          const conflictLine = pickVariant(CONFLICT_SOLO[user.conflictStyle], seed, offset, 'groove-conflict');
           if (conflictLine) body += ` ${conflictLine}`;
         } else {
-          const pairing = getConflictPairing(user.conflictStyle, profiles.partner?.conflictStyle);
+          const pairing = pickVariant(getConflictPairing(user.conflictStyle, profiles.partner?.conflictStyle), seed, offset, 'groove-pair');
           if (pairing) body += ` ${pairing}`;
         }
         if (gameHints[0]) body += ` ${gameHints[0]}`;
@@ -502,7 +590,7 @@ export const insights = {
         let body = picked.body;
         const streak = gd.streak?.current || 0;
         if (streak >= 3) body += ` Your ${streak}-day streak shows the kind of consistency that compounds.`;
-        const trendNote = moodTrendNote(gd);
+        const trendNote = moodTrendNote(gd, seed, offset, 'journey');
         if (trendNote) body += ` ${trendNote}`;
         // Echo the latest Daily Reflection answer when one exists — the
         // journey drawer is where past-self meets present-self.
@@ -523,7 +611,8 @@ export const insights = {
         if (solo) {
           // Attachment × love-language combo — how this person's closeness
           // style and care language interact, not either trait alone.
-          const comboLine = COMBO_INSIGHTS[`${user.attachmentStyle}_${user.loveLanguage}`];
+          const comboLine = pickVariant(COMBO_INSIGHTS[`${user.attachmentStyle}_${user.loveLanguage}`],
+            userSeed, offset, 'decoder-combo');
           if (comboLine) body += ` ${comboLine}`;
           body += ` Practical tip: ${userDoPool[(offset + userSeed) % userDoPool.length]}`;
         } else {
@@ -551,7 +640,8 @@ export const insights = {
         body += ` ${mbtiNote}`;
         if (!solo) {
           // The couple's actual attachment dynamic, not just MBTI first letters.
-          const pairing = ATTACHMENT_PAIRINGS[`${user.attachmentStyle}_${profiles.partner?.attachmentStyle}`];
+          const pairing = pickVariant(ATTACHMENT_PAIRINGS[`${user.attachmentStyle}_${profiles.partner?.attachmentStyle}`],
+            seed, offset, 'vibe-pair');
           if (pairing) body += ` ${pairing}`;
         }
         if (wyrLabel) body += ` Your choices reveal a ${wyrLabel.toLowerCase()} streak.`;
