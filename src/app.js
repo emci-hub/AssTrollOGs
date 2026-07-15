@@ -27,6 +27,12 @@ import { initPet, renderPetSection, refreshPetAffirmation } from './pet.js';
 import { updateStreak, migrateGameData, todayLocal, persistGameData } from './state.js';
 import { cloudLoad, cloudLoadByCode } from './supabase.js';
 import { renderFriendsSection } from './friends.js';
+import { applyStoredTheme } from './theme.js';
+
+// Re-applies the saved theme (the inline boot script in index.html already
+// did this before first paint to avoid a flash — this just keeps theme.js
+// as the single source of truth once the rest of the app is running).
+applyStoredTheme();
 
 // Bind all game window handlers
 gameRegistry.bindAll();

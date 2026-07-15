@@ -1,0 +1,206 @@
+/**
+ * Theme overrides.
+ *
+ * Dark is the default (defined in :root in styles.css) — every other
+ * theme just overrides the same token names via [data-theme="..."] on
+ * <html>. No component CSS or JS needs to know which theme is active;
+ * everything reads through the tokens. Body/reading text stays on
+ * --font-sans in every theme (legibility shouldn't vary with taste) —
+ * only --font-heading changes, so each theme's personality shows up in
+ * headings/section titles rather than in paragraph text.
+ *
+ * The Dev Console (`.dev-panel`) is deliberately NOT themed — see the
+ * dedicated rule at the bottom of this file. It should look the same
+ * "terminal" way regardless of which theme the end user has picked, so
+ * whoever's using it isn't thrown by their own theme choice.
+ */
+
+/* ─── Light ──────────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg-dark: #f7f7fb;
+  --bg-card: #ffffff;
+  --bg-card-hover: #eef0fa;
+  --bg-elevated: #ffffff;
+  --border-color: #e2e2ea;
+  --border-highlight: #cfd0da;
+  --accent-primary: #6366f1;
+  --accent-secondary: #4338ca;
+  --accent-tertiary: #db2777;
+  --text-primary: #18181b;
+  --text-secondary: #4b4b57;
+  --text-muted: #71717a;
+  --text-inverse: #ffffff;
+  --success-color: #059669;
+  --danger-color: #dc2626;
+  --warning-color: #c2650a;
+  --info-color: #0369a1;
+  --font-heading: 'Manrope', var(--font-sans);
+}
+
+[data-theme="light"] .app-container {
+  box-shadow: 0 20px 40px -16px rgba(24, 24, 27, 0.18);
+}
+
+/* ─── Cool ───────────────────────────────────────────────────────────────── */
+/* A calm, sleek "night ocean" palette — deep navy-slate with sky-blue and
+   cyan accents. */
+[data-theme="cool"] {
+  --bg-dark: #070f1a;
+  --bg-card: #0f1c2e;
+  --bg-card-hover: #142438;
+  --bg-elevated: #142438;
+  --border-color: #1e3350;
+  --border-highlight: #2c4568;
+  --accent-primary: #38bdf8;
+  --accent-secondary: #22d3ee;
+  --accent-tertiary: #818cf8;
+  --text-primary: #eaf3fb;
+  --text-secondary: #a9c1d9;
+  --text-muted: #7c93ab;
+  --text-inverse: #051019;
+  --success-color: #2dd4bf;
+  --danger-color: #fb7185;
+  --warning-color: #fbbf24;
+  --info-color: #60a5fa;
+  --font-heading: 'Sora', var(--font-sans);
+}
+
+/* ─── Fun ────────────────────────────────────────────────────────────────── */
+/* Bright and bubbly — bumps the radius scale up too, so cards/buttons read
+   rounder and bouncier, not just recolored. */
+[data-theme="fun"] {
+  --bg-dark: #fff3f8;
+  --bg-card: #ffffff;
+  --bg-card-hover: #fff0f6;
+  --bg-elevated: #ffffff;
+  --border-color: #ffd9e8;
+  --border-highlight: #ffb8d9;
+  --accent-primary: #ff5fa2;
+  --accent-secondary: #ff8fc0;
+  --accent-tertiary: #ffb703;
+  --text-primary: #3a2145;
+  --text-secondary: #6b4c78;
+  --text-muted: #9b84a6;
+  --text-inverse: #ffffff;
+  --success-color: #12b886;
+  --danger-color: #f4436c;
+  --warning-color: #ffa94d;
+  --info-color: #4dabf7;
+  --font-heading: 'Fredoka', var(--font-sans);
+
+  --radius-sm: 12px;
+  --radius-md: 20px;
+  --radius-lg: 26px;
+  --radius-shell: 32px;
+}
+
+[data-theme="fun"] .app-container {
+  box-shadow: 0 20px 45px -18px rgba(255, 95, 162, 0.35);
+}
+
+/* ─── Robot ──────────────────────────────────────────────────────────────── */
+/* Techy/cyber — near-black with neon green, sharp corners, monospace
+   headings everywhere (leans into the "VIBE ID" motif that already
+   existed, instead of introducing a new idea). */
+[data-theme="robot"] {
+  --bg-dark: #04080a;
+  --bg-card: #0a1210;
+  --bg-card-hover: #0f1c18;
+  --bg-elevated: #0f1c18;
+  --border-color: #1c3a2f;
+  --border-highlight: #2c5646;
+  --accent-primary: #39ff88;
+  --accent-secondary: #00e5ff;
+  --accent-tertiary: #39ff88;
+  --text-primary: #d8f9e6;
+  --text-secondary: #8fcdad;
+  --text-muted: #5f8a76;
+  --text-inverse: #04120a;
+  --success-color: #39ff88;
+  --danger-color: #ff5555;
+  --warning-color: #ffcc00;
+  --info-color: #00e5ff;
+  --font-heading: 'Space Mono', var(--font-mono);
+
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --radius-shell: 8px;
+}
+
+[data-theme="robot"] .section-title,
+[data-theme="robot"] .subtitle {
+  font-family: var(--font-heading);
+  text-transform: uppercase;
+}
+
+/* Faint scanline texture over the whole shell — decorative only, doesn't
+   affect any text contrast since it sits behind content. */
+[data-theme="robot"] .app-container {
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(57, 255, 136, 0.035) 0px,
+    rgba(57, 255, 136, 0.035) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  box-shadow: 0 0 40px -8px rgba(57, 255, 136, 0.25);
+}
+
+/* ─── Anime ──────────────────────────────────────────────────────────────── */
+/* Vivid and expressive — deep purple-to-magenta, bold poster-style
+   headings (Bungee is a single-weight display font, used sparingly on
+   headings/section-titles only, never body text). */
+[data-theme="anime"] {
+  --bg-dark: #180a2e;
+  --bg-card: #241540;
+  --bg-card-hover: #2e1c50;
+  --bg-elevated: #2e1c50;
+  --border-color: #3d2560;
+  --border-highlight: #55348a;
+  --accent-primary: #ff2d78;
+  --accent-secondary: #7c4dff;
+  --accent-tertiary: #00e0ff;
+  --text-primary: #fff0f6;
+  --text-secondary: #d8b8ec;
+  --text-muted: #9c7ec2;
+  --text-inverse: #180a2e;
+  --success-color: #2de8a3;
+  --danger-color: #ff4d6d;
+  --warning-color: #ffb703;
+  --info-color: #00e0ff;
+  --font-heading: 'Bungee', var(--font-sans);
+}
+
+[data-theme="anime"] .section-title,
+[data-theme="anime"] h1 {
+  letter-spacing: 0;
+}
+
+[data-theme="anime"] .app-container {
+  background-image: linear-gradient(160deg, #180a2e 0%, #2a0f45 55%, #180a2e 100%);
+  box-shadow: 0 20px 45px -16px rgba(255, 45, 120, 0.35);
+}
+
+/* ─── Dev Console: always the same, regardless of theme ─────────────────── */
+.dev-panel {
+  --bg-dark: #09090b;
+  --bg-card: #16161a;
+  --bg-card-hover: #1e1e24;
+  --bg-elevated: #1c1c22;
+  --border-color: #27272a;
+  --border-highlight: #3f3f46;
+  --accent-primary: #818cf8;
+  --accent-secondary: #6366f1;
+  --text-primary: #f4f4f5;
+  --text-secondary: #a1a1aa;
+  --text-muted: #8b8b95;
+  --text-inverse: #09090b;
+  --success-color: #34d399;
+  --danger-color: #f87171;
+  --warning-color: #f0a055;
+  --font-heading: var(--font-sans);
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+}
