@@ -185,7 +185,8 @@ function derivePetVisuals(profile) {
     earShape: earShapeVariant(profile),
     patternA: patternTypeA(profile),
     patternB: patternTypeB(profile),
-    edgeTreatment: edgeTreatmentType(profile)
+    edgeTreatment: edgeTreatmentType(profile),
+    weapon: profile?.loveLanguage || 'words'
   };
 }
 
@@ -424,6 +425,7 @@ function deriveCoupleVisuals(userVisuals, partnerVisuals) {
     patternA: 'none',
     patternB: 'none',
     edgeTreatment: 'none',
+    weapon: userVisuals.weapon,
     shinyColors: { a: userVisuals.colors, b: partnerVisuals.colors }
   };
 }
@@ -692,9 +694,60 @@ function shinySparkleSvg(cx, cy, r) {
   }).join('');
 }
 
-// ─── SVG accessories ──────────────────────────────────────────────────────────
+// ─── Item slots ────────────────────────────────────────────────────────────
+// Head (bow tie -> glasses -> crown) unlocks purely by stage, same as
+// before. Back (cape) only appears for archetypes that don't already have
+// their own natural back feature, so it adds rather than clutters. Weapon
+// is keyed to loveLanguage and available in BOTH solo and partner mode —
+// solo keeps an exclusive "enchanted" tier so the old solo-only perk still
+// feels special without partner pets having nothing in that slot at all.
 
-function accessorySvg(stage, milestones, colors, cx, cy, r, isSolo = false) {
+function weaponSvg(weaponType, colors, cx, cy, r, enchanted) {
+  // Held out past the body's own horizontal radius so it's never painted
+  // over by the body fill drawn afterward (unlike the old fixed sword).
+  const wx = cx - r * 1.14;
+  const glow = enchanted ? `<circle cx="${wx}" cy="${cy}" r="${r*.36}" fill="${colors.cheek}" opacity=".3"/>` : '';
+  const metal = enchanted ? '#eef3f8' : '#aab2bd';
+  const accent = enchanted ? '#f5c842' : '#8a929c';
+  let icon;
+  switch (weaponType) {
+    case 'gifts': // treasure chest + gem
+      icon = `
+        <rect x="${wx-r*.18}" y="${cy-r*.02}" width="${r*.36}" height="${r*.26}" rx="${r*.03}" fill="#8a5a34" stroke="${colors.eye}" stroke-width="${r*.015}"/>
+        <rect x="${wx-r*.18}" y="${cy-r*.02}" width="${r*.36}" height="${r*.07}" fill="#6b431f"/>
+        <circle cx="${wx}" cy="${cy-r*.14}" r="${r*.14}" fill="${enchanted ? '#6ad6e0' : '#9fc7cc'}" stroke="${colors.eye}" stroke-width="${r*.015}"/>
+      `;
+      break;
+    case 'service': // hammer
+      icon = `
+        <rect x="${wx-r*.045}" y="${cy-r*.3}" width="${r*.09}" height="${r*.56}" fill="#7a5230"/>
+        <rect x="${wx-r*.22}" y="${cy-r*.44}" width="${r*.44}" height="${r*.18}" rx="${r*.03}" fill="${metal}" stroke="${colors.eye}" stroke-width="${r*.015}"/>
+      `;
+      break;
+    case 'touch': // shield
+      icon = `
+        <path d="M ${wx} ${cy-r*.44} L ${wx+r*.24} ${cy-r*.3} L ${wx+r*.24} ${cy+r*.06} Q ${wx} ${cy+r*.36} ${wx-r*.24} ${cy+r*.06} L ${wx-r*.24} ${cy-r*.3} Z" fill="${enchanted ? '#6fa8dc' : '#9fb3c8'}" stroke="${colors.eye}" stroke-width="${r*.02}"/>
+        <line x1="${wx}" y1="${cy-r*.3}" x2="${wx}" y2="${cy+r*.2}" stroke="${colors.eye}" stroke-width="${r*.015}" opacity=".5"/>
+      `;
+      break;
+    case 'time': // hourglass
+      icon = `
+        <path d="M ${wx-r*.17} ${cy-r*.32} L ${wx+r*.17} ${cy-r*.32} L ${wx+r*.04} ${cy} L ${wx+r*.17} ${cy+r*.32} L ${wx-r*.17} ${cy+r*.32} L ${wx-r*.04} ${cy} Z" fill="${accent}" stroke="${colors.eye}" stroke-width="${r*.015}"/>
+      `;
+      break;
+    case 'words': // quill + tome
+    default:
+      icon = `
+        <rect x="${wx-r*.17}" y="${cy-r*.02}" width="${r*.34}" height="${r*.22}" rx="${r*.03}" fill="${enchanted ? '#f5c842' : '#c9b38a'}" stroke="${colors.eye}" stroke-width="${r*.015}"/>
+        <line x1="${wx-r*.1}" y1="${cy+r*.09}" x2="${wx+r*.1}" y2="${cy+r*.09}" stroke="${colors.eye}" stroke-width="${r*.012}" opacity=".6"/>
+        <path d="M ${wx+r*.02} ${cy-r*.02} L ${wx+r*.24} ${cy-r*.44} L ${wx+r*.28} ${cy-r*.38} L ${wx+r*.08} ${cy+r*.02} Z" fill="${metal}" stroke="${colors.eye}" stroke-width="${r*.012}"/>
+      `;
+      break;
+  }
+  return `${glow}${icon}`;
+}
+
+function accessorySvg(stage, milestones, colors, cx, cy, r, isSolo = false, archetype = 'wisp', weapon = 'words') {
   const parts = [];
 
   if (stage >= 2) {
@@ -707,8 +760,9 @@ function accessorySvg(stage, milestones, colors, cx, cy, r, isSolo = false) {
     `);
   }
 
-  if (stage >= 3) {
-    // cape wings behind body
+  // Cape only for archetypes without their own natural back feature — Wisp
+  // has tendrils and Flit has wings already occupying that visual space.
+  if (stage >= 3 && (archetype === 'construct' || archetype === 'guardian')) {
     parts.push(`
       <path d="M ${cx-r*.84} ${cy+r*.1} Q ${cx-r*1.22} ${cy+r*.6} ${cx-r*.56} ${cy+r*.8}" stroke="${colors.eye}" stroke-width="${r*.09}" fill="${colors.body}" opacity=".4"/>
       <path d="M ${cx+r*.84} ${cy+r*.1} Q ${cx+r*1.22} ${cy+r*.6} ${cx+r*.56} ${cy+r*.8}" stroke="${colors.eye}" stroke-width="${r*.09}" fill="${colors.body}" opacity=".4"/>
@@ -734,17 +788,9 @@ function accessorySvg(stage, milestones, colors, cx, cy, r, isSolo = false) {
       <circle cx="${cx+r*.16}" cy="${cy-r*1.3}" r="${r*.065}" fill="#e84040"/>
     `);
 
-    // legendary weapon — solo mode only
-    if (isSolo) {
-      const wx = cx - r * .86;
-      parts.push(`
-        <rect x="${wx-r*.05}" y="${cy-r*.62}" width="${r*.1}" height="${r*.62}" fill="#c8d0da"/>
-        <polygon points="${wx-r*.05},${cy-r*.62} ${wx},${cy-r*.78} ${wx+r*.05},${cy-r*.62}" fill="#e8edf2"/>
-        <rect x="${wx-r*.14}" y="${cy-r*.02}" width="${r*.28}" height="${r*.08}" rx="${r*.02}" fill="${colors.eye}"/>
-        <rect x="${wx-r*.04}" y="${cy+r*.06}" width="${r*.08}" height="${r*.16}" fill="#7a5230"/>
-        <circle cx="${wx}" cy="${cy+r*.24}" r="${r*.05}" fill="#f5c842"/>
-      `);
-    }
+    // Legendary weapon — now available to BOTH solo and partner pets, keyed
+    // to loveLanguage. Solo keeps an exclusive "enchanted" glowing tier.
+    parts.push(weaponSvg(weapon, colors, cx, cy, r, isSolo));
   }
 
   // Milestone bonuses
@@ -805,7 +851,7 @@ function buildPetSvg(visuals, stage, mood, size, milestones = [], isCouple = fal
     <path d="M ${cx} ${cy+r*.36} C ${cx-r*.18} ${cy+r*.19} ${cx-r*.33} ${cy+r*.31} ${cx} ${cy+r*.53} C ${cx+r*.33} ${cy+r*.31} ${cx+r*.18} ${cy+r*.19} ${cx} ${cy+r*.36} Z" fill="${colors.eye}" opacity=".5"/>
   ` : '';
 
-  const accessories = accessorySvg(stg, milestones, colors, cx, cy, r, isSolo);
+  const accessories = accessorySvg(stg, milestones, colors, cx, cy, r, isSolo, arch, visuals.weapon);
 
   const { a, b } = visuals.shinyColors || { a: colors, b: colors };
   const gradientDef = shiny
@@ -1203,10 +1249,10 @@ export function renderPetDrawer() {
 
   const unlocked = [];
   if (userPet.stage >= 2) unlocked.push('Bow Tie');
-  if (userPet.stage >= 3) unlocked.push('Cape');
+  if (userPet.stage >= 3 && (visuals.archetype === 'construct' || visuals.archetype === 'guardian')) unlocked.push('Cape');
   if (userPet.stage >= 4) unlocked.push('Glasses');
   if (userPet.stage >= 5) unlocked.push('Crown');
-  if (userPet.stage >= 5 && solo) unlocked.push('Legendary Weapon');
+  if (userPet.stage >= 5) unlocked.push(solo ? 'Enchanted Weapon' : 'Weapon');
   if (milestones.includes('trivia_master')) unlocked.push('Diploma');
   if (milestones.includes('streak_7')) unlocked.push('Halo');
   if (milestones.includes('memory_sharp') && userPet.stage < 4) unlocked.push('Crystal');
