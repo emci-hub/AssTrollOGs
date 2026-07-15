@@ -10,7 +10,7 @@
  * always recomputed at render time.
  */
 
-import { saveGameData, todayLocal, isToday } from './state.js';
+import { saveGameData, todayLocal, isToday, daysBetween } from './state.js';
 
 // ─── Name generation ──────────────────────────────────────────────────────────
 
@@ -70,6 +70,79 @@ function computePetSeed(profile) {
   return hashString(`${name}|${location}|${mbti}|${attach}`);
 }
 
+// ─── Lucky number ───────────────────────────────────────────────────────────
+// Deterministic per-person, per-day (not random, not persisted — same
+// pattern as the rest of this file's seeding). Recomputes naturally at
+// render time as the local day rolls over, so it changes daily without
+// needing a new gameData field.
+function computeLuckyNumber(profile) {
+  const seed = computePetSeed(profile);
+  const dateHash = hashString(todayLocal());
+  return ((seed + dateHash) % 9) + 1;
+}
+
+// ─── Rare finish ────────────────────────────────────────────────────────────
+// A small, permanent, deterministic chance (~1 in 20) that a pet gets a
+// distinct two-tone "rare" finish instead of its normal solid palette — the
+// Pokémon-shiny pattern, reusing the couple pet's existing shiny-gradient
+// renderer rather than needing new silhouette art.
+function isRareFinish(profile) {
+  return computePetSeed(profile) % 20 === 0;
+}
+
+function deriveRareAccentColor(profile) {
+  const seed = computePetSeed(profile);
+  const hue = ((seed % 360) + 160) % 360;
+  return hslToHex(hue, 70, 60);
+}
+
+// ─── Ascension (post-Legendary) ────────────────────────────────────────────
+// Stage 5 (Legendary, day 40) isn't the ceiling. Growth keeps accumulating
+// on a slower curve past it — every +25 days is another Ascension tier,
+// uncapped. Rather than needing infinite unique silhouettes, each tier
+// layers a prestige finish from a small fixed rotation (bronze -> silver ->
+// gold -> platinum -> diamond -> prism, then loops with an extra ring per
+// lap) — the number keeps climbing forever, cosmetically, without an
+// infinite art budget.
+const PRESTIGE_FINISHES = ['bronze', 'silver', 'gold', 'platinum', 'diamond', 'prism'];
+const PRESTIGE_COLORS = {
+  bronze: '#b08d57', silver: '#c9d2da', gold: '#f5c842',
+  platinum: '#e8ecf1', diamond: '#7fd8e6', prism: '#c9a0f5'
+};
+
+function ascensionTier(totalDays) {
+  if (!totalDays || totalDays < 40) return 0;
+  return Math.floor((totalDays - 40) / 25) + 1;
+}
+
+function ascensionFinish(tier) {
+  if (!tier || tier <= 0) return null;
+  const idx = (tier - 1) % PRESTIGE_FINISHES.length;
+  const lap = Math.floor((tier - 1) / PRESTIGE_FINISHES.length);
+  const name = PRESTIGE_FINISHES[idx];
+  return { name, color: PRESTIGE_COLORS[name], lap, tier };
+}
+
+function stageLabelWithAscension(stageLabel, totalDays) {
+  const tier = ascensionTier(totalDays);
+  if (tier <= 0) return stageLabel;
+  const finish = ascensionFinish(tier);
+  const name = finish.name.charAt(0).toUpperCase() + finish.name.slice(1);
+  return finish.lap > 0 ? `${name} Ascension (lap ${finish.lap + 1})` : `${name} Ascension`;
+}
+
+// Extra rings around the aura, one per completed lap through the prestige
+// rotation plus the current tier's own ring — visibly "more going on" the
+// longer a pet has been ascending, without needing new geometry per tier.
+function ascensionRingsSvg(finish, cx, cy, r) {
+  if (!finish) return '';
+  const count = Math.min(finish.lap + 1, 4);
+  return Array.from({ length: count }, (_, i) => {
+    const rad = 1.55 + i * .14;
+    return `<ellipse cx="${cx}" cy="${cy}" rx="${r*rad}" ry="${r*rad*.9}" fill="none" stroke="${finish.color}" stroke-width="${r*.03}" opacity="${.6 - i*.1}"/>`;
+  }).join('');
+}
+
 function hslToHex(h, s, l) {
   s /= 100; l /= 100;
   const k = n => (n + h / 30) % 12;
@@ -104,7 +177,13 @@ function earShapeVariant(profile) {
   return (profile?.mbti || '')[0] === 'E' ? 'pointed' : 'round';
 }
 
-const PATTERN_BY_LOVE_LANGUAGE = {
+// ─── Stackable pattern layers ──────────────────────────────────────────────
+// Three independent marking layers, each keyed to a different trait, drawn
+// stacked on top of each other. Two pets sharing a love language will still
+// look different once expression/conflict style diverge — 5 x 4 x 4 = 80
+// combinations instead of one single overlay.
+
+const PATTERN_A_BY_LOVE_LANGUAGE = {
   words: 'sparkle',
   gifts: 'sparkle',
   time: 'band',
@@ -112,15 +191,79 @@ const PATTERN_BY_LOVE_LANGUAGE = {
   touch: 'spots'
 };
 
-function patternType(profile) {
-  return PATTERN_BY_LOVE_LANGUAGE[profile?.loveLanguage] || 'none';
+function patternTypeA(profile) {
+  return PATTERN_A_BY_LOVE_LANGUAGE[profile?.loveLanguage] || 'none';
+}
+
+const PATTERN_B_BY_EXPRESSION = {
+  direct: 'chevrons',
+  indirect: 'freckles',
+  reflective: 'rings',
+  analytical: 'grid'
+};
+
+function patternTypeB(profile) {
+  return PATTERN_B_BY_EXPRESSION[profile?.expressionStyle] || 'none';
+}
+
+const EDGE_BY_CONFLICT = {
+  collaborative: 'glow-edge',
+  compromising: 'dashed-outline',
+  accommodating: 'soft-outline',
+  avoiding: 'none'
+};
+
+function edgeTreatmentType(profile) {
+  return EDGE_BY_CONFLICT[profile?.conflictStyle] || 'none';
+}
+
+// ─── Species archetypes ────────────────────────────────────────────────────
+// MBTI already splits cleanly into 4 Keirsey temperament groups covering all
+// 16 types with no leftovers, so it's used as the primary "species family"
+// axis instead of adding a new profile field. Attachment style then picks a
+// silhouette sub-variant *within* that family (size/spikiness/asymmetry), so
+// 4 families x 4 sub-variants = 16 distinct-looking pets, deterministic and
+// fully derived — nothing new is persisted.
+
+function mbtiTemperament(mbti) {
+  const m = (mbti || 'ENFP').toUpperCase();
+  if (m[1] === 'S') return m[3] === 'J' ? 'SJ' : 'SP';
+  return m[2] === 'F' ? 'NF' : 'NT';
+}
+
+// NT: Construct (crystalline/angular) · NF: Wisp (soft, flowing, ethereal)
+// SJ: Guardian (sturdy four-legged beast) · SP: Flit (small, winged, quick)
+const TEMPERAMENT_ARCHETYPE = { NT: 'construct', NF: 'wisp', SJ: 'guardian', SP: 'flit' };
+
+function speciesArchetype(profile) {
+  return TEMPERAMENT_ARCHETYPE[mbtiTemperament(profile?.mbti)] || 'wisp';
+}
+
+const ATTACHMENT_VARIANT = {
+  secure:   { sizeMul: 1.00, spike: 1.00, asym: 0 },
+  anxious:  { sizeMul: 1.04, spike: 1.35, asym: 0 },
+  avoidant: { sizeMul: 0.92, spike: 0.75, asym: 0 },
+  fearful:  { sizeMul: 0.98, spike: 1.10, asym: 1 }
+};
+
+function bodyVariant(profile) {
+  return ATTACHMENT_VARIANT[profile?.attachmentStyle] || ATTACHMENT_VARIANT.secure;
 }
 
 function derivePetVisuals(profile) {
   return {
     colors: deriveColors(profile),
+    archetype: speciesArchetype(profile),
+    variant: bodyVariant(profile),
     earShape: earShapeVariant(profile),
-    pattern: patternType(profile)
+    patternA: patternTypeA(profile),
+    patternB: patternTypeB(profile),
+    edgeTreatment: edgeTreatmentType(profile),
+    weapon: profile?.loveLanguage || 'words',
+    auraShape: profile?.attachmentStyle || 'secure',
+    luckyNumber: computeLuckyNumber(profile),
+    rare: isRareFinish(profile),
+    rareAccent: isRareFinish(profile) ? deriveRareAccentColor(profile) : null
   };
 }
 
@@ -129,11 +272,11 @@ function derivePetVisuals(profile) {
 // Partner pets grow at 1 pt/day. The couple pet grows independently (see below).
 
 const STAGES = [
-  { stage: 1, minDays: 0,  label: 'Newborn',   size: 56 },
-  { stage: 2, minDays: 4,  label: 'Baby',       size: 64 },
-  { stage: 3, minDays: 10, label: 'Growing',    size: 72 },
-  { stage: 4, minDays: 20, label: 'Adult',      size: 80 },
-  { stage: 5, minDays: 40, label: 'Legendary',  size: 88 }
+  { stage: 1, minDays: 0,  label: 'Newborn',   size: 76 },
+  { stage: 2, minDays: 4,  label: 'Baby',       size: 92 },
+  { stage: 3, minDays: 10, label: 'Growing',    size: 108 },
+  { stage: 4, minDays: 20, label: 'Adult',      size: 124 },
+  { stage: 5, minDays: 40, label: 'Legendary',  size: 140 }
 ];
 
 function getStage(totalDays) {
@@ -142,14 +285,54 @@ function getStage(totalDays) {
   return s;
 }
 
-// Body silhouette actually changes shape per stage (not just overall size).
-const STAGE_SHAPE = {
-  1: { ryMul: .96, earMul: .82, limbs: false, aura: false },
-  2: { ryMul: .90, earMul: 1.00, limbs: true,  aura: false },
-  3: { ryMul: .87, earMul: 1.05, limbs: true,  aura: false },
-  4: { ryMul: .83, earMul: 1.10, limbs: true,  aura: false },
-  5: { ryMul: .90, earMul: 1.15, limbs: true,  aura: true  }
+function clampStage(stage) {
+  return Math.max(1, Math.min(5, stage || 1));
+}
+
+// ─── Per-archetype structural evolution ────────────────────────────────────
+// Each stage is a genuinely different silhouette per archetype — new limbs,
+// new head features, new posture — not a uniform size multiplier. Index 0 is
+// unused (stages are 1-5) so the table can be indexed directly by stage.
+
+const ARCHETYPE_STAGE_SHAPE = {
+  construct: [
+    null,
+    { ryMul: .92, feature: 0, feet: false, plated: false, floating: false },
+    { ryMul: .90, feature: 1, feet: true,  plated: false, floating: false },
+    { ryMul: .88, feature: 2, feet: true,  plated: true,  floating: false },
+    { ryMul: .86, feature: 3, feet: true,  plated: true,  floating: false },
+    { ryMul: .90, feature: 4, feet: true,  plated: true,  floating: true  }
+  ],
+  wisp: [
+    null,
+    { ryMul: 1.02, tendrils: 0 },
+    { ryMul: 1.06, tendrils: 1 },
+    { ryMul: 1.10, tendrils: 2 },
+    { ryMul: 1.14, tendrils: 3 },
+    { ryMul: 1.20, tendrils: 4 }
+  ],
+  guardian: [
+    null,
+    { ryMul: .88, paws: false, mane: false, tail: false, maneBig: false },
+    { ryMul: .84, paws: true,  mane: false, tail: false, maneBig: false },
+    { ryMul: .80, paws: true,  mane: false, tail: true,  maneBig: false },
+    { ryMul: .78, paws: true,  mane: true,  tail: true,  maneBig: false },
+    { ryMul: .82, paws: true,  mane: true,  tail: true,  maneBig: true  }
+  ],
+  flit: [
+    null,
+    { ryMul: .95, wings: 0, legs: false, tailFeathers: false, streamers: false },
+    { ryMul: .93, wings: 1, legs: true,  tailFeathers: false, streamers: false },
+    { ryMul: .90, wings: 1, legs: true,  tailFeathers: true,  streamers: false },
+    { ryMul: .88, wings: 1, legs: true,  tailFeathers: true,  streamers: true  },
+    { ryMul: .90, wings: 2, legs: true,  tailFeathers: true,  streamers: true  }
+  ]
 };
+
+function getArchetypeStageShape(archetype, stage) {
+  const table = ARCHETYPE_STAGE_SHAPE[archetype] || ARCHETYPE_STAGE_SHAPE.wisp;
+  return table[clampStage(stage)] || table[1];
+}
 
 // ─── Affirmations + Warnings ──────────────────────────────────────────────────
 
@@ -290,6 +473,24 @@ function deriveMood(gameData) {
   return 'happy';
 }
 
+// The couple pet gets its own mood derivation that reads real relationship
+// signals (Weekly Check-In recency, Guess & Reveal / Daily Duo accuracy)
+// instead of falling straight to the generic trivia/streak thresholds —
+// it's meant to feel like it's reading the actual state of the
+// relationship, not just leveling up in parallel with it.
+function deriveCoupleMood(gameData) {
+  const gd = gameData || {};
+  const checkin = gd.checkin || {};
+  if (checkin.lastCheckin && daysBetween(checkin.lastCheckin, todayLocal()) <= 3) return 'excited';
+  const duo = gd.duo || {};
+  if ((duo.guesses || 0) >= 5) {
+    const acc = duo.correctGuesses / duo.guesses;
+    if (acc >= 0.7) return 'proud';
+    if (acc < 0.4) return 'curious';
+  }
+  return deriveMood(gameData);
+}
+
 // ─── Color blending ───────────────────────────────────────────────────────────
 
 function hexBlend(h1, h2) {
@@ -305,11 +506,23 @@ function blendColors(c1, c2) {
   return { body: hexBlend(c1.body, c2.body), eye: hexBlend(c1.eye, c2.eye), cheek: hexBlend(c1.cheek, c2.cheek) };
 }
 
+// Chimera: the couple pet's primary body is the user's own archetype, but it
+// also carries one signature accent feature borrowed from the partner's
+// archetype family (e.g. a Guardian body with a Flit's wings) — a genuine
+// hybrid silhouette rather than just an averaged color.
 function deriveCoupleVisuals(userVisuals, partnerVisuals) {
   return {
     colors: blendColors(userVisuals.colors, partnerVisuals.colors),
+    archetype: userVisuals.archetype,
+    secondaryArchetype: partnerVisuals.archetype,
+    variant: userVisuals.variant,
     earShape: (userVisuals.earShape === 'pointed' || partnerVisuals.earShape === 'pointed') ? 'pointed' : 'round',
-    pattern: 'none',
+    patternA: 'none',
+    patternB: 'none',
+    edgeTreatment: 'none',
+    weapon: userVisuals.weapon,
+    auraShape: userVisuals.auraShape,
+    luckyNumber: userVisuals.luckyNumber,
     shinyColors: { a: userVisuals.colors, b: partnerVisuals.colors }
   };
 }
@@ -337,48 +550,269 @@ function earsSvg(shape, earFill, cheekColor, cx, cy, r, earMul = 1) {
   `;
 }
 
-function limbsSvg(colors, cx, cy, r) {
-  const fy = cy + r * .82;
+// ─── Attachment-keyed aura shapes ──────────────────────────────────────────
+// Auras are a shape family, not just an on/off glow: secure gets a steady
+// double ring, anxious a flickering multi-ring, avoidant a detached ring of
+// orbiting particles (a gap between body and aura), fearful an asymmetric
+// broken ring. They fade in faintly from stage 3 and reach full intensity
+// at stage 5 (see auraIntensityForStage), so evolution feels continuous
+// instead of a single last-stage on/off switch. Lucky number quietly ties
+// in by setting the avoidant/anxious particle & ring counts.
+function auraIntensityForStage(stage) {
+  if (stage >= 5) return 1;
+  if (stage === 4) return 0.6;
+  if (stage === 3) return 0.3;
+  return 0;
+}
+
+function auraShapeSvg(attachStyle, colors, cx, cy, r, intensity, luckyNumber = 5) {
+  if (intensity <= 0) return '';
+  if (attachStyle === 'anxious') {
+    const rings = 2 + (luckyNumber % 3);
+    return Array.from({ length: rings }, (_, i) => {
+      const rad = 1.22 + i * .16;
+      return `<ellipse cx="${cx}" cy="${cy}" rx="${r*rad}" ry="${r*rad*.9}" fill="none" stroke="${colors.cheek}" stroke-width="${r*.025}" opacity="${Math.max(.08, .38 - i*.08) * intensity}"/>`;
+    }).join('');
+  }
+  if (attachStyle === 'avoidant') {
+    const pts = 4 + (luckyNumber % 5);
+    const orbit = r * 1.55;
+    return Array.from({ length: pts }, (_, i) => {
+      const ang = (i / pts) * Math.PI * 2;
+      const ox = cx + Math.cos(ang) * orbit, oy = cy + Math.sin(ang) * orbit * .82;
+      return `<circle cx="${ox}" cy="${oy}" r="${r*.045}" fill="${colors.cheek}" opacity="${.55 * intensity}"/>`;
+    }).join('');
+  }
+  if (attachStyle === 'fearful') {
+    return `<ellipse cx="${cx+r*.08}" cy="${cy-r*.05}" rx="${r*1.4}" ry="${r*1.22}" fill="none" stroke="${colors.body}" stroke-width="${r*.06}" stroke-dasharray="${r*.3} ${r*.2}" opacity="${.42 * intensity}"/>`;
+  }
+  // secure — steady, symmetrical double glow
   return `
-    <ellipse cx="${cx-r*.32}" cy="${fy}" rx="${r*.14}" ry="${r*.09}" fill="${colors.body}"/>
-    <ellipse cx="${cx+r*.32}" cy="${fy}" rx="${r*.14}" ry="${r*.09}" fill="${colors.body}"/>
+    <ellipse cx="${cx}" cy="${cy}" rx="${r*1.45}" ry="${r*1.3}" fill="${colors.body}" opacity="${.14*intensity}"/>
+    <ellipse cx="${cx}" cy="${cy}" rx="${r*1.2}" ry="${r*1.08}" fill="${colors.cheek}" opacity="${.18*intensity}"/>
   `;
 }
 
-function auraSvg(colors, cx, cy, r) {
-  return `
-    <ellipse cx="${cx}" cy="${cy}" rx="${r*1.45}" ry="${r*1.3}" fill="${colors.body}" opacity=".14"/>
-    <ellipse cx="${cx}" cy="${cy}" rx="${r*1.2}" ry="${r*1.08}" fill="${colors.cheek}" opacity=".18"/>
-  `;
+// ─── Archetype body features ───────────────────────────────────────────────
+// One builder per species family. Each reads the archetype's own per-stage
+// shape flags (see ARCHETYP_STAGE_SHAPE) so growth adds/changes real parts —
+// antennae, tendrils, paws+mane, wings — instead of just resizing the body.
+
+function constructFeaturesSvg(shape, variant, colors, cx, cy, r, ry) {
+  const parts = [];
+  // Antennae are anchored just at the head's own top edge (ry-relative) and
+  // kept short so a Legendary crown can still sit cleanly above them.
+  const topY = cy - ry * 0.98;
+  const count = shape.feature || 0;
+  for (let i = 0; i < count; i++) {
+    const spread = count > 1 ? (i / (count - 1) - 0.5) : 0;
+    const bx = cx + spread * r * 0.8 + variant.asym * r * 0.14;
+    const h = r * (0.16 + i * 0.03) * variant.spike;
+    const w = r * 0.07;
+    parts.push(`<polygon points="${bx-w},${topY} ${bx},${topY-h} ${bx+w},${topY}" fill="${colors.body}" stroke="${colors.eye}" stroke-width="${r*.02}" opacity=".92"/>`);
+    parts.push(`<polygon points="${bx-w*.4},${topY-h*.15} ${bx},${topY-h*.7} ${bx+w*.4},${topY-h*.15}" fill="${colors.cheek}" opacity=".7"/>`);
+  }
+  if (shape.feet) {
+    // Placed clearly below the body's own bottom edge (ry) so they read as
+    // protruding feet instead of being painted over by the body fill.
+    const fy = cy + ry * 1.12;
+    parts.push(`<polygon points="${cx-r*.36},${fy} ${cx-r*.24},${fy-r*.2} ${cx-r*.12},${fy}" fill="${colors.body}" stroke="${colors.eye}" stroke-width="${r*.015}" opacity=".95"/>`);
+    parts.push(`<polygon points="${cx+r*.12},${fy} ${cx+r*.24},${fy-r*.2} ${cx+r*.36},${fy}" fill="${colors.body}" stroke="${colors.eye}" stroke-width="${r*.015}" opacity=".95"/>`);
+  }
+  if (shape.plated) {
+    parts.push(`<polygon points="${cx-r*.98},${cy-ry*.1} ${cx-r*.74},${cy-ry*.5} ${cx-r*.6},${cy+ry*.14}" fill="${colors.body}" stroke="${colors.eye}" stroke-width="${r*.02}" opacity=".85"/>`);
+    parts.push(`<polygon points="${cx+r*.98},${cy-ry*.1} ${cx+r*.74},${cy-ry*.5} ${cx+r*.6},${cy+ry*.14}" fill="${colors.body}" stroke="${colors.eye}" stroke-width="${r*.02}" opacity=".85"/>`);
+  }
+  if (shape.floating) {
+    const orbitRx = r * 1.5, orbitRy = ry * 1.35;
+    [-50, -5, 130, 200].forEach((deg, i) => {
+      const rad = deg * Math.PI / 180;
+      const ox = cx + Math.cos(rad) * orbitRx;
+      const oy = cy + Math.sin(rad) * orbitRy;
+      const sz = r * (0.1 + (i % 2) * 0.03);
+      parts.push(`<polygon points="${ox},${oy-sz} ${ox+sz*.6},${oy} ${ox},${oy+sz} ${ox-sz*.6},${oy}" fill="${colors.cheek}" stroke="${colors.eye}" stroke-width="${r*.015}" opacity=".85"/>`);
+    });
+  }
+  return parts.join('');
 }
 
-function patternOverlaySvg(pattern, colors, cx, cy, r, ry, gid) {
-  if (pattern === 'none') return '';
-  const clipId = `clip_${gid}`;
-  let marks = '';
-  if (pattern === 'spots') {
+function wispFeaturesSvg(shape, variant, colors, cx, cy, r, ry) {
+  const parts = [];
+  const topY = cy - ry;
+  const flameH = r * .38 * variant.spike;
+  parts.push(`<path d="M ${cx-r*.14} ${topY} Q ${cx-r*.2} ${topY-flameH*.6} ${cx} ${topY-flameH} Q ${cx+r*.2} ${topY-flameH*.6} ${cx+r*.14} ${topY} Z" fill="${colors.body}" opacity=".85"/>`);
+  parts.push(`<path d="M ${cx-r*.06} ${topY-flameH*.1} Q ${cx-r*.08} ${topY-flameH*.5} ${cx} ${topY-flameH*.78}" stroke="${colors.cheek}" stroke-width="${r*.03}" fill="none" opacity=".7"/>`);
+  const tendrils = shape.tendrils || 0;
+  for (let i = 0; i < tendrils; i++) {
+    const spread = tendrils > 1 ? (i / (tendrils - 1) - 0.5) : 0;
+    const bx = cx + spread * r * 1.05 + variant.asym * r * 0.1;
+    const by = cy + ry * .68;
+    const len = r * (.48 + i * .08) * variant.sizeMul;
+    const sway = r * .22 * (i % 2 === 0 ? 1 : -1);
+    parts.push(`<path d="M ${bx} ${by} Q ${bx+sway} ${by+len*.6} ${bx} ${by+len}" stroke="${colors.body}" stroke-width="${r*.065}" fill="none" stroke-linecap="round" opacity=".55"/>`);
+  }
+  return parts.join('');
+}
+
+function guardianFeaturesSvg(shape, variant, earShape, colors, cx, cy, r, ry, earMul) {
+  const parts = [];
+  parts.push(earsSvg(earShape, colors.body, colors.cheek, cx, cy, r, earMul));
+  if (shape.mane) {
+    const hy = cy - ry * 1.0;
+    parts.push(`<path d="M ${cx-r*.34} ${hy+r*.1} Q ${cx-r*.4} ${hy-r*.28} ${cx-r*.22} ${hy-r*.4}" stroke="#e8dfc8" stroke-width="${r*.07}" fill="none" stroke-linecap="round"/>`);
+    parts.push(`<path d="M ${cx+r*.34} ${hy+r*.1} Q ${cx+r*.4} ${hy-r*.28} ${cx+r*.22} ${hy-r*.4}" stroke="#e8dfc8" stroke-width="${r*.07}" fill="none" stroke-linecap="round"/>`);
+  }
+  if (shape.maneBig) {
+    for (let i = -2; i <= 2; i++) {
+      const bx = cx + i * r * .16 + variant.asym * r * .08;
+      const by = cy - ry * .92;
+      parts.push(`<polygon points="${bx-r*.06},${by} ${bx},${by-r*.24*variant.spike} ${bx+r*.06},${by}" fill="${colors.cheek}" opacity=".8"/>`);
+    }
+  }
+  if (shape.paws) {
+    // Sit just past the body's own bottom edge so they read as feet, not a
+    // smudge painted over by the body fill drawn afterward.
+    const fy = cy + ry * 1.08;
+    [-.42, -.16, .16, .42].forEach(dx => {
+      parts.push(`<ellipse cx="${cx+r*dx}" cy="${fy}" rx="${r*.12}" ry="${r*.09}" fill="${colors.body}"/>`);
+    });
+  }
+  if (shape.tail) {
+    const tx = cx + r * .92, ty = cy + ry * .3;
+    parts.push(`<path d="M ${tx} ${ty} Q ${tx+r*.55} ${ty-r*.1} ${tx+r*.48} ${ty-r*.55*variant.spike}" stroke="${colors.body}" stroke-width="${r*.14}" fill="none" stroke-linecap="round"/>`);
+  }
+  return parts.join('');
+}
+
+function flitFeaturesSvg(shape, variant, colors, cx, cy, r, ry) {
+  const parts = [];
+  const topY = cy - ry * .8;
+  parts.push(`<path d="M ${cx-r*.5} ${topY} Q ${cx-r*.62} ${topY-r*.32} ${cx-r*.38} ${topY-r*.1}" fill="${colors.body}" opacity=".8"/>`);
+  parts.push(`<path d="M ${cx+r*.5} ${topY} Q ${cx+r*.62} ${topY-r*.32} ${cx+r*.38} ${topY-r*.1}" fill="${colors.body}" opacity=".8"/>`);
+  const wingPairs = shape.wings || 0;
+  for (let p = 0; p < wingPairs; p++) {
+    // Base sits at the body's own side edge (ry-relative) so wings read as
+    // attached to the body instead of floating disconnected from it.
+    const wy = cy + ry * (0.1 - p * .55);
+    const spanX = r * (1.55 - p * .18) * variant.sizeMul;
+    const tipY = wy - r * (0.65 + p * .1) * variant.spike;
+    parts.push(`<path d="M ${cx-r*.9} ${wy} Q ${cx-spanX} ${wy-r*.15} ${cx-spanX*.85} ${tipY} Q ${cx-r*.75} ${wy-r*.25} ${cx-r*.6} ${wy+r*.1} Z" fill="${colors.body}" stroke="${colors.eye}" stroke-width="${r*.015}" opacity=".75"/>`);
+    parts.push(`<path d="M ${cx+r*.9} ${wy} Q ${cx+spanX} ${wy-r*.15} ${cx+spanX*.85} ${tipY} Q ${cx+r*.75} ${wy-r*.25} ${cx+r*.6} ${wy+r*.1} Z" fill="${colors.body}" stroke="${colors.eye}" stroke-width="${r*.015}" opacity=".75"/>`);
+  }
+  if (shape.legs) {
+    // Anchored below the body's own bottom edge so the legs/talons are
+    // fully visible rather than hidden inside the body fill.
+    const topAnchor = cy + ry * .78;
+    const fy = cy + ry * 1.15;
+    [-.2, .2].forEach(dx => {
+      parts.push(`<line x1="${cx+r*dx}" y1="${topAnchor}" x2="${cx+r*dx}" y2="${fy}" stroke="${colors.body}" stroke-width="${r*.055}"/>`);
+      parts.push(`<path d="M ${cx+r*dx-r*.07} ${fy} L ${cx+r*dx} ${fy+r*.1} L ${cx+r*dx+r*.07} ${fy}" stroke="${colors.body}" stroke-width="${r*.045}" fill="none"/>`);
+    });
+  }
+  if (shape.tailFeathers) {
+    const tx = cx, ty = cy + ry * .92;
+    [-.14, 0, .14].forEach(dx => {
+      parts.push(`<path d="M ${tx+r*dx} ${ty} L ${tx+r*dx*1.7} ${ty+r*.38}" stroke="${colors.cheek}" stroke-width="${r*.06}" stroke-linecap="round"/>`);
+    });
+  }
+  if (shape.streamers) {
+    [-.3, .3].forEach(dx => {
+      parts.push(`<path d="M ${cx+r*dx} ${cy+ry*.6} Q ${cx+r*dx*1.7} ${cy+ry*1.1} ${cx+r*dx*1.2} ${cy+ry*1.6}" stroke="${colors.eye}" stroke-width="${r*.035}" fill="none" opacity=".65"/>`);
+    });
+  }
+  return parts.join('');
+}
+
+function archetypeFeaturesSvg(archetype, shape, variant, earShape, colors, cx, cy, r, ry, earMul) {
+  switch (archetype) {
+    case 'construct': return constructFeaturesSvg(shape, variant, colors, cx, cy, r, ry);
+    case 'guardian':  return guardianFeaturesSvg(shape, variant, earShape, colors, cx, cy, r, ry, earMul);
+    case 'flit':      return flitFeaturesSvg(shape, variant, colors, cx, cy, r, ry);
+    case 'wisp':
+    default:          return wispFeaturesSvg(shape, variant, colors, cx, cy, r, ry);
+  }
+}
+
+function patternMarksA(type, colors, cx, cy, r, ry) {
+  if (type === 'spots') {
     const spots = [
       { dx: -.42, dy: -.1, s: .12 }, { dx: .1, dy: .3, s: .09 },
       { dx: .4, dy: -.2, s: .1 }, { dx: -.1, dy: -.4, s: .08 }
     ];
-    marks = spots.map(p => `<circle cx="${cx+r*p.dx}" cy="${cy+ry*p.dy}" r="${r*p.s}" fill="${colors.eye}" opacity=".22"/>`).join('');
-  } else if (pattern === 'stripes') {
-    marks = [-.5, -.15, .2, .55].map(dx =>
+    return spots.map(p => `<circle cx="${cx+r*p.dx}" cy="${cy+ry*p.dy}" r="${r*p.s}" fill="${colors.eye}" opacity=".22"/>`).join('');
+  }
+  if (type === 'stripes') {
+    return [-.5, -.15, .2, .55].map(dx =>
       `<rect x="${cx+r*dx}" y="${cy-ry}" width="${r*.13}" height="${ry*2}" fill="${colors.eye}" opacity=".18" transform="rotate(18 ${cx+r*dx} ${cy})"/>`
     ).join('');
-  } else if (pattern === 'band') {
-    marks = `<rect x="${cx-r}" y="${cy-ry*.12}" width="${r*2}" height="${ry*.3}" fill="${colors.eye}" opacity=".22"/>`;
-  } else if (pattern === 'sparkle') {
+  }
+  if (type === 'band') {
+    return `<rect x="${cx-r}" y="${cy-ry*.12}" width="${r*2}" height="${ry*.3}" fill="${colors.eye}" opacity=".22"/>`;
+  }
+  if (type === 'sparkle') {
     const sparks = [{ dx: -.3, dy: -.25 }, { dx: .32, dy: -.1 }, { dx: 0, dy: .35 }];
-    marks = sparks.map(p => {
+    return sparks.map(p => {
       const x = cx + r * p.dx, y = cy + ry * p.dy, s = r * .07;
       return `<path d="M ${x} ${y-s} L ${x+s*.3} ${y-s*.3} L ${x+s} ${y} L ${x+s*.3} ${y+s*.3} L ${x} ${y+s} L ${x-s*.3} ${y+s*.3} L ${x-s} ${y} L ${x-s*.3} ${y-s*.3} Z" fill="${colors.cheek}" opacity=".55"/>`;
     }).join('');
   }
+  return '';
+}
+
+function patternMarksB(type, colors, cx, cy, r, ry) {
+  if (type === 'chevrons') {
+    return [-.3, .05, .4].map(dy => {
+      const y = cy + ry * dy;
+      const w = r * .5;
+      return `<path d="M ${cx-w} ${y} L ${cx} ${y+r*.12} L ${cx+w} ${y}" stroke="${colors.eye}" stroke-width="${r*.05}" fill="none" opacity=".2"/>`;
+    }).join('');
+  }
+  if (type === 'freckles') {
+    const pts = [];
+    for (let i = 0; i < 9; i++) {
+      const ang = (i / 9) * Math.PI * 2;
+      const rad = 0.15 + (i % 3) * 0.12;
+      pts.push({ dx: Math.cos(ang) * rad, dy: Math.sin(ang) * rad * .7 });
+    }
+    return pts.map(p => `<circle cx="${cx+r*p.dx}" cy="${cy+ry*p.dy}" r="${r*.035}" fill="${colors.eye}" opacity=".3"/>`).join('');
+  }
+  if (type === 'rings') {
+    return [.55, .35].map(rad => `<ellipse cx="${cx}" cy="${cy}" rx="${r*rad}" ry="${ry*rad}" stroke="${colors.eye}" stroke-width="${r*.03}" fill="none" opacity=".18"/>`).join('');
+  }
+  if (type === 'grid') {
+    const lines = [];
+    [-.4, 0, .4].forEach(dx => lines.push(`<line x1="${cx+r*dx}" y1="${cy-ry}" x2="${cx+r*dx}" y2="${cy+ry}" stroke="${colors.eye}" stroke-width="${r*.018}" opacity=".16"/>`));
+    [-.35, .1, .5].forEach(dy => lines.push(`<line x1="${cx-r}" y1="${cy+ry*dy}" x2="${cx+r}" y2="${cy+ry*dy}" stroke="${colors.eye}" stroke-width="${r*.018}" opacity=".16"/>`));
+    return lines.join('');
+  }
+  return '';
+}
+
+// Both marking layers share one clip so they only ever appear inside the
+// body silhouette regardless of how many are stacked.
+function patternLayersSvg(patternA, patternB, colors, cx, cy, r, ry, gid) {
+  if (patternA === 'none' && patternB === 'none') return '';
+  const clipId = `clip_${gid}`;
+  const marks = patternMarksA(patternA, colors, cx, cy, r, ry) + patternMarksB(patternB, colors, cx, cy, r, ry);
   return `
     <clipPath id="${clipId}"><ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${ry}"/></clipPath>
     <g clip-path="url(#${clipId})">${marks}</g>
   `;
+}
+
+// Third layer: an edge/outline treatment on the body's own rim rather than
+// an interior mark — conflict style's "how you show up at the boundary".
+function bodyEdgeTreatmentSvg(type, colors, cx, cy, r, ry) {
+  if (type === 'glow-edge') {
+    return `<ellipse cx="${cx}" cy="${cy}" rx="${r*1.04}" ry="${ry*1.05}" fill="none" stroke="${colors.cheek}" stroke-width="${r*.09}" opacity=".38"/>`;
+  }
+  if (type === 'dashed-outline') {
+    return `<ellipse cx="${cx}" cy="${cy}" rx="${r*1.01}" ry="${ry*1.01}" fill="none" stroke="${colors.eye}" stroke-width="${r*.035}" stroke-dasharray="${r*.12} ${r*.08}" opacity=".5"/>`;
+  }
+  if (type === 'soft-outline') {
+    return `<ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${ry}" fill="none" stroke="${colors.eye}" stroke-width="${r*.02}" opacity=".3"/>`;
+  }
+  return '';
 }
 
 function shinySparkleSvg(cx, cy, r) {
@@ -393,9 +827,60 @@ function shinySparkleSvg(cx, cy, r) {
   }).join('');
 }
 
-// ─── SVG accessories ──────────────────────────────────────────────────────────
+// ─── Item slots ────────────────────────────────────────────────────────────
+// Head (bow tie -> glasses -> crown) unlocks purely by stage, same as
+// before. Back (cape) only appears for archetypes that don't already have
+// their own natural back feature, so it adds rather than clutters. Weapon
+// is keyed to loveLanguage and available in BOTH solo and partner mode —
+// solo keeps an exclusive "enchanted" tier so the old solo-only perk still
+// feels special without partner pets having nothing in that slot at all.
 
-function accessorySvg(stage, milestones, colors, cx, cy, r, isSolo = false) {
+function weaponSvg(weaponType, colors, cx, cy, r, enchanted) {
+  // Held out past the body's own horizontal radius so it's never painted
+  // over by the body fill drawn afterward (unlike the old fixed sword).
+  const wx = cx - r * 1.14;
+  const glow = enchanted ? `<circle cx="${wx}" cy="${cy}" r="${r*.36}" fill="${colors.cheek}" opacity=".3"/>` : '';
+  const metal = enchanted ? '#eef3f8' : '#aab2bd';
+  const accent = enchanted ? '#f5c842' : '#8a929c';
+  let icon;
+  switch (weaponType) {
+    case 'gifts': // treasure chest + gem
+      icon = `
+        <rect x="${wx-r*.18}" y="${cy-r*.02}" width="${r*.36}" height="${r*.26}" rx="${r*.03}" fill="#8a5a34" stroke="${colors.eye}" stroke-width="${r*.015}"/>
+        <rect x="${wx-r*.18}" y="${cy-r*.02}" width="${r*.36}" height="${r*.07}" fill="#6b431f"/>
+        <circle cx="${wx}" cy="${cy-r*.14}" r="${r*.14}" fill="${enchanted ? '#6ad6e0' : '#9fc7cc'}" stroke="${colors.eye}" stroke-width="${r*.015}"/>
+      `;
+      break;
+    case 'service': // hammer
+      icon = `
+        <rect x="${wx-r*.045}" y="${cy-r*.3}" width="${r*.09}" height="${r*.56}" fill="#7a5230"/>
+        <rect x="${wx-r*.22}" y="${cy-r*.44}" width="${r*.44}" height="${r*.18}" rx="${r*.03}" fill="${metal}" stroke="${colors.eye}" stroke-width="${r*.015}"/>
+      `;
+      break;
+    case 'touch': // shield
+      icon = `
+        <path d="M ${wx} ${cy-r*.44} L ${wx+r*.24} ${cy-r*.3} L ${wx+r*.24} ${cy+r*.06} Q ${wx} ${cy+r*.36} ${wx-r*.24} ${cy+r*.06} L ${wx-r*.24} ${cy-r*.3} Z" fill="${enchanted ? '#6fa8dc' : '#9fb3c8'}" stroke="${colors.eye}" stroke-width="${r*.02}"/>
+        <line x1="${wx}" y1="${cy-r*.3}" x2="${wx}" y2="${cy+r*.2}" stroke="${colors.eye}" stroke-width="${r*.015}" opacity=".5"/>
+      `;
+      break;
+    case 'time': // hourglass
+      icon = `
+        <path d="M ${wx-r*.17} ${cy-r*.32} L ${wx+r*.17} ${cy-r*.32} L ${wx+r*.04} ${cy} L ${wx+r*.17} ${cy+r*.32} L ${wx-r*.17} ${cy+r*.32} L ${wx-r*.04} ${cy} Z" fill="${accent}" stroke="${colors.eye}" stroke-width="${r*.015}"/>
+      `;
+      break;
+    case 'words': // quill + tome
+    default:
+      icon = `
+        <rect x="${wx-r*.17}" y="${cy-r*.02}" width="${r*.34}" height="${r*.22}" rx="${r*.03}" fill="${enchanted ? '#f5c842' : '#c9b38a'}" stroke="${colors.eye}" stroke-width="${r*.015}"/>
+        <line x1="${wx-r*.1}" y1="${cy+r*.09}" x2="${wx+r*.1}" y2="${cy+r*.09}" stroke="${colors.eye}" stroke-width="${r*.012}" opacity=".6"/>
+        <path d="M ${wx+r*.02} ${cy-r*.02} L ${wx+r*.24} ${cy-r*.44} L ${wx+r*.28} ${cy-r*.38} L ${wx+r*.08} ${cy+r*.02} Z" fill="${metal}" stroke="${colors.eye}" stroke-width="${r*.012}"/>
+      `;
+      break;
+  }
+  return `${glow}${icon}`;
+}
+
+function accessorySvg(stage, milestones, colors, cx, cy, r, isSolo = false, archetype = 'wisp', weapon = 'words') {
   const parts = [];
 
   if (stage >= 2) {
@@ -408,8 +893,9 @@ function accessorySvg(stage, milestones, colors, cx, cy, r, isSolo = false) {
     `);
   }
 
-  if (stage >= 3) {
-    // cape wings behind body
+  // Cape only for archetypes without their own natural back feature — Wisp
+  // has tendrils and Flit has wings already occupying that visual space.
+  if (stage >= 3 && (archetype === 'construct' || archetype === 'guardian')) {
     parts.push(`
       <path d="M ${cx-r*.84} ${cy+r*.1} Q ${cx-r*1.22} ${cy+r*.6} ${cx-r*.56} ${cy+r*.8}" stroke="${colors.eye}" stroke-width="${r*.09}" fill="${colors.body}" opacity=".4"/>
       <path d="M ${cx+r*.84} ${cy+r*.1} Q ${cx+r*1.22} ${cy+r*.6} ${cx+r*.56} ${cy+r*.8}" stroke="${colors.eye}" stroke-width="${r*.09}" fill="${colors.body}" opacity=".4"/>
@@ -435,17 +921,9 @@ function accessorySvg(stage, milestones, colors, cx, cy, r, isSolo = false) {
       <circle cx="${cx+r*.16}" cy="${cy-r*1.3}" r="${r*.065}" fill="#e84040"/>
     `);
 
-    // legendary weapon — solo mode only
-    if (isSolo) {
-      const wx = cx - r * .86;
-      parts.push(`
-        <rect x="${wx-r*.05}" y="${cy-r*.62}" width="${r*.1}" height="${r*.62}" fill="#c8d0da"/>
-        <polygon points="${wx-r*.05},${cy-r*.62} ${wx},${cy-r*.78} ${wx+r*.05},${cy-r*.62}" fill="#e8edf2"/>
-        <rect x="${wx-r*.14}" y="${cy-r*.02}" width="${r*.28}" height="${r*.08}" rx="${r*.02}" fill="${colors.eye}"/>
-        <rect x="${wx-r*.04}" y="${cy+r*.06}" width="${r*.08}" height="${r*.16}" fill="#7a5230"/>
-        <circle cx="${wx}" cy="${cy+r*.24}" r="${r*.05}" fill="#f5c842"/>
-      `);
-    }
+    // Legendary weapon — now available to BOTH solo and partner pets, keyed
+    // to loveLanguage. Solo keeps an exclusive "enchanted" glowing tier.
+    parts.push(weaponSvg(weapon, colors, cx, cy, r, isSolo));
   }
 
   // Milestone bonuses
@@ -470,16 +948,20 @@ function accessorySvg(stage, milestones, colors, cx, cy, r, isSolo = false) {
 
 // ─── SVG builder ─────────────────────────────────────────────────────────────
 
-function buildPetSvg(visuals, stage, mood, size, milestones = [], isCouple = false, isSolo = false) {
-  const { colors, earShape, pattern } = visuals;
+function buildPetSvg(visuals, stage, mood, size, milestones = [], isCouple = false, isSolo = false, ascension = 0) {
+  const { colors, earShape, patternA, patternB, edgeTreatment, archetype, variant, secondaryArchetype } = visuals;
+  const arch = archetype || 'wisp';
+  const v = variant || ATTACHMENT_VARIANT.secure;
+  const stg = clampStage(stage);
   const s = size;
-  const r = s * .38;
+  const r = s * .38 * (v.sizeMul || 1);
   const cx = s / 2;
   const cy = s * .54;
-  const shape = STAGE_SHAPE[stage] || STAGE_SHAPE[1];
-  const ry = r * shape.ryMul;
-  const gid = `pg_${Math.round(r)}_${stage}${isCouple ? 'c' : ''}`;
-  const shiny = isCouple && stage >= 5;
+  const shape = getArchetypeStageShape(arch, stg);
+  const ry = r * (shape.ryMul || .9);
+  const gid = `pg_${Math.round(r)}_${stg}${isCouple ? 'c' : ''}`;
+  const finish = stg >= 5 ? ascensionFinish(ascension) : null;
+  const shiny = (isCouple && stg >= 5) || !!visuals.rare;
 
   const mouth =
     mood === 'excited' ? `M ${cx-r*.28} ${cy+r*.3} Q ${cx} ${cy+r*.56} ${cx+r*.28} ${cy+r*.3}` :
@@ -487,20 +969,28 @@ function buildPetSvg(visuals, stage, mood, size, milestones = [], isCouple = fal
     mood === 'curious' ? `M ${cx-r*.15} ${cy+r*.32} Q ${cx+r*.1} ${cy+r*.44} ${cx+r*.16} ${cy+r*.3}` :
                          `M ${cx-r*.2} ${cy+r*.3} Q ${cx} ${cy+r*.44} ${cx+r*.2} ${cy+r*.3}`;
 
-  const earFill = isCouple ? colors.cheek : colors.body;
-  const ears = earsSvg(earShape, earFill, colors.cheek, cx, cy, r, shape.earMul);
-  const limbs = shape.limbs ? limbsSvg(colors, cx, cy, r) : '';
-  const aura = shape.aura ? auraSvg(colors, cx, cy, r) : '';
-  const pat = patternOverlaySvg(pattern, colors, cx, cy, r, ry, gid);
+  const earMul = 1 + (stg - 1) * .08;
+  const features = archetypeFeaturesSvg(arch, shape, v, earShape, colors, cx, cy, r, ry, earMul);
+  // Chimera: couple pet borrows one accent feature from the partner's
+  // archetype family, layered smaller/behind the primary body's own features.
+  const secondaryAccent = (isCouple && secondaryArchetype && secondaryArchetype !== arch)
+    ? archetypeFeaturesSvg(secondaryArchetype, getArchetypeStageShape(secondaryArchetype, stg), v, earShape, colors, cx, cy, r * .8, ry * .8, earMul)
+    : '';
+  const auraIntensity = auraIntensityForStage(stg);
+  const aura = auraShapeSvg(visuals.auraShape || 'secure', colors, cx, cy, r, auraIntensity, visuals.luckyNumber);
+  const ascensionRings = ascensionRingsSvg(finish, cx, cy, r);
+  const pat = patternLayersSvg(patternA, patternB, colors, cx, cy, r, ry, gid);
+  const edge = bodyEdgeTreatmentSvg(edgeTreatment, colors, cx, cy, r, ry);
   const sparkle = shiny ? shinySparkleSvg(cx, cy, r) : '';
 
   const coupleHeart = isCouple ? `
     <path d="M ${cx} ${cy+r*.36} C ${cx-r*.18} ${cy+r*.19} ${cx-r*.33} ${cy+r*.31} ${cx} ${cy+r*.53} C ${cx+r*.33} ${cy+r*.31} ${cx+r*.18} ${cy+r*.19} ${cx} ${cy+r*.36} Z" fill="${colors.eye}" opacity=".5"/>
   ` : '';
 
-  const accessories = accessorySvg(stage, milestones, colors, cx, cy, r, isSolo);
+  const accessories = accessorySvg(stg, milestones, colors, cx, cy, r, isSolo, arch, visuals.weapon);
 
-  const { a, b } = visuals.shinyColors || { a: colors, b: colors };
+  const rareColors = visuals.rare ? { a: colors, b: { body: visuals.rareAccent, cheek: '#ffffff', eye: colors.eye } } : null;
+  const { a, b } = visuals.shinyColors || rareColors || { a: colors, b: colors };
   const gradientDef = shiny
     ? `<linearGradient id="${gid}" x1="15%" y1="10%" x2="85%" y2="90%">
         <stop offset="0%" stop-color="${a.cheek}"/>
@@ -516,9 +1006,9 @@ function buildPetSvg(visuals, stage, mood, size, milestones = [], isCouple = fal
 
   return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">
     <defs>${gradientDef}</defs>
-    ${aura}${accessories}${limbs}${ears}
+    ${ascensionRings}${aura}${accessories}${secondaryAccent}${features}
     <ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${ry}" fill="url(#${gid})"/>
-    ${pat}
+    ${pat}${edge}
     <ellipse cx="${cx-r*.43}" cy="${cy+r*.19}" rx="${r*.23}" ry="${r*.15}" fill="${colors.cheek}" opacity=".48"/>
     <ellipse cx="${cx+r*.43}" cy="${cy+r*.19}" rx="${r*.23}" ry="${r*.15}" fill="${colors.cheek}" opacity=".48"/>
     <circle cx="${cx-r*.3}" cy="${cy-r*.14}" r="${r*.14}" fill="${colors.eye}"/>
@@ -586,7 +1076,7 @@ function pickAffirmation(attach, gameData, offset) {
 // played, a streak just extended) instead of always pulling a generic pool
 // line — falls back to pickAffirmation() when nothing notable happened.
 
-function pickPetReaction(gameData) {
+function pickPetReaction(gameData, profile) {
   const gd = gameData || {};
   const today = todayLocal();
 
@@ -611,7 +1101,76 @@ function pickPetReaction(gameData) {
     return `is proud of the ${gd.streak.current}-day streak you're on.`;
   }
 
+  const quirk = computeQuirkOfDay(profile);
+  if (quirk) return quirk;
+
   return null;
+}
+
+// ─── Bond meter ─────────────────────────────────────────────────────────────
+// Stage tracks time invested; Bond tracks breadth of interaction instead —
+// how many different games have ever been played, not just how often the
+// app was opened. Nudges toward trying Check-In/Daily Reflection instead of
+// only ever tapping Mood Check. Fully derived from existing gameData, no
+// new persisted field needed.
+const BOND_GAMES = [
+  { id: 'trivia', check: gd => (gd.trivia?.total || 0) > 0, label: 'Trivia' },
+  { id: 'wyr', check: gd => (gd.wyr?.answered || 0) > 0, label: 'Would You Rather / Guess & Reveal' },
+  { id: 'dailyq', check: gd => (gd.dailyq?.answered || 0) > 0 || (gd.reflection?.entries?.length || 0) > 0, label: 'Daily Duo / Reflection' },
+  { id: 'checkin', check: gd => (gd.checkin?.entries?.length || 0) > 0, label: 'Weekly Check-In' },
+  { id: 'bingo', check: gd => (gd.bingo?.checked || 0) > 0, label: 'Personality Sparks / Hot Takes' },
+  { id: 'mood', check: gd => (gd.mood?.history?.length || 0) > 0, label: 'Mood Check' },
+  { id: 'quicktakes', check: gd => (gd.quicktakes?.sessionCount || 0) > 0, label: 'QuickTakes' }
+];
+
+function computeBondLevel(gameData) {
+  const gd = gameData || {};
+  return BOND_GAMES.filter(g => g.check(gd)).length;
+}
+
+// ─── Quirk of the day ───────────────────────────────────────────────────────
+// A small, deterministic (seed + date) chance that today has a little
+// character flourish — same render-time-only pattern as lucky number, so
+// every day feels slightly different even when nothing "big" happened.
+// Fragments, not full sentences — kept consistent with the mood/game/streak
+// reactions above so the caller can concatenate "${petName} ${fragment}".
+const QUIRKS_OF_DAY = [
+  'keeps circling the same spot before settling down today.',
+  'perked right up the moment you opened the app.',
+  'seems to be practicing some kind of new trick.',
+  'is extra sparkly today for no particular reason.',
+  "hasn't stopped humming a little tune all day.",
+  'found a new favorite spot and is very pleased about it.',
+  'is in an unusually playful mood today.',
+  'keeps tilting its head like it heard something interesting.'
+];
+
+function computeQuirkOfDay(profile) {
+  const seed = computePetSeed(profile);
+  const dateHash = hashString(todayLocal());
+  const combined = seed + dateHash;
+  // Roughly one day in three has a quirk — keeps it a nice surprise rather
+  // than constant noise.
+  if (combined % 3 !== 0) return null;
+  const idx = combined % QUIRKS_OF_DAY.length;
+  return QUIRKS_OF_DAY[idx];
+}
+
+// ─── Procedural pet identity ────────────────────────────────────────────────
+// A handful of small deterministic "facts" so the pet reads as a character
+// with its own tiny profile that reveals itself over time, mirroring how
+// the user's own profile unfolds during onboarding — not just a stat block.
+const FAVORITE_COLORS = ['sunset orange', 'deep teal', 'soft lavender', 'forest green', 'warm gold', 'sky blue', 'rose pink', 'slate gray'];
+const PET_TRAITS = ['naps in odd places', 'always faces the door', 'loves a good stretch first thing', 'hums when things are calm', 'gets extra curious at dusk', 'circles twice before settling', 'perks up at new sounds', 'has a favorite corner it returns to'];
+const FAVORITE_ACTIVITIES = ['watching the world go by', 'a good long stretch', 'exploring something new', 'quiet company', 'a little victory lap', 'curling up somewhere warm'];
+
+function derivePetIdentity(profile) {
+  const seed = computePetSeed(profile);
+  return {
+    favoriteColor: FAVORITE_COLORS[seed % FAVORITE_COLORS.length],
+    trait: PET_TRAITS[Math.floor(seed / 7) % PET_TRAITS.length],
+    favoriteActivity: FAVORITE_ACTIVITIES[Math.floor(seed / 13) % FAVORITE_ACTIVITIES.length]
+  };
 }
 
 // ─── Pet data helpers ─────────────────────────────────────────────────────────
@@ -652,7 +1211,7 @@ function tickCouplePet(petData, gameData) {
     petData.totalDays += 1;
     petData.lastSeen = today;
   }
-  petData.mood = deriveMood(gameData);
+  petData.mood = deriveCoupleMood(gameData);
   petData.stage = getStage(petData.totalDays).stage;
   return petData;
 }
@@ -720,12 +1279,14 @@ export function renderPetSection() {
   const userAttach = window.AppState.userProfile?.attachmentStyle || 'secure';
   const userVisuals = derivePetVisuals(window.AppState.userProfile || {});
   const userStageInfo = getStage(userPet.totalDays);
-  const userSvg = buildPetSvg(userVisuals, userPet.stage, userPet.mood, userStageInfo.size, milestones, false, solo);
+  const userAscension = ascensionTier(userPet.totalDays);
+  const userSvg = buildPetSvg(userVisuals, userPet.stage, userPet.mood, userStageInfo.size, milestones, false, solo, userAscension);
+  const userStageLabel = stageLabelWithAscension(userStageInfo.label, userPet.totalDays);
 
   // A fresh session opens with a contextual reaction to what actually
   // happened today (if anything did); tapping "New Message" moves past it
   // into the regular rotating pool.
-  const petReaction = _affirmOffset === 0 ? pickPetReaction(gd) : null;
+  const petReaction = _affirmOffset === 0 ? pickPetReaction(gd, window.AppState.userProfile) : null;
   let affirmText, isWarning, affirmLabel;
   if (petReaction) {
     affirmText = `${userPet.name} ${petReaction}`;
@@ -748,6 +1309,10 @@ export function renderPetSection() {
 
   const nextStage = STAGES.find(s => s.minDays > userPet.totalDays);
   const daysToNext = nextStage ? nextStage.minDays - userPet.totalDays : 0;
+  const nextAscensionAt = 40 + userAscension * 25 + 25;
+  const progressLabel = nextStage
+    ? `${daysToNext} pts to ${nextStage.label}`
+    : `${nextAscensionAt - userPet.totalDays} pts to next Ascension`;
 
   if (solo) {
     if (titleEl) titleEl.textContent = 'Your Companion';
@@ -757,7 +1322,7 @@ export function renderPetSection() {
           <div class="pet-float-anim">${userSvg}</div>
           <div style="text-align:center;">
             <div class="pet-name-tag-lg">${userPet.name}</div>
-            <div class="pet-stage-badge">${userStageInfo.label} · Day ${userPet.totalDays}</div>
+            <div class="pet-stage-badge">${userStageLabel} · Day ${userPet.totalDays}</div>
           </div>
         </div>
         <div class="pet-affirmation-block" style="border-color:${affirmColor}; background:${affirmBg};">
@@ -765,7 +1330,7 @@ export function renderPetSection() {
           <div style="font-size:0.8rem; color:var(--text-secondary); line-height:1.5;">${affirmText}</div>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
-          <span style="font-size:0.65rem; color:var(--text-muted);">${nextStage ? `${daysToNext} pts to ${nextStage.label}` : 'Fully evolved!'}</span>
+          <span style="font-size:0.65rem; color:var(--text-muted);">${progressLabel}</span>
           <button class="btn btn-outline" style="font-size:0.65rem; padding:4px 10px;" onclick="refreshPetAffirmation()">New Message</button>
         </div>
       </div>
@@ -786,9 +1351,14 @@ export function renderPetSection() {
   const partnerAttach = window.AppState.partnerProfile?.attachmentStyle || 'secure';
   const partnerVisuals = derivePetVisuals(window.AppState.partnerProfile || {});
   const partnerStageInfo = getStage(partnerPet.totalDays);
-  const partnerSvg = buildPetSvg(partnerVisuals, partnerPet.stage, partnerPet.mood, partnerStageInfo.size, milestones, false, solo);
+  const partnerAscension = ascensionTier(partnerPet.totalDays);
+  const partnerSvg = buildPetSvg(partnerVisuals, partnerPet.stage, partnerPet.mood, partnerStageInfo.size, milestones, false, solo, partnerAscension);
+  const partnerStageLabel = stageLabelWithAscension(partnerStageInfo.label, partnerPet.totalDays);
 
-  // Couple pet — grows independently, tracked in gd.pet.couple
+  // Couple pet — grows independently, tracked in gd.pet.couple. Fusion:
+  // if EITHER individual pet has ascended, the couple pet gets that many
+  // extra aura rings too, regardless of the couple pet's own tier — your
+  // own growth visibly changes something your partner sees as well.
   const couplePet = gd.pet.couple || makeCouplePetData();
   const coupleVisuals = deriveCoupleVisuals(userVisuals, partnerVisuals);
   const coupleAttachKey = `${userAttach}_${partnerAttach}`;
@@ -799,7 +1369,9 @@ export function renderPetSection() {
   );
   const coupleStageInfo = getStage(couplePet.totalDays);
   const coupleShiny = couplePet.stage >= 5;
-  const coupleSvg = buildPetSvg(coupleVisuals, couplePet.stage, couplePet.mood, coupleStageInfo.size, milestones, true, false);
+  const coupleFusionAscension = Math.max(ascensionTier(couplePet.totalDays), userAscension, partnerAscension);
+  const coupleSvg = buildPetSvg(coupleVisuals, couplePet.stage, couplePet.mood, coupleStageInfo.size, milestones, true, false, coupleFusionAscension);
+  const coupleStageLabel = stageLabelWithAscension(coupleStageInfo.label, couplePet.totalDays);
 
   container.innerHTML = `
     <div class="pet-section-card">
@@ -807,12 +1379,12 @@ export function renderPetSection() {
         <div class="pet-card-mini" onclick="openPetDrawer()" title="Your pet" style="cursor:pointer;">
           <div class="pet-float-anim">${userSvg}</div>
           <div class="pet-name-tag-lg">${userPet.name}</div>
-          <div class="pet-stage-badge">${userStageInfo.label} · Day ${userPet.totalDays}</div>
+          <div class="pet-stage-badge">${userStageLabel} · Day ${userPet.totalDays}</div>
         </div>
         <div class="pet-card-mini" onclick="openPetDrawer()" title="${partnerPet.name}" style="cursor:pointer;">
           <div class="pet-float-anim">${partnerSvg}</div>
           <div class="pet-name-tag-lg">${partnerPet.name}</div>
-          <div class="pet-stage-badge">${partnerStageInfo.label} · Day ${partnerPet.totalDays}</div>
+          <div class="pet-stage-badge">${partnerStageLabel} · Day ${partnerPet.totalDays}</div>
         </div>
       </div>
 
@@ -823,7 +1395,7 @@ export function renderPetSection() {
           <div style="flex:1;">
             <div style="font-size:0.92rem; font-weight:700; color:var(--text-primary); margin-bottom:5px;">${coupleName}</div>
             <div style="font-size:0.73rem; font-style:italic; color:var(--text-secondary); line-height:1.5;">"${coupleMsg}"</div>
-            <div style="font-size:0.6rem; color:var(--text-muted); margin-top:4px;">${coupleShiny ? '✦ Shiny Legendary' : coupleStageInfo.label} · grows with both · Day ${couplePet.totalDays}</div>
+            <div style="font-size:0.6rem; color:var(--text-muted); margin-top:4px;">${coupleFusionAscension > 0 ? '✦ ' + coupleStageLabel : (coupleShiny ? '✦ Shiny Legendary' : coupleStageLabel)} · grows with both · Day ${couplePet.totalDays}</div>
           </div>
         </div>
       </div>
@@ -887,7 +1459,11 @@ export function renderPetDrawer() {
   const stageInfo = getStage(userPet.totalDays);
   const nextStage = STAGES.find(s => s.minDays > userPet.totalDays);
   const solo = window.AppState.soloMode || !window.AppState.partnerProfile?.name;
-  const svg = buildPetSvg(visuals, userPet.stage, userPet.mood, 90, milestones, false, solo);
+  const ascension = ascensionTier(userPet.totalDays);
+  const finish = ascensionFinish(ascension);
+  const svg = buildPetSvg(visuals, userPet.stage, userPet.mood, stageInfo.size, milestones, false, solo, ascension);
+  const bondLevel = computeBondLevel(gd);
+  const identity = derivePetIdentity(window.AppState.userProfile || {});
 
   const stageBar = STAGES.map(s => {
     const cls = s.stage === userPet.stage ? 'active' : s.stage < userPet.stage ? 'past' : '';
@@ -896,10 +1472,11 @@ export function renderPetDrawer() {
 
   const unlocked = [];
   if (userPet.stage >= 2) unlocked.push('Bow Tie');
-  if (userPet.stage >= 3) unlocked.push('Cape');
+  if (userPet.stage >= 3 && (visuals.archetype === 'construct' || visuals.archetype === 'guardian')) unlocked.push('Cape');
   if (userPet.stage >= 4) unlocked.push('Glasses');
   if (userPet.stage >= 5) unlocked.push('Crown');
-  if (userPet.stage >= 5 && solo) unlocked.push('Legendary Weapon');
+  if (userPet.stage >= 5) unlocked.push(solo ? 'Enchanted Weapon' : 'Weapon');
+  if (visuals.rare) unlocked.push('✦ Rare Finish');
   if (milestones.includes('trivia_master')) unlocked.push('Diploma');
   if (milestones.includes('streak_7')) unlocked.push('Halo');
   if (milestones.includes('memory_sharp') && userPet.stage < 4) unlocked.push('Crystal');
@@ -907,14 +1484,17 @@ export function renderPetDrawer() {
   return `
     <div class="subtitle">Your Companion</div>
     <h2 style="margin-bottom:4px;">${userPet.name}</h2>
-    <p class="card-body" style="color:var(--text-muted); margin-bottom:20px;">${stageInfo.label} · Day ${userPet.totalDays}${solo ? ' · Solo (grows 2x)' : ''}</p>
+    <p class="card-body" style="color:var(--text-muted); margin-bottom:8px;">${ascension > 0 ? stageLabelWithAscension(stageInfo.label, userPet.totalDays) : stageInfo.label} · Day ${userPet.totalDays}${solo ? ' · Solo (grows 2x)' : ''}</p>
+    <div style="text-align:center; margin-bottom:16px;">
+      <span style="font-size:0.68rem; font-weight:700; background:rgba(245,200,66,0.14); border:1px solid rgba(245,200,66,0.4); color:#c99a1f; border-radius:20px; padding:3px 12px;">✦ Lucky number today: ${visuals.luckyNumber}</span>
+    </div>
     <div style="display:flex; flex-direction:column; align-items:center; gap:16px; margin-bottom:24px;">
       <div class="pet-full-display"><div class="pet-float-anim">${svg}</div></div>
     </div>
     <div class="pet-stage-track">${stageBar}</div>
     ${nextStage
       ? `<div style="text-align:center; font-size:0.72rem; color:var(--text-muted); margin-top:12px;">${nextStage.minDays - userPet.totalDays} more pts to <strong style="color:var(--accent-primary);">${nextStage.label}</strong></div>`
-      : `<div style="text-align:center; font-size:0.72rem; color:var(--accent-primary); margin-top:12px; font-weight:700;">Fully evolved. Legendary status.</div>`}
+      : `<div style="text-align:center; font-size:0.72rem; color:var(--accent-primary); margin-top:12px; font-weight:700;">${finish ? `${finish.name.charAt(0).toUpperCase()+finish.name.slice(1)} Ascension${finish.lap > 0 ? ` · lap ${finish.lap+1}` : ''} — ${40 + ascension*25 + 25 - userPet.totalDays} pts to next tier` : 'Legendary status. Keep growing for Ascension.'}</div>`}
     ${unlocked.length > 0 ? `
     <div class="card" style="margin-top:16px; background:var(--bg-dark);">
       <div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px;">Unlocked items</div>
@@ -923,13 +1503,42 @@ export function renderPetDrawer() {
       </div>
     </div>` : ''}
     <div class="card" style="margin-top:12px; background:var(--bg-dark);">
+      <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">
+        <div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; color:var(--text-muted);">Bond</div>
+        <div style="font-size:0.65rem; color:var(--text-muted);">${bondLevel}/${BOND_GAMES.length} games explored</div>
+      </div>
+      <div style="height:6px; border-radius:4px; background:var(--border-color); overflow:hidden;">
+        <div style="height:100%; width:${(bondLevel/BOND_GAMES.length)*100}%; background:var(--accent-primary); border-radius:4px;"></div>
+      </div>
+      <div style="font-size:0.68rem; color:var(--text-muted); margin-top:8px; line-height:1.5;">Tracks how many different games you've tried, not just how often you visit — try one you haven't yet to grow it.</div>
+    </div>
+    <div class="card" style="margin-top:12px; background:var(--bg-dark);">
+      <div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:10px;">About ${userPet.name}</div>
+      <ul class="bullet-list dos">
+        <li>Favorite color: ${identity.favoriteColor}</li>
+        <li>Quirk: ${identity.trait}</li>
+        <li>Loves: ${identity.favoriteActivity}</li>
+      </ul>
+    </div>
+    <div class="card" style="margin-top:12px; background:var(--bg-dark);">
       <div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:10px;">How ${userPet.name} grows</div>
       <ul class="bullet-list dos">
         <li>Open the app each day${solo ? ' — solo pets earn 2 pts per visit' : ''}</li>
         <li>Earn milestones to unlock accessories</li>
         <li>Get a 7-day streak to unlock the halo</li>
-        <li>Reach Day ${STAGES[4].minDays} to hit Legendary</li>
+        <li>Reach Day ${STAGES[4].minDays} to hit Legendary, then keep going to Ascend</li>
       </ul>
     </div>
   `;
 }
+
+// ─── Test-only internals ──────────────────────────────────────────────────
+// Exposes the pure, render-only functions for the Node-based visual QA
+// harness (see /tmp/pet-test in the PR description) so pet art can be
+// rasterized and reviewed without a browser. Not used by the app itself.
+export const __internals = {
+  derivePetVisuals, deriveCoupleVisuals, buildPetSvg, getStage, clampStage,
+  speciesArchetype, mbtiTemperament, bodyVariant,
+  ascensionTier, ascensionFinish, isRareFinish, computeLuckyNumber,
+  computeBondLevel, computeQuirkOfDay, derivePetIdentity, deriveCoupleMood
+};
