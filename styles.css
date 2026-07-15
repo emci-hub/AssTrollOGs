@@ -1134,10 +1134,64 @@ h1 {
 }
 
 .friend-vibe-score {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--accent-primary);
+  font-size: 0.85rem;
+  font-weight: 800;
   flex-shrink: 0;
+  text-align: right;
+}
+
+.friend-vibe-score-tag {
+  font-size: 0.58rem;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.friend-list-row {
+  border-left: 4px solid transparent;
+}
+
+/* Small, fixed-width action button — deliberately NOT `.btn` (which is
+   width:100% by default), so icon-only actions like refresh (↻) never
+   stretch and collide with sibling text. */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: auto;
+  padding: 5px 10px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.btn-icon:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+/* Grouped "Fun Zone" — icebreaker/joke/send-this share one outer card with
+   dividers between rows instead of three separate stacked cards, so they
+   read as one playful cluster rather than more of the same gray form. */
+.friend-fun-zone {
+  border: 1px solid rgba(240,160,85,0.3);
+  border-radius: 12px;
+  padding: 4px 14px;
+  margin-bottom: 12px;
+}
+
+.friend-fun-row {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.friend-fun-row:last-child {
+  border-bottom: none;
 }
 
 /* ─── Mood Check game ────────────────────────────────────────────────────── */
