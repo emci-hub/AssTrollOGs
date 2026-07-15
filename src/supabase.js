@@ -6,9 +6,20 @@
 import { createClient } from '@supabase/supabase-js';
 
 const url = import.meta.env.VITE_SUPABASE_URL;
-const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Accept either key name: new Supabase projects issue "publishable" keys
+// (sb_publishable_...) while older ones issue anon JWTs — both are safe to
+// ship in the client bundle and both work as createClient's second arg.
+const key = import.meta.env.VITE_SUPABASE_ANON_KEY
+  || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 export const supabase = (url && key) ? createClient(url, key) : null;
+
+if (!supabase) {
+  console.warn(
+    '[supabase] Cloud sync disabled: VITE_SUPABASE_URL and/or key missing at build time. '
+    + 'Saves stay in localStorage only. See .env in the repo root.'
+  );
+}
 
 // ─── Device ID ───────────────────────────────────────────────────────────────
 // Generated once on first run, persisted in localStorage as the user's cloud key.
