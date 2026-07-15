@@ -70,6 +70,17 @@ function computePetSeed(profile) {
   return hashString(`${name}|${location}|${mbti}|${attach}`);
 }
 
+// ─── Lucky number ───────────────────────────────────────────────────────────
+// Deterministic per-person, per-day (not random, not persisted — same
+// pattern as the rest of this file's seeding). Recomputes naturally at
+// render time as the local day rolls over, so it changes daily without
+// needing a new gameData field.
+function computeLuckyNumber(profile) {
+  const seed = computePetSeed(profile);
+  const dateHash = hashString(todayLocal());
+  return ((seed + dateHash) % 9) + 1;
+}
+
 function hslToHex(h, s, l) {
   s /= 100; l /= 100;
   const k = n => (n + h / 30) % 12;
@@ -186,7 +197,9 @@ function derivePetVisuals(profile) {
     patternA: patternTypeA(profile),
     patternB: patternTypeB(profile),
     edgeTreatment: edgeTreatmentType(profile),
-    weapon: profile?.loveLanguage || 'words'
+    weapon: profile?.loveLanguage || 'words',
+    auraShape: profile?.attachmentStyle || 'secure',
+    luckyNumber: computeLuckyNumber(profile)
   };
 }
 
@@ -426,6 +439,8 @@ function deriveCoupleVisuals(userVisuals, partnerVisuals) {
     patternB: 'none',
     edgeTreatment: 'none',
     weapon: userVisuals.weapon,
+    auraShape: userVisuals.auraShape,
+    luckyNumber: userVisuals.luckyNumber,
     shinyColors: { a: userVisuals.colors, b: partnerVisuals.colors }
   };
 }
@@ -453,10 +468,46 @@ function earsSvg(shape, earFill, cheekColor, cx, cy, r, earMul = 1) {
   `;
 }
 
-function auraSvg(colors, cx, cy, r) {
+// ─── Attachment-keyed aura shapes ──────────────────────────────────────────
+// Auras are a shape family, not just an on/off glow: secure gets a steady
+// double ring, anxious a flickering multi-ring, avoidant a detached ring of
+// orbiting particles (a gap between body and aura), fearful an asymmetric
+// broken ring. They fade in faintly from stage 3 and reach full intensity
+// at stage 5 (see auraIntensityForStage), so evolution feels continuous
+// instead of a single last-stage on/off switch. Lucky number quietly ties
+// in by setting the avoidant/anxious particle & ring counts.
+function auraIntensityForStage(stage) {
+  if (stage >= 5) return 1;
+  if (stage === 4) return 0.6;
+  if (stage === 3) return 0.3;
+  return 0;
+}
+
+function auraShapeSvg(attachStyle, colors, cx, cy, r, intensity, luckyNumber = 5) {
+  if (intensity <= 0) return '';
+  if (attachStyle === 'anxious') {
+    const rings = 2 + (luckyNumber % 3);
+    return Array.from({ length: rings }, (_, i) => {
+      const rad = 1.22 + i * .16;
+      return `<ellipse cx="${cx}" cy="${cy}" rx="${r*rad}" ry="${r*rad*.9}" fill="none" stroke="${colors.cheek}" stroke-width="${r*.025}" opacity="${Math.max(.08, .38 - i*.08) * intensity}"/>`;
+    }).join('');
+  }
+  if (attachStyle === 'avoidant') {
+    const pts = 4 + (luckyNumber % 5);
+    const orbit = r * 1.55;
+    return Array.from({ length: pts }, (_, i) => {
+      const ang = (i / pts) * Math.PI * 2;
+      const ox = cx + Math.cos(ang) * orbit, oy = cy + Math.sin(ang) * orbit * .82;
+      return `<circle cx="${ox}" cy="${oy}" r="${r*.045}" fill="${colors.cheek}" opacity="${.55 * intensity}"/>`;
+    }).join('');
+  }
+  if (attachStyle === 'fearful') {
+    return `<ellipse cx="${cx+r*.08}" cy="${cy-r*.05}" rx="${r*1.4}" ry="${r*1.22}" fill="none" stroke="${colors.body}" stroke-width="${r*.06}" stroke-dasharray="${r*.3} ${r*.2}" opacity="${.42 * intensity}"/>`;
+  }
+  // secure — steady, symmetrical double glow
   return `
-    <ellipse cx="${cx}" cy="${cy}" rx="${r*1.45}" ry="${r*1.3}" fill="${colors.body}" opacity=".14"/>
-    <ellipse cx="${cx}" cy="${cy}" rx="${r*1.2}" ry="${r*1.08}" fill="${colors.cheek}" opacity=".18"/>
+    <ellipse cx="${cx}" cy="${cy}" rx="${r*1.45}" ry="${r*1.3}" fill="${colors.body}" opacity="${.14*intensity}"/>
+    <ellipse cx="${cx}" cy="${cy}" rx="${r*1.2}" ry="${r*1.08}" fill="${colors.cheek}" opacity="${.18*intensity}"/>
   `;
 }
 
@@ -842,7 +893,8 @@ function buildPetSvg(visuals, stage, mood, size, milestones = [], isCouple = fal
   const secondaryAccent = (isCouple && secondaryArchetype && secondaryArchetype !== arch)
     ? archetypeFeaturesSvg(secondaryArchetype, getArchetypeStageShape(secondaryArchetype, stg), v, earShape, colors, cx, cy, r * .8, ry * .8, earMul)
     : '';
-  const aura = stg >= 5 ? auraSvg(colors, cx, cy, r) : '';
+  const auraIntensity = auraIntensityForStage(stg);
+  const aura = auraShapeSvg(visuals.auraShape || 'secure', colors, cx, cy, r, auraIntensity, visuals.luckyNumber);
   const pat = patternLayersSvg(patternA, patternB, colors, cx, cy, r, ry, gid);
   const edge = bodyEdgeTreatmentSvg(edgeTreatment, colors, cx, cy, r, ry);
   const sparkle = shiny ? shinySparkleSvg(cx, cy, r) : '';
@@ -1260,7 +1312,10 @@ export function renderPetDrawer() {
   return `
     <div class="subtitle">Your Companion</div>
     <h2 style="margin-bottom:4px;">${userPet.name}</h2>
-    <p class="card-body" style="color:var(--text-muted); margin-bottom:20px;">${stageInfo.label} · Day ${userPet.totalDays}${solo ? ' · Solo (grows 2x)' : ''}</p>
+    <p class="card-body" style="color:var(--text-muted); margin-bottom:8px;">${stageInfo.label} · Day ${userPet.totalDays}${solo ? ' · Solo (grows 2x)' : ''}</p>
+    <div style="text-align:center; margin-bottom:16px;">
+      <span style="font-size:0.68rem; font-weight:700; background:rgba(245,200,66,0.14); border:1px solid rgba(245,200,66,0.4); color:#c99a1f; border-radius:20px; padding:3px 12px;">✦ Lucky number today: ${visuals.luckyNumber}</span>
+    </div>
     <div style="display:flex; flex-direction:column; align-items:center; gap:16px; margin-bottom:24px;">
       <div class="pet-full-display"><div class="pet-float-anim">${svg}</div></div>
     </div>
