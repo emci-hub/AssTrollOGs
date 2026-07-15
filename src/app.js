@@ -26,6 +26,7 @@ import { gameRegistry } from './games/index.js';
 import { initPet, renderPetSection, refreshPetAffirmation } from './pet.js';
 import { updateStreak, migrateGameData, todayLocal } from './state.js';
 import { cloudLoad, cloudLoadByCode } from './supabase.js';
+import { renderFriendsSection } from './friends.js';
 
 // Bind all game window handlers
 gameRegistry.bindAll();
@@ -124,6 +125,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     hydrateDashboardViews(cachedPackage);
     switchView('daily-screen');
     initPet();
+    renderFriendsSection();
 
     // Restore save code from localStorage into AppState
     const storedCode = localStorage.getItem('vibeSaveCode');
@@ -175,6 +177,7 @@ window.copySaveCode = copySaveCode;
 window.openPetDrawer = () => openDrawer('pet');
 window._renderPetSection = renderPetSection;
 window.initPet = initPet;
+window._renderFriendsSection = renderFriendsSection;
 window.toggleSaveCodeEntry = toggleSaveCodeEntry;
 window.formatSaveCodeInput = formatSaveCodeInput;
 window.submitSaveCode = submitSaveCode;
@@ -205,6 +208,7 @@ window.loadSavedProfile = () => {
     hydrateDashboardViews(parsed);
     switchView('daily-screen');
     initPet();
+    renderFriendsSection();
 
     const storedCode = localStorage.getItem('vibeSaveCode');
     if (storedCode) {

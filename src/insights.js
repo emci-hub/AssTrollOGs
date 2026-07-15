@@ -234,7 +234,9 @@ function getMilestoneLabel(id) {
     mood_first: 'First Mood Check', mood_consistent: 'Consistent Checker',
     quicktakes_first: 'Quick Taker', quicktakes_pattern: 'Pattern Finder',
     pet_baby: 'Baby Steps', pet_adult: 'Growing Up', pet_legendary: 'Legendary Bond',
-    pet_couple_shiny: 'Shiny Bond'
+    pet_couple_shiny: 'Shiny Bond',
+    friend_first: 'Made a Friend', friend_circle: 'Friend Circle',
+    friend_bond: 'Friendship Legend', friend_streak_7: 'Ride or Die'
   })[id] || id;
 }
 
