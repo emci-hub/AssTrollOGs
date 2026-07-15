@@ -104,7 +104,13 @@ function earShapeVariant(profile) {
   return (profile?.mbti || '')[0] === 'E' ? 'pointed' : 'round';
 }
 
-const PATTERN_BY_LOVE_LANGUAGE = {
+// ─── Stackable pattern layers ──────────────────────────────────────────────
+// Three independent marking layers, each keyed to a different trait, drawn
+// stacked on top of each other. Two pets sharing a love language will still
+// look different once expression/conflict style diverge — 5 x 4 x 4 = 80
+// combinations instead of one single overlay.
+
+const PATTERN_A_BY_LOVE_LANGUAGE = {
   words: 'sparkle',
   gifts: 'sparkle',
   time: 'band',
@@ -112,8 +118,30 @@ const PATTERN_BY_LOVE_LANGUAGE = {
   touch: 'spots'
 };
 
-function patternType(profile) {
-  return PATTERN_BY_LOVE_LANGUAGE[profile?.loveLanguage] || 'none';
+function patternTypeA(profile) {
+  return PATTERN_A_BY_LOVE_LANGUAGE[profile?.loveLanguage] || 'none';
+}
+
+const PATTERN_B_BY_EXPRESSION = {
+  direct: 'chevrons',
+  indirect: 'freckles',
+  reflective: 'rings',
+  analytical: 'grid'
+};
+
+function patternTypeB(profile) {
+  return PATTERN_B_BY_EXPRESSION[profile?.expressionStyle] || 'none';
+}
+
+const EDGE_BY_CONFLICT = {
+  collaborative: 'glow-edge',
+  compromising: 'dashed-outline',
+  accommodating: 'soft-outline',
+  avoiding: 'none'
+};
+
+function edgeTreatmentType(profile) {
+  return EDGE_BY_CONFLICT[profile?.conflictStyle] || 'none';
 }
 
 // ─── Species archetypes ────────────────────────────────────────────────────
@@ -155,7 +183,9 @@ function derivePetVisuals(profile) {
     archetype: speciesArchetype(profile),
     variant: bodyVariant(profile),
     earShape: earShapeVariant(profile),
-    pattern: patternType(profile)
+    patternA: patternTypeA(profile),
+    patternB: patternTypeB(profile),
+    edgeTreatment: edgeTreatmentType(profile)
   };
 }
 
@@ -391,7 +421,9 @@ function deriveCoupleVisuals(userVisuals, partnerVisuals) {
     secondaryArchetype: partnerVisuals.archetype,
     variant: userVisuals.variant,
     earShape: (userVisuals.earShape === 'pointed' || partnerVisuals.earShape === 'pointed') ? 'pointed' : 'round',
-    pattern: 'none',
+    patternA: 'none',
+    patternB: 'none',
+    edgeTreatment: 'none',
     shinyColors: { a: userVisuals.colors, b: partnerVisuals.colors }
   };
 }
@@ -566,33 +598,86 @@ function archetypeFeaturesSvg(archetype, shape, variant, earShape, colors, cx, c
   }
 }
 
-function patternOverlaySvg(pattern, colors, cx, cy, r, ry, gid) {
-  if (pattern === 'none') return '';
-  const clipId = `clip_${gid}`;
-  let marks = '';
-  if (pattern === 'spots') {
+function patternMarksA(type, colors, cx, cy, r, ry) {
+  if (type === 'spots') {
     const spots = [
       { dx: -.42, dy: -.1, s: .12 }, { dx: .1, dy: .3, s: .09 },
       { dx: .4, dy: -.2, s: .1 }, { dx: -.1, dy: -.4, s: .08 }
     ];
-    marks = spots.map(p => `<circle cx="${cx+r*p.dx}" cy="${cy+ry*p.dy}" r="${r*p.s}" fill="${colors.eye}" opacity=".22"/>`).join('');
-  } else if (pattern === 'stripes') {
-    marks = [-.5, -.15, .2, .55].map(dx =>
+    return spots.map(p => `<circle cx="${cx+r*p.dx}" cy="${cy+ry*p.dy}" r="${r*p.s}" fill="${colors.eye}" opacity=".22"/>`).join('');
+  }
+  if (type === 'stripes') {
+    return [-.5, -.15, .2, .55].map(dx =>
       `<rect x="${cx+r*dx}" y="${cy-ry}" width="${r*.13}" height="${ry*2}" fill="${colors.eye}" opacity=".18" transform="rotate(18 ${cx+r*dx} ${cy})"/>`
     ).join('');
-  } else if (pattern === 'band') {
-    marks = `<rect x="${cx-r}" y="${cy-ry*.12}" width="${r*2}" height="${ry*.3}" fill="${colors.eye}" opacity=".22"/>`;
-  } else if (pattern === 'sparkle') {
+  }
+  if (type === 'band') {
+    return `<rect x="${cx-r}" y="${cy-ry*.12}" width="${r*2}" height="${ry*.3}" fill="${colors.eye}" opacity=".22"/>`;
+  }
+  if (type === 'sparkle') {
     const sparks = [{ dx: -.3, dy: -.25 }, { dx: .32, dy: -.1 }, { dx: 0, dy: .35 }];
-    marks = sparks.map(p => {
+    return sparks.map(p => {
       const x = cx + r * p.dx, y = cy + ry * p.dy, s = r * .07;
       return `<path d="M ${x} ${y-s} L ${x+s*.3} ${y-s*.3} L ${x+s} ${y} L ${x+s*.3} ${y+s*.3} L ${x} ${y+s} L ${x-s*.3} ${y+s*.3} L ${x-s} ${y} L ${x-s*.3} ${y-s*.3} Z" fill="${colors.cheek}" opacity=".55"/>`;
     }).join('');
   }
+  return '';
+}
+
+function patternMarksB(type, colors, cx, cy, r, ry) {
+  if (type === 'chevrons') {
+    return [-.3, .05, .4].map(dy => {
+      const y = cy + ry * dy;
+      const w = r * .5;
+      return `<path d="M ${cx-w} ${y} L ${cx} ${y+r*.12} L ${cx+w} ${y}" stroke="${colors.eye}" stroke-width="${r*.05}" fill="none" opacity=".2"/>`;
+    }).join('');
+  }
+  if (type === 'freckles') {
+    const pts = [];
+    for (let i = 0; i < 9; i++) {
+      const ang = (i / 9) * Math.PI * 2;
+      const rad = 0.15 + (i % 3) * 0.12;
+      pts.push({ dx: Math.cos(ang) * rad, dy: Math.sin(ang) * rad * .7 });
+    }
+    return pts.map(p => `<circle cx="${cx+r*p.dx}" cy="${cy+ry*p.dy}" r="${r*.035}" fill="${colors.eye}" opacity=".3"/>`).join('');
+  }
+  if (type === 'rings') {
+    return [.55, .35].map(rad => `<ellipse cx="${cx}" cy="${cy}" rx="${r*rad}" ry="${ry*rad}" stroke="${colors.eye}" stroke-width="${r*.03}" fill="none" opacity=".18"/>`).join('');
+  }
+  if (type === 'grid') {
+    const lines = [];
+    [-.4, 0, .4].forEach(dx => lines.push(`<line x1="${cx+r*dx}" y1="${cy-ry}" x2="${cx+r*dx}" y2="${cy+ry}" stroke="${colors.eye}" stroke-width="${r*.018}" opacity=".16"/>`));
+    [-.35, .1, .5].forEach(dy => lines.push(`<line x1="${cx-r}" y1="${cy+ry*dy}" x2="${cx+r}" y2="${cy+ry*dy}" stroke="${colors.eye}" stroke-width="${r*.018}" opacity=".16"/>`));
+    return lines.join('');
+  }
+  return '';
+}
+
+// Both marking layers share one clip so they only ever appear inside the
+// body silhouette regardless of how many are stacked.
+function patternLayersSvg(patternA, patternB, colors, cx, cy, r, ry, gid) {
+  if (patternA === 'none' && patternB === 'none') return '';
+  const clipId = `clip_${gid}`;
+  const marks = patternMarksA(patternA, colors, cx, cy, r, ry) + patternMarksB(patternB, colors, cx, cy, r, ry);
   return `
     <clipPath id="${clipId}"><ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${ry}"/></clipPath>
     <g clip-path="url(#${clipId})">${marks}</g>
   `;
+}
+
+// Third layer: an edge/outline treatment on the body's own rim rather than
+// an interior mark — conflict style's "how you show up at the boundary".
+function bodyEdgeTreatmentSvg(type, colors, cx, cy, r, ry) {
+  if (type === 'glow-edge') {
+    return `<ellipse cx="${cx}" cy="${cy}" rx="${r*1.04}" ry="${ry*1.05}" fill="none" stroke="${colors.cheek}" stroke-width="${r*.09}" opacity=".38"/>`;
+  }
+  if (type === 'dashed-outline') {
+    return `<ellipse cx="${cx}" cy="${cy}" rx="${r*1.01}" ry="${ry*1.01}" fill="none" stroke="${colors.eye}" stroke-width="${r*.035}" stroke-dasharray="${r*.12} ${r*.08}" opacity=".5"/>`;
+  }
+  if (type === 'soft-outline') {
+    return `<ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${ry}" fill="none" stroke="${colors.eye}" stroke-width="${r*.02}" opacity=".3"/>`;
+  }
+  return '';
 }
 
 function shinySparkleSvg(cx, cy, r) {
@@ -685,7 +770,7 @@ function accessorySvg(stage, milestones, colors, cx, cy, r, isSolo = false) {
 // ─── SVG builder ─────────────────────────────────────────────────────────────
 
 function buildPetSvg(visuals, stage, mood, size, milestones = [], isCouple = false, isSolo = false) {
-  const { colors, earShape, pattern, archetype, variant, secondaryArchetype } = visuals;
+  const { colors, earShape, patternA, patternB, edgeTreatment, archetype, variant, secondaryArchetype } = visuals;
   const arch = archetype || 'wisp';
   const v = variant || ATTACHMENT_VARIANT.secure;
   const stg = clampStage(stage);
@@ -712,7 +797,8 @@ function buildPetSvg(visuals, stage, mood, size, milestones = [], isCouple = fal
     ? archetypeFeaturesSvg(secondaryArchetype, getArchetypeStageShape(secondaryArchetype, stg), v, earShape, colors, cx, cy, r * .8, ry * .8, earMul)
     : '';
   const aura = stg >= 5 ? auraSvg(colors, cx, cy, r) : '';
-  const pat = patternOverlaySvg(pattern, colors, cx, cy, r, ry, gid);
+  const pat = patternLayersSvg(patternA, patternB, colors, cx, cy, r, ry, gid);
+  const edge = bodyEdgeTreatmentSvg(edgeTreatment, colors, cx, cy, r, ry);
   const sparkle = shiny ? shinySparkleSvg(cx, cy, r) : '';
 
   const coupleHeart = isCouple ? `
@@ -739,7 +825,7 @@ function buildPetSvg(visuals, stage, mood, size, milestones = [], isCouple = fal
     <defs>${gradientDef}</defs>
     ${aura}${accessories}${secondaryAccent}${features}
     <ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${ry}" fill="url(#${gid})"/>
-    ${pat}
+    ${pat}${edge}
     <ellipse cx="${cx-r*.43}" cy="${cy+r*.19}" rx="${r*.23}" ry="${r*.15}" fill="${colors.cheek}" opacity=".48"/>
     <ellipse cx="${cx+r*.43}" cy="${cy+r*.19}" rx="${r*.23}" ry="${r*.15}" fill="${colors.cheek}" opacity=".48"/>
     <circle cx="${cx-r*.3}" cy="${cy-r*.14}" r="${r*.14}" fill="${colors.eye}"/>
