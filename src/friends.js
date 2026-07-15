@@ -95,7 +95,7 @@ export function computeFriendVibeScore(userProfile, friendProfile) {
 // visually — different tiers get different colors/emoji, which reads as
 // more varied than the raw number alone even when two scores are close.
 export function vibeScoreTag(score) {
-  if (score >= 90) return { label: 'Rare Match', emoji: '🔥', color: '#f5c842' };
+  if (score >= 90) return { label: 'Rare Match', emoji: '🔥', color: 'var(--warning-color)' };
   if (score >= 75) return { label: 'Strong Bond', emoji: '💫', color: 'var(--accent-primary)' };
   if (score >= 60) return { label: 'Good Vibe', emoji: '✨', color: 'var(--success-color)' };
   return { label: 'Still Discovering', emoji: '🌱', color: 'var(--text-muted)' };
@@ -399,7 +399,7 @@ function renderFriendProfileDrawer(id) {
       <div style="font-size:0.78rem; color:var(--text-secondary); line-height:1.5;">${growthBlurb.body}</div>
     </div>
 
-    <div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; color:#f0a055; margin-bottom:8px;">🎉 Fun Zone</div>
+    <div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; color:var(--warning-color); margin-bottom:8px;">🎉 Fun Zone</div>
     <div class="friend-fun-zone">
       <div class="friend-fun-row">
         <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">
@@ -427,7 +427,7 @@ function renderFriendProfileDrawer(id) {
 
     <div style="display:flex; gap:8px; margin-top:4px;">
       <button class="btn btn-outline" style="flex:1; font-size:0.72rem; margin-top:0;" onclick="startEditFriend('${id}')">Edit Answers</button>
-      <button class="btn btn-outline" style="flex:1; font-size:0.72rem; margin-top:0; color:#e85555; border-color:#e85555;" onclick="confirmRemoveFriend('${id}')">Remove</button>
+      <button class="btn btn-outline" style="flex:1; font-size:0.72rem; margin-top:0; color:var(--danger-color); border-color:var(--danger-color);" onclick="confirmRemoveFriend('${id}')">Remove</button>
     </div>
   `;
 }

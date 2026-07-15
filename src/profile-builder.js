@@ -99,7 +99,7 @@ export function renderActiveStep() {
                 oninput="formatSaveCodeInput(this)"
                 onkeydown="if(event.key==='Enter') submitSaveCode()">
             </div>
-            <div id="save-code-error" style="display:none; font-size:0.7rem; color:#f87171; margin-bottom:8px; font-family:monospace;"></div>
+            <div id="save-code-error" style="display:none; font-size:0.7rem; color:var(--danger-color); margin-bottom:8px; font-family:var(--font-mono);"></div>
             <button class="btn" id="save-code-submit-btn" onclick="submitSaveCode()">Load Save</button>
           </div>
         </div>
@@ -452,6 +452,8 @@ export function finalizeEngineData() {
   hydrateDashboardViews(storagePayload);
   switchView('daily-screen');
   if (typeof window.initPet === 'function') window.initPet();
+  if (typeof window._renderFriendsSection === 'function') window._renderFriendsSection();
+  if (typeof window._renderAppearanceSection === 'function') window._renderAppearanceSection();
 }
 
 // ─── Save Code UI helpers (called from inline onclick in Step 0) ──────────────
@@ -536,6 +538,8 @@ export async function submitSaveCode() {
     hydrateDashboardViews(parsed);
     switchView('daily-screen');
     if (typeof window.initPet === 'function') window.initPet();
+    if (typeof window._renderFriendsSection === 'function') window._renderFriendsSection();
+    if (typeof window._renderAppearanceSection === 'function') window._renderAppearanceSection();
 
   } catch (e) {
     if (errEl) { errEl.textContent = e.message; errEl.style.display = 'block'; }

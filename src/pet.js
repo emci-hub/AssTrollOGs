@@ -1364,8 +1364,10 @@ export function renderPetSection() {
       ? (solo ? 'Watch out for' : `A heads-up for ${uName || 'you'}`)
       : (solo ? 'Today for you' : `Today for ${uName || 'you'}`);
   }
-  const affirmColor = isWarning ? '#f0a055' : 'var(--success-color)';
-  const affirmBg = isWarning ? 'rgba(240,160,85,0.08)' : 'rgba(78,180,120,0.08)';
+  const affirmColor = isWarning ? 'var(--warning-color)' : 'var(--success-color)';
+  const affirmBg = isWarning
+    ? 'color-mix(in srgb, var(--warning-color) 8%, transparent)'
+    : 'color-mix(in srgb, var(--success-color) 8%, transparent)';
   const affirmIcon = isWarning ? '!' : '✦';
 
   const nextStage = STAGES.find(s => s.minDays > userPet.totalDays);
@@ -1392,7 +1394,7 @@ export function renderPetSection() {
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
           <span style="font-size:0.65rem; color:var(--text-muted);">${progressLabel}</span>
-          <button class="btn btn-outline" style="font-size:0.65rem; padding:4px 10px;" onclick="refreshPetAffirmation()">New Message</button>
+          <button class="btn-icon" onclick="refreshPetAffirmation()">↻ New Message</button>
         </div>
       </div>
     `;
@@ -1466,7 +1468,7 @@ export function renderPetSection() {
         <div style="font-size:0.8rem; color:var(--text-secondary); line-height:1.5;">${affirmText}</div>
       </div>
       <div style="display:flex; justify-content:flex-end; margin-top:10px;">
-        <button class="btn btn-outline" style="font-size:0.65rem; padding:4px 10px;" onclick="refreshPetAffirmation()">New Message</button>
+        <button class="btn-icon" onclick="refreshPetAffirmation()">↻ New Message</button>
       </div>
     </div>
   `;
@@ -1513,7 +1515,7 @@ export function renderPetDrawer() {
   migratePetData(gd);
 
   const userPet = gd?.pet?.user;
-  if (!userPet) return '<div class="card-body">Come back tomorrow to meet your pet!</div>';
+  if (!userPet) return '<div class="card-body" style="text-align:center; padding:20px 0;"><div style="font-size:2rem; margin-bottom:8px;">🥚</div>Come back tomorrow to meet your pet!</div>';
 
   const visuals = derivePetVisuals(window.AppState.userProfile || {});
   const milestones = gd?.milestones || [];
