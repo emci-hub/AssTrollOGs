@@ -1392,7 +1392,7 @@ export function renderPetSection() {
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
           <span style="font-size:0.65rem; color:var(--text-muted);">${progressLabel}</span>
-          <button class="btn btn-outline" style="font-size:0.65rem; padding:4px 10px;" onclick="refreshPetAffirmation()">New Message</button>
+          <button class="btn-icon" onclick="refreshPetAffirmation()">↻ New Message</button>
         </div>
       </div>
     `;
@@ -1466,7 +1466,7 @@ export function renderPetSection() {
         <div style="font-size:0.8rem; color:var(--text-secondary); line-height:1.5;">${affirmText}</div>
       </div>
       <div style="display:flex; justify-content:flex-end; margin-top:10px;">
-        <button class="btn btn-outline" style="font-size:0.65rem; padding:4px 10px;" onclick="refreshPetAffirmation()">New Message</button>
+        <button class="btn-icon" onclick="refreshPetAffirmation()">↻ New Message</button>
       </div>
     </div>
   `;
@@ -1513,7 +1513,7 @@ export function renderPetDrawer() {
   migratePetData(gd);
 
   const userPet = gd?.pet?.user;
-  if (!userPet) return '<div class="card-body">Come back tomorrow to meet your pet!</div>';
+  if (!userPet) return '<div class="card-body" style="text-align:center; padding:20px 0;"><div style="font-size:2rem; margin-bottom:8px;">🥚</div>Come back tomorrow to meet your pet!</div>';
 
   const visuals = derivePetVisuals(window.AppState.userProfile || {});
   const milestones = gd?.milestones || [];

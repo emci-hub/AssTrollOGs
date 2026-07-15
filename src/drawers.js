@@ -43,7 +43,7 @@ function renderInsightDrawer(type, solo) {
     ${hasMore ? `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
       <span style="font-size:0.65rem; color:var(--text-muted);">${(offset % pool.length) + 1} of ${pool.length} reads</span>
-      <button class="btn btn-outline" style="font-size:0.7rem; padding:5px 12px;" onclick="cycleInsight('${type}')">Next Read</button>
+      <button class="btn-icon" onclick="cycleInsight('${type}')">↻ Next Read</button>
     </div>
     <div style="display:flex; flex-direction:column; gap:8px;">
       ${pool.filter((_, i) => i !== (offset % pool.length)).slice(0, 2).map((p, i) => `

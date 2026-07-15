@@ -145,8 +145,8 @@ export function hydrateDashboardViews(data) {
     const deltaStr = (delta) => {
       if (delta === 0) return '';
       return delta > 0
-        ? `<span style="color:var(--success-color); font-size:0.65rem; margin-left:4px;">+${delta}</span>`
-        : `<span style="color:var(--danger-color); font-size:0.65rem; margin-left:4px;">${delta}</span>`;
+        ? `<span style="color:var(--success-color); font-size:0.65rem; margin-left:4px;">▲+${delta}</span>`
+        : `<span style="color:var(--danger-color); font-size:0.65rem; margin-left:4px;">▼${delta}</span>`;
     };
 
     const gameInsights = insights.generateGameDerivedInsights(gameData, solo);

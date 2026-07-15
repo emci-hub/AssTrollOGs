@@ -233,12 +233,33 @@ h1 {
 
 .interactive-card {
   cursor: pointer;
+  position: relative;
+  padding-right: 34px;
+}
+
+/* A subtle chevron affordance so tappable cards read as tappable at a
+   glance, distinct from purely informational cards (which don't get
+   this). Absolutely positioned so it never disrupts existing content
+   flow inside any card. */
+.interactive-card::after {
+  content: '›';
+  position: absolute;
+  top: 16px;
+  right: 14px;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .interactive-card:hover {
   border-color: var(--accent-primary);
   background-color: var(--bg-card-hover);
   transform: translateY(-1px);
+}
+
+.interactive-card:hover::after {
+  color: var(--accent-primary);
 }
 
 .card-title {
