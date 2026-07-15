@@ -173,6 +173,7 @@ Unbounded list of locally-entered friend profiles (`gd.friends[]`, same shape as
 - **Device ID:** Random UUID stored in `localStorage['vibeDeviceId']`, generated once.
 - **Save code:** A PERMANENT random 8-char base32 key (`VIBE-XXXX-XXXX`), minted once at onboarding completion via `crypto.getRandomValues` — never regenerated, not derived from anything. Profile edits cloud-sync under the same code. Restore = `cloudLoadByCode()` → newest row. There is no hash verification (the old hash check was circular); "row found" is the verification.
 - **Migrations must be applied to the Supabase project** before shipping client changes that depend on them — the RPC-based reads fail against a DB without `20260714210000_lockdown_reads_and_fix_upsert.sql`.
+- **Fresh project setup:** run `supabase/bootstrap.sql` once in the SQL Editor — it consolidates all four migration files into one idempotent script that works on an empty database (the individual lockdown migration alone fails with `relation "user_sessions" does not exist` if the earlier migrations were never applied).
 
 ---
 
