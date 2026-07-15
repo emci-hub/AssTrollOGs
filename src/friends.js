@@ -91,11 +91,14 @@ export function computeFriendVibeScore(userProfile, friendProfile) {
   return 40 + (seed % 61); // 40-100 — always reads as a decent vibe, never a harsh low score
 }
 
+// Returns a full tier object (not just a label) so the score can pop
+// visually — different tiers get different colors/emoji, which reads as
+// more varied than the raw number alone even when two scores are close.
 export function vibeScoreTag(score) {
-  if (score >= 90) return 'Rare Match';
-  if (score >= 75) return 'Strong Bond';
-  if (score >= 60) return 'Good Vibe';
-  return 'Still Discovering';
+  if (score >= 90) return { label: 'Rare Match', emoji: '🔥', color: '#f5c842' };
+  if (score >= 75) return { label: 'Strong Bond', emoji: '💫', color: 'var(--accent-primary)' };
+  if (score >= 60) return { label: 'Good Vibe', emoji: '✨', color: 'var(--success-color)' };
+  return { label: 'Still Discovering', emoji: '🌱', color: 'var(--text-muted)' };
 }
 
 // ─── Friendship title (refreshable) ────────────────────────────────────────
@@ -289,7 +292,7 @@ export function renderFriendsSection() {
     <div class="card">
       <div class="friend-avatar-row">${previewAvatars}</div>
       ${fotd ? `
-        <div class="friend-of-day-row" onclick="openFriendProfile('${fotd.friend.id}')" role="button" tabindex="0">
+        <div class="friend-of-day-row" onclick="openFriendProfile('${fotd.friend.id}')" role="button" tabindex="0" style="border-left:3px solid ${derivePetVisuals(fotd.friend.profile).colors.body}; padding-left:10px;">
           <div style="font-size:0.65rem; font-weight:700; text-transform:uppercase; color:var(--accent-primary); margin-bottom:3px;">✦ Friend of the Day</div>
           <div style="font-size:0.78rem; color:var(--text-secondary); line-height:1.4;"><strong style="color:var(--text-primary);">${fotd.friend.name}</strong> — ${fotd.tip}</div>
         </div>
@@ -309,16 +312,20 @@ function renderFriendsListDrawer() {
 
   const rows = friends.map(f => {
     const score = computeFriendVibeScore(userProfile, f.profile);
+    const tier = vibeScoreTag(score);
     const petData = gd.pet?.friends?.[f.id];
     const stageLabel = petData ? getStage(petData.totalDays).label : 'New friendship';
+    const accentColor = derivePetVisuals(f.profile).colors.body;
     return `
-      <div class="friend-list-row" onclick="openFriendProfile('${f.id}')" role="button" tabindex="0">
+      <div class="friend-list-row" onclick="openFriendProfile('${f.id}')" role="button" tabindex="0" style="border-left-color:${accentColor};">
         ${miniAvatarSvg(f.profile, 44)}
         <div style="flex:1; min-width:0;">
           <div class="friend-list-row-name">${f.name}</div>
-          <div class="friend-list-row-meta">${stageLabel} · ${vibeScoreTag(score)}</div>
+          <div class="friend-list-row-meta">${stageLabel} · ${tier.emoji} ${tier.label}</div>
         </div>
-        <div class="friend-vibe-score">${score}%</div>
+        <div>
+          <div class="friend-vibe-score" style="color:${tier.color};">${score}%</div>
+        </div>
       </div>
     `;
   }).join('');
@@ -367,54 +374,60 @@ function renderFriendProfileDrawer(id) {
 
   return `
     <div class="subtitle">Friends</div>
-    <button class="btn btn-outline" style="font-size:0.65rem; padding:4px 10px; margin-bottom:12px;" onclick="openFriendsList()">← Back to list</button>
-    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:4px;">
+    <button class="btn-icon" style="margin-bottom:12px;" onclick="openFriendsList()">← Back to list</button>
+    <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin-bottom:4px;">
       <h2 style="margin-bottom:0;" id="friendship-title-${id}">${title}</h2>
-      <button class="btn btn-outline" style="font-size:0.6rem; padding:3px 9px; flex-shrink:0;" onclick="refreshFriendshipTitle('${id}')" title="New title">↻</button>
+      <button class="btn-icon" onclick="refreshFriendshipTitle('${id}')" title="New title">↻</button>
     </div>
-    <p class="card-body" style="margin-bottom:16px; color:var(--text-muted);">You &amp; ${friend.name}</p>
-    <div style="display:flex; flex-direction:column; align-items:center; gap:10px; margin-bottom:16px;">
+    <p class="card-body" style="margin-bottom:14px; color:var(--text-muted);">You &amp; ${friend.name}</p>
+    <div style="display:flex; flex-direction:column; align-items:center; gap:8px; margin-bottom:16px;">
       <div class="pet-float-anim">${svg}</div>
       <div class="pet-stage-badge">${stageInfo.label}${tier > 0 ? ` · Ascended ${tier}` : ''} · Day ${petData.totalDays}</div>
       ${streak > 1 ? `<div style="font-size:0.65rem; color:var(--accent-primary); font-weight:700;">🔥 ${streak}-day check-in streak</div>` : ''}
     </div>
-    <div class="card" style="margin-bottom:10px;">
-      <div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:6px;">How you connect</div>
-      <div style="font-size:0.78rem; color:var(--text-secondary); line-height:1.5;">${pairing.attachment}</div>
-    </div>
-    <div class="card" style="margin-bottom:10px;">
-      <div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:6px;">When things get bumpy</div>
+
+    <div class="card" style="margin-bottom:12px; border-color:rgba(129,140,248,0.3);">
+      <div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; color:var(--accent-primary); margin-bottom:8px;">🤝 The Dynamic</div>
+      <div style="font-size:0.68rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.03em; margin-bottom:2px;">How you connect</div>
+      <div style="font-size:0.78rem; color:var(--text-secondary); line-height:1.5; margin-bottom:10px;">${pairing.attachment}</div>
+      <div style="font-size:0.68rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.03em; margin-bottom:2px;">When it gets bumpy</div>
       <div style="font-size:0.78rem; color:var(--text-secondary); line-height:1.5;">${pairing.conflict}</div>
     </div>
-    <div class="card" style="margin-bottom:10px; border-color:rgba(78,180,120,0.3);">
-      <div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; color:var(--success-color); margin-bottom:6px;">${growthBlurb.title}</div>
+
+    <div class="card" style="margin-bottom:12px; border-color:rgba(78,180,120,0.3);">
+      <div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; color:var(--success-color); margin-bottom:6px;">🌱 ${growthBlurb.title}</div>
       <div style="font-size:0.78rem; color:var(--text-secondary); line-height:1.5;">${growthBlurb.body}</div>
     </div>
-    <div class="card" style="margin-bottom:10px;">
-      <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">
-        <div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; color:var(--text-muted);">Icebreaker</div>
-        <button class="btn btn-outline" style="font-size:0.6rem; padding:2px 8px;" onclick="refreshFriendIcebreaker('${id}')">↻</button>
+
+    <div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; color:#f0a055; margin-bottom:8px;">🎉 Fun Zone</div>
+    <div class="friend-fun-zone">
+      <div class="friend-fun-row">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">
+          <div style="font-size:0.75rem; font-weight:700; color:var(--text-primary);">💬 Icebreaker</div>
+          <button class="btn-icon" onclick="refreshFriendIcebreaker('${id}')">↻</button>
+        </div>
+        <div id="icebreaker-${id}" style="font-size:0.78rem; color:var(--text-secondary); line-height:1.5;">${icebreaker}</div>
       </div>
-      <div id="icebreaker-${id}" style="font-size:0.78rem; color:var(--text-secondary); line-height:1.5;">${icebreaker}</div>
-    </div>
-    <div class="card" style="margin-bottom:10px;">
-      <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">
-        <div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; color:var(--text-muted);">Just for fun</div>
-        <button class="btn btn-outline" style="font-size:0.6rem; padding:2px 8px;" onclick="refreshFriendJoke('${id}')">↻</button>
+      <div class="friend-fun-row">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">
+          <div style="font-size:0.75rem; font-weight:700; color:var(--text-primary);">😄 Just for fun</div>
+          <button class="btn-icon" onclick="refreshFriendJoke('${id}')">↻</button>
+        </div>
+        <div id="joke-${id}" style="font-size:0.78rem; color:var(--text-secondary); line-height:1.5; font-style:italic;">${joke}</div>
       </div>
-      <div id="joke-${id}" style="font-size:0.78rem; color:var(--text-secondary); line-height:1.5; font-style:italic;">${joke}</div>
-    </div>
-    <div class="card" style="margin-bottom:14px;">
-      <div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:6px;">Send this</div>
-      <div id="message-${id}" style="font-size:0.78rem; color:var(--text-secondary); line-height:1.5; margin-bottom:8px;">"${message}"</div>
-      <div style="display:flex; gap:8px;">
-        <button class="btn btn-outline" style="flex:1; font-size:0.7rem;" id="copy-message-btn-${id}" onclick="copyFriendMessage('${id}')">Copy</button>
-        <button class="btn btn-outline" style="font-size:0.7rem; padding:8px 12px;" onclick="refreshFriendMessage('${id}')">↻</button>
+      <div class="friend-fun-row">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">
+          <div style="font-size:0.75rem; font-weight:700; color:var(--text-primary);">💌 Send this</div>
+          <button class="btn-icon" onclick="refreshFriendMessage('${id}')">↻</button>
+        </div>
+        <div id="message-${id}" style="font-size:0.78rem; color:var(--text-secondary); line-height:1.5; margin-bottom:8px;">"${message}"</div>
+        <button class="btn btn-outline" style="font-size:0.7rem; margin-top:0;" id="copy-message-btn-${id}" onclick="copyFriendMessage('${id}')">Copy</button>
       </div>
     </div>
-    <div style="display:flex; gap:8px;">
-      <button class="btn btn-outline" style="flex:1; font-size:0.72rem;" onclick="startEditFriend('${id}')">Edit Answers</button>
-      <button class="btn btn-outline" style="flex:1; font-size:0.72rem; color:#e85555; border-color:#e85555;" onclick="confirmRemoveFriend('${id}')">Remove</button>
+
+    <div style="display:flex; gap:8px; margin-top:4px;">
+      <button class="btn btn-outline" style="flex:1; font-size:0.72rem; margin-top:0;" onclick="startEditFriend('${id}')">Edit Answers</button>
+      <button class="btn btn-outline" style="flex:1; font-size:0.72rem; margin-top:0; color:#e85555; border-color:#e85555;" onclick="confirmRemoveFriend('${id}')">Remove</button>
     </div>
   `;
 }
@@ -479,7 +492,7 @@ function renderAddFriendStep() {
     <p class="card-body" style="margin-bottom:14px; color:var(--text-muted);">${q.question}</p>
     ${bodyHtml}
     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px;">
-      <button class="btn btn-outline" style="font-size:0.7rem;" onclick="goBackAddFriendStep()">Back</button>
+      <button class="btn-icon" onclick="goBackAddFriendStep()">← Back</button>
       <span style="font-size:0.65rem; color:var(--text-muted);">${st.step + 1} of ${PSYCH_QUESTIONS.length}</span>
     </div>
   `;

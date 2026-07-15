@@ -1218,22 +1218,47 @@ export function bumpFriendPetGrowth(petData, points, gameData) {
   return petData;
 }
 
-// A small, cheap glyph (color + two eyes, no limbs/patterns/items) for
-// scannable list rows where rendering full pet SVGs for every entry would
-// be wasteful — e.g. the Friends list.
+// A tiny archetype-specific silhouette hint above the head — cheap (1-2
+// shapes) but enough that a list of friends reads as distinct little
+// characters instead of same-shaped colored dots.
+function miniArchetypeHintSvg(archetype, colors, cx, cy, r) {
+  switch (archetype) {
+    case 'construct':
+      return `<polygon points="${cx-r*.12},${cy-r*.9} ${cx},${cy-r*1.22} ${cx+r*.12},${cy-r*.9}" fill="${colors.body}" opacity=".95"/>`;
+    case 'guardian':
+      return `
+        <circle cx="${cx-r*.62}" cy="${cy-r*.68}" r="${r*.22}" fill="${colors.body}"/>
+        <circle cx="${cx+r*.62}" cy="${cy-r*.68}" r="${r*.22}" fill="${colors.body}"/>
+      `;
+    case 'flit':
+      return `
+        <path d="M ${cx-r*.48} ${cy-r*.7} Q ${cx-r*.7} ${cy-r*.98} ${cx-r*.4} ${cy-r*.82} Z" fill="${colors.body}" opacity=".9"/>
+        <path d="M ${cx+r*.48} ${cy-r*.7} Q ${cx+r*.7} ${cy-r*.98} ${cx+r*.4} ${cy-r*.82} Z" fill="${colors.body}" opacity=".9"/>
+      `;
+    case 'wisp':
+    default:
+      return `<path d="M ${cx-r*.1} ${cy-r*.82} Q ${cx-r*.14} ${cy-r*1.05} ${cx} ${cy-r*1.2} Q ${cx+r*.14} ${cy-r*1.05} ${cx+r*.1} ${cy-r*.82} Z" fill="${colors.body}" opacity=".9"/>`;
+  }
+}
+
+// A small, cheap glyph (color + archetype hint + two eyes, no limbs/
+// patterns/items) for scannable list rows where rendering full pet SVGs
+// for every entry would be wasteful — e.g. the Friends list.
 export function miniAvatarSvg(profile, size = 40) {
-  const { colors } = derivePetVisuals(profile);
+  const { colors, archetype } = derivePetVisuals(profile);
   const s = size;
-  const r = s * 0.42;
-  const cx = s / 2, cy = s / 2;
+  const r = s * 0.4;
+  const cx = s / 2, cy = s / 2 + s * 0.03;
   const gid = `mini_${Math.round(r)}_${colors.body.slice(1)}`;
-  return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg">
+  const hint = miniArchetypeHintSvg(archetype, colors, cx, cy, r);
+  return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">
     <defs>
       <radialGradient id="${gid}" cx="38%" cy="32%">
         <stop offset="0%" stop-color="${colors.cheek}" stop-opacity=".7"/>
         <stop offset="100%" stop-color="${colors.body}"/>
       </radialGradient>
     </defs>
+    ${hint}
     <circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#${gid})"/>
     <circle cx="${cx-r*.3}" cy="${cy-r*.1}" r="${r*.13}" fill="${colors.eye}"/>
     <circle cx="${cx+r*.3}" cy="${cy-r*.1}" r="${r*.13}" fill="${colors.eye}"/>
