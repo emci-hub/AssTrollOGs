@@ -5,7 +5,7 @@
 
 import { saveGameData, canAwardPetGrowthToday, recordPetGrowthToday } from '../state.js';
 import { awardPetGrowth } from '../pet.js';
-import { accountSalt, pickFrom, kickerFor } from '../composer.js';
+import { accountSalt, hashStr, pickFrom, kickerFor } from '../composer.js';
 
 /**
  * Scenario bank: each category holds multiple scenario VARIANTS, each with
@@ -281,7 +281,11 @@ const TRIVIA_BANK = [
 function buildRound(solo, gameData) {
   const roundsPlayed = Math.floor((gameData?.trivia?.total || 0) / TRIVIA_BANK.length);
   return TRIVIA_BANK.map((cat, i) => {
-    const variant = cat.variants[(roundsPlayed + accountSalt() + i) % cat.variants.length];
+    // Per-category salt hash: with only a few variants per category, a raw
+    // salt could be congruent mod length for two accounts across the board —
+    // hashing salt+category makes each category diverge independently.
+    const catSalt = hashStr(`${accountSalt()}:${cat.category}`);
+    const variant = cat.variants[(roundsPlayed + catSalt + i) % cat.variants.length];
     const phrasing = solo ? variant.solo : variant.partner;
     return {
       question: phrasing.question,
@@ -447,6 +451,9 @@ function answer(selected, correct, category) {
 
   setTimeout(() => { triviaIndex++; renderQuestion(); }, 1200);
 }
+
+// Test-only export for the Node content harness (round rotation + coverage).
+export const __triviaInternals = { TRIVIA_BANK, buildRound, RESULT_POOLS };
 
 export const triviaGame = {
   id: 'trivia',

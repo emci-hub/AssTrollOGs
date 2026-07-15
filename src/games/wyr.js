@@ -472,6 +472,9 @@ function select(choice) {
   }
 }
 
+// Test-only export for the Node content harness (signals-coverage checks).
+export const __wyrInternals = { WYR_QUESTIONS, CURSED_WYR_QUESTIONS, activePool };
+
 export const wyrGame = {
   id: 'wouldyou',
   title: 'Would You Rather',

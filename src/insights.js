@@ -304,9 +304,12 @@ export const insights = {
     // checking in around the same hour) don't converge on identical content.
     const seed = computeContentSeed(profiles.user);
 
-    // Rotate headline from bank
+    // Rotate headline from bank. dayHash makes the rotation move with the
+    // actual calendar DATE — it used to key off day-of-week only, so a month
+    // of daily opens cycled through just ~7 distinct reads before repeating.
     const headlines = solo ? SOLO_HEADLINES : PARTNER_HEADLINES;
-    const baseKey = (dayIndex * 4 + Math.floor(hour / 6) + Math.floor(gd.trivia?.total || 0) + Math.floor(gd.wyr?.answered || 0));
+    const dayHash = hashContentString(`${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`) % 997;
+    const baseKey = (dayIndex * 4 + dayHash + Math.floor(hour / 6) + Math.floor(gd.trivia?.total || 0) + Math.floor(gd.wyr?.answered || 0));
     const headlineIdx = (baseKey + seed + (fortuneOffset || 0)) % headlines.length;
     const headline = headlines[headlineIdx];
 
@@ -334,11 +337,22 @@ export const insights = {
     } else {
       const bodyIdx = (baseKey + seed + (fortuneOffset || 0) + 2) % bodyPool.length;
       body = bodyPool[bodyIdx];
+      // Compositional second sentence on some days: pairing two pool entries
+      // multiplies the distinct reads combinatorially (n singles -> n·(n-1)
+      // pairs) instead of needing a bigger hand-written pool.
+      if ((baseKey + (fortuneOffset || 0)) % 3 === 0 && bodyPool.length > 1) {
+        const secondIdx = (bodyIdx + 3 + ((baseKey + (fortuneOffset || 0)) % 5)) % bodyPool.length;
+        if (secondIdx !== bodyIdx) body += ` ${bodyPool[secondIdx]}`;
+      }
     }
 
-    // Append game insight if available
+    // Append game insight if available. All the bonus-content gates below
+    // include baseKey (which moves daily) — they used to key off
+    // fortuneOffset alone, which is 0 on every fresh app open, so none of
+    // these lanes ever fired for someone who never tapped "New Insight".
+    const rotKey = baseKey + (fortuneOffset || 0);
     const gameHints = getGameInsights(gd, solo);
-    const finalBody = gameHints.length > 0 && (fortuneOffset || 0) % 3 === 2
+    const finalBody = gameHints.length > 0 && rotKey % 3 === 2
       ? `${body} ${gameHints[0]}`
       : body;
 
@@ -413,15 +427,15 @@ export const insights = {
     let composed = moodNote ? `${finalBody} ${moodNote}` : finalBody;
 
     // Mood TREND note — reflects the stored 7-day pattern, not just today.
-    const trendNote = (fortuneOffset || 0) % 2 === 1 ? moodTrendNote(gd, seed, baseKey) : null;
+    const trendNote = rotKey % 2 === 1 ? moodTrendNote(gd, seed, baseKey) : null;
     if (trendNote) composed += ` ${trendNote}`;
 
     // Occasionally sprinkle in an MBTI-flavored line for extra personality
-    const mbtiFlavor = (fortuneOffset || 0) % 4 === 3 ? assembleMbtiFlavor(profiles.user?.mbti, seed + (fortuneOffset || 0)) : null;
+    const mbtiFlavor = rotKey % 4 === 3 ? assembleMbtiFlavor(profiles.user?.mbti, seed + rotKey) : null;
     if (mbtiFlavor) composed += ` ${mbtiFlavor}`;
 
     // Time-of-day theme line — morning reads differently from late night.
-    if ((fortuneOffset || 0) % 4 === 1) {
+    if (rotKey % 4 === 1) {
       const theme = getTimeTheme(period);
       composed += ` A good ${period} move: ${theme.action}.`;
     }
@@ -429,9 +443,9 @@ export const insights = {
     // Occasionally cross-pollinate with a concrete, actionable tip pulled
     // from the Spotlight pool — free extra variety since it reuses existing
     // content, and makes the message feel like real advice, not just a quote.
-    if ((fortuneOffset || 0) % 5 === 4) {
+    if (rotKey % 5 === 4) {
       const tipPool = SPOTLIGHT_DOS[profiles.user?.loveLanguage] || SPOTLIGHT_DOS.words;
-      const tip = tipPool[(seed + (fortuneOffset || 0)) % tipPool.length];
+      const tip = tipPool[(seed + rotKey) % tipPool.length];
       if (tip) composed += ` Try this: ${tip}`;
     }
 
