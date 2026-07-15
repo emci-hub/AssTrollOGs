@@ -57,9 +57,15 @@ export async function cloudSave(payload, saveCode) {
       updated_at: new Date().toISOString()
     };
     if (saveCode) row.save_code = saveCode;
-    await supabase.from('user_sessions').upsert(row, { onConflict: 'device_id' });
-  } catch (_) {
-    // Cloud sync failures are silent — localStorage is always the source of truth
+    // supabase-js does NOT throw on API errors — it returns { error }.
+    // Cloud failures never block the app (localStorage stays the source of
+    // truth) but they must be visible in the console or they're undebuggable.
+    const { error } = await supabase.from('user_sessions').upsert(row, { onConflict: 'device_id' });
+    if (error) {
+      console.warn('[supabase] cloudSave failed:', error.code || '', error.message);
+    }
+  } catch (e) {
+    console.warn('[supabase] cloudSave failed (network):', e?.message || e);
   }
 }
 
@@ -72,9 +78,11 @@ export async function cloudLoad() {
   if (!supabase) return null;
   try {
     const deviceId = getDeviceId();
-    const { data } = await supabase.rpc('get_session_by_device', { p_device_id: deviceId });
+    const { data, error } = await supabase.rpc('get_session_by_device', { p_device_id: deviceId });
+    if (error) console.warn('[supabase] cloudLoad failed:', error.code || '', error.message);
     return data?.[0]?.profile_data || null;
-  } catch (_) {
+  } catch (e) {
+    console.warn('[supabase] cloudLoad failed (network):', e?.message || e);
     return null;
   }
 }
@@ -87,11 +95,13 @@ export async function cloudLoad() {
 export async function cloudLoadByCode(code) {
   if (!supabase || !code) return null;
   try {
-    const { data } = await supabase.rpc('get_session_by_code', { p_code: code });
+    const { data, error } = await supabase.rpc('get_session_by_code', { p_code: code });
+    if (error) console.warn('[supabase] cloudLoadByCode failed:', error.code || '', error.message);
     const row = data?.[0];
     if (!row?.profile_data) return null;
     return { profileData: row.profile_data, saveCode: row.save_code };
-  } catch (_) {
+  } catch (e) {
+    console.warn('[supabase] cloudLoadByCode failed (network):', e?.message || e);
     return null;
   }
 }
