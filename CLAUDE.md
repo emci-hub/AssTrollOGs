@@ -21,7 +21,7 @@ A mobile-first personality + relationship dashboard (430px max-width app contain
 | `index.html` | Single page shell. All screens live here. Dev panel (gear icon) top-right. |
 | `styles.css` | All styles. CSS variables in `:root`. Key classes: `.screen`, `.card`, `.choice-btn`, `.sparks-cell`, `.mood-btn`, `.qt-choice-btn`, `.memory-card` |
 | `src/app.js` | Entry point. Imports all modules, binds window globals, handles init (cloud+local load, profile restore). |
-| `src/state.js` | `window.AppState`, `defaultGameData()`, `migrateGameData()`, `saveGameData()`, `updateStreak()`, `checkMilestones()`, `canAwardPetGrowthToday()`, `recordPetGrowthToday()`, local-date helpers `todayLocal()`/`isToday()`/`daysBetween()`. `SCHEMA_VERSION = 3`. |
+| `src/state.js` | `window.AppState`, `defaultGameData()`, `migrateGameData()`, `saveGameData()` (render-triggering wrapper) + `persistGameData()` (localStorage write + debounced cloud sync, rebuilds the package via `buildStoragePayload()` if the cached one is missing/corrupt), `getActiveSaveCode()` (AppState → localStorage fallback), `flushCloudSave()` (also auto-flushes on `pagehide`/tab-hidden), `updateStreak()`, `checkMilestones()`, `canAwardPetGrowthToday()`, `recordPetGrowthToday()`, local-date helpers `todayLocal()`/`isToday()`/`daysBetween()`. `SCHEMA_VERSION = 3`. |
 | `src/supabase.js` | Supabase client singleton, `getDeviceId()`, `cloudSave()`, `cloudLoad()`, `cloudLoadByCode()`. No auth — device UUID key. Reads go through RPCs (`get_session_by_device` / `get_session_by_code`); the table has NO open SELECT policy. |
 | `src/save-code.js` | Save code system. `generateSaveCode()` (random, `crypto.getRandomValues`), `formatCode()`, `stripFormatting()`. The code is a PERMANENT opaque key minted once at onboarding — never regenerated, never derived from profile data. Pure cloud lookup key for cross-device restore + ongoing sync. |
 | `src/growth.js` | Growth Compass. `computeGrowthCompass()` (one strength + one growth edge; live signals — duo accuracy, streaks, mood trends, trivia blind spots — beat static trait reads), `renderGrowthCard()` (dashboard), `renderGrowthDrawer()` (four-area breakdown: connection/communication/conflict/self-care from `GROWTH_AREAS`). |
@@ -153,7 +153,7 @@ Unbounded list of locally-entered friend profiles (`gd.friends[]`, same shape as
 3. Add a card to `index.html` with `onclick="openDrawer('mygame')"`
 4. Import `canAwardPetGrowthToday`, `recordPetGrowthToday` from `state.js` and `awardPetGrowth` from `pet.js` for growth awards
 
-**Saving game data:** Always call `saveGameData()` from `state.js` after mutating `window.AppState.gameData`. This persists to localStorage, syncs to cloud (fire-and-forget), re-hydrates dashboard, and re-renders pet section.
+**Saving game data:** Always call `saveGameData()` from `state.js` after mutating `window.AppState.gameData`. This persists to localStorage immediately, schedules a debounced cloud sync (2s trailing, one upsert per burst of taps, flushed on `pagehide`/tab-hidden), re-hydrates dashboard, and re-renders pet section. If the cached localStorage package is missing or corrupt, the save rebuilds a full package from `AppState` (via `buildStoragePayload()`) instead of silently dropping the data. For persistence without re-rendering (e.g. startup paths), call `persistGameData()` directly.
 
 **Daily growth cap:** Before calling `awardPetGrowth`, check `canAwardPetGrowthToday(gameId)` and call `recordPetGrowthToday(gameId)`. Use a consistent `gameId` string per game.
 
@@ -269,10 +269,36 @@ _Add confirmed bugs here with file:line. Mark [FIXED] when resolved._
 | FIXED | `saveProfileSettings()` edited identity fields but never regenerated the save code or synced to cloud | `drawers.js` |
 | FIXED | `cloudSave()` read `payload.schemaVersion` (doesn't exist) instead of `payload.gameData.schemaVersion` — `schema_version` column always wrote `1` | `supabase.js` |
 | FIXED | Unique index on `save_code` broke second-device sync — upsert keyed by `device_id` collided with the constraint once a code was shared across devices | `supabase/migrations/`, `supabase.js` |
+| FIXED | `saveGameData()` silently dropped every save when `persistent_profile_data` was missing or corrupt (cleared/damaged localStorage) — now rebuilds a full package from `AppState` | `state.js` |
+| FIXED | Startup wrote localStorage BEFORE `updateStreak()` ran, so opening the app on a new day without playing anything never persisted the streak bump — next open saw a 2-day gap and reset the streak | `app.js` |
+| FIXED | `saveGameData()` read the save code only from `window.AppState.saveCode` with no `localStorage['vibeSaveCode']` fallback (every other call site had one) — an early save could upsert a cloud row without its cross-device lookup key | `state.js` |
+| FIXED | `saveProfileSettings()` used an unguarded `JSON.parse` on the cached package — a corrupt package threw mid-save and the profile edit was lost | `drawers.js` |
+| FIXED | `submitSaveCode()` persisted the restored package BEFORE calling `updateStreak()`, so the restore-day open (and stale-mood reset) never reached localStorage or the cloud | `profile-builder.js` |
 
 ---
 
 ## Changelog
+
+### 2026-07-15 — Saving Function Revision: Crash-Proof Persistence, Debounced Cloud Sync, Streak Persistence
+
+Hardened the whole save pipeline. No `SCHEMA_VERSION` bump — no `gameData` shape changed; this is persistence-plumbing only.
+
+**state.js**
+- New `persistGameData()` — the actual persistence step (localStorage write + scheduled cloud sync), split out of `saveGameData()` so startup paths can persist without triggering a re-render. `saveGameData()` is now `checkMilestones()` + `persistGameData()` + the existing re-renders.
+- **Save never silently drops data anymore:** if the cached `persistent_profile_data` package is missing or fails to parse, the save rebuilds a complete package from live `AppState` via new `buildStoragePayload()` (same shape `finalizeEngineData()` writes). Previously the whole save was a silent no-op and gameplay progress evaporated. Returns `false` only mid-onboarding (no profile yet).
+- **Debounced cloud sync:** localStorage is still written on every save, but the Supabase upsert is now debounced (2s trailing) so a burst of taps (each trivia answer, etc.) becomes one request instead of one per tap. Pending payloads are flushed on `pagehide` and tab-hidden (`visibilitychange`) so the last burst isn't lost on app switch. `flushCloudSave()` exported.
+- New `getActiveSaveCode()` — `AppState.saveCode` with `localStorage['vibeSaveCode']` fallback. `saveGameData()`'s cloud sync previously had no fallback (unlike every other call site) and could upsert an early cloud row without its lookup code.
+
+**app.js**
+- Startup now runs `updateStreak()` BEFORE persisting the day-rollover, and persists via `persistGameData()` (which also cloud-syncs). Previously localStorage was written before the streak update, so opening the app on a new day without playing lost the streak bump — the next open computed a 2-day gap and reset the streak to 1. Same-day reopens change nothing and write nothing.
+
+**profile-builder.js**
+- `submitSaveCode()` reordered: save code stored → `updateStreak()` → package stamped (`gameData`/`cachedDate`/`lastSavedAt`) → localStorage + `cloudSave`. Previously the restored package was persisted before the streak update, so the restore-day open never stuck.
+
+**drawers.js**
+- `saveProfileSettings()`: unguarded `JSON.parse` replaced with try/catch + rebuild-from-AppState (`buildStoragePayload()`), and the local save-code fallback replaced with `getActiveSaveCode()`.
+
+Verified with a Node harness (mocked `window`/`document`/`localStorage`, stubbed `dashboard.js`/`supabase.js`, real `state.js`): rebuild-on-missing, patch-on-present, rebuild-on-corrupt, debounce (3 saves → 1 upsert), pagehide flush, save-code fallback — 18 checks, 0 failures. `npm run build` clean.
 
 ### 2026-07-15 — Friends Feature: Unbounded Roster, Friendship Pets, Platonic Content
 

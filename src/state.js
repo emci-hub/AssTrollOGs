@@ -322,21 +322,101 @@ export const MILESTONE_LABELS = {
 };
 
 /**
+ * The permanent save code, wherever it currently lives. AppState is only
+ * populated after startup restore, so fall back to localStorage — otherwise
+ * an early save uploads a cloud row without its cross-device lookup key.
+ */
+export function getActiveSaveCode() {
+  return window.AppState.saveCode || localStorage.getItem('vibeSaveCode') || null;
+}
+
+/**
+ * Builds a complete storage package from live AppState — the same shape
+ * finalizeEngineData() writes at onboarding completion.
+ */
+export function buildStoragePayload() {
+  return {
+    userProfile: window.AppState.userProfile,
+    partnerProfile: window.AppState.partnerProfile,
+    soloMode: window.AppState.soloMode,
+    vibeSeed: window.AppState.vibeSeed,
+    tempAnswers: window.AppState.tempAnswers,
+    gameData: window.AppState.gameData,
+    currentStep: window.AppState.currentStep,
+    cachedDate: todayLocal(),
+    lastSavedAt: new Date().toISOString()
+  };
+}
+
+// ─── Debounced cloud sync ────────────────────────────────────────────────────
+// Gameplay saves fire on every tap (each trivia answer, each mood check).
+// localStorage is written immediately every time — it's the source of truth —
+// but the Supabase upsert is debounced so a burst of taps becomes one request.
+// The pending payload is flushed when the tab hides so the last burst isn't
+// dropped on app switch / close.
+
+const CLOUD_SYNC_DEBOUNCE_MS = 2000;
+let _cloudSyncTimer = null;
+let _pendingCloudPayload = null;
+
+function scheduleCloudSave(payload) {
+  _pendingCloudPayload = payload;
+  if (_cloudSyncTimer) clearTimeout(_cloudSyncTimer);
+  _cloudSyncTimer = setTimeout(flushCloudSave, CLOUD_SYNC_DEBOUNCE_MS);
+}
+
+/** Sends any pending debounced cloud save immediately. Safe to call anytime. */
+export function flushCloudSave() {
+  if (_cloudSyncTimer) { clearTimeout(_cloudSyncTimer); _cloudSyncTimer = null; }
+  if (!_pendingCloudPayload) return;
+  const payload = _pendingCloudPayload;
+  _pendingCloudPayload = null;
+  cloudSave(payload, getActiveSaveCode());
+}
+
+if (typeof window.addEventListener === 'function') {
+  window.addEventListener('pagehide', flushCloudSave);
+}
+if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushCloudSave();
+  });
+}
+
+/**
+ * Persists the current profile package to localStorage and schedules a cloud
+ * sync. No re-rendering — saveGameData() is the render-triggering wrapper.
+ *
+ * Normally patches gameData into the existing cached package; if that package
+ * is missing or corrupt (cleared/damaged localStorage) it rebuilds a full one
+ * from AppState instead of silently dropping the save. Returns false only
+ * when there is no profile to save yet (mid-onboarding).
+ */
+export function persistGameData() {
+  let parsed = null;
+  const cachedPackage = localStorage.getItem('persistent_profile_data');
+  if (cachedPackage) {
+    try { parsed = JSON.parse(cachedPackage); } catch (_) {}
+  }
+  if (parsed) {
+    parsed.gameData = window.AppState.gameData;
+    parsed.cachedDate = todayLocal();
+    parsed.lastSavedAt = new Date().toISOString();
+  } else {
+    if (!window.AppState.userProfile?.name) return false;
+    parsed = buildStoragePayload();
+  }
+  localStorage.setItem('persistent_profile_data', JSON.stringify(parsed));
+  scheduleCloudSave(parsed);
+  return true;
+}
+
+/**
  * Persists game data to localStorage (and cloud) and refreshes the dashboard.
  */
 export function saveGameData() {
   checkMilestones();
-  const cachedPackage = localStorage.getItem('persistent_profile_data');
-  if (cachedPackage) {
-    try {
-      const parsed = JSON.parse(cachedPackage);
-      parsed.gameData = window.AppState.gameData;
-      parsed.lastSavedAt = new Date().toISOString();
-      const json = JSON.stringify(parsed);
-      localStorage.setItem('persistent_profile_data', json);
-      cloudSave(parsed, window.AppState.saveCode);
-    } catch (_) {}
-  }
+  persistGameData();
   hydrateDashboardViews({
     userProfile: window.AppState.userProfile,
     partnerProfile: window.AppState.partnerProfile,
