@@ -42,6 +42,7 @@ A mobile-first personality + relationship dashboard (430px max-width app contain
 | `src/games/bingo.js` | Personality Sparks (solo) / Couple's Hot Takes (partner). Awards pet growth on full board (9 cells, daily cap). |
 | `src/games/mood.js` | Daily Mood Check. One tap per day. Updates `gd.mood.today` (affects pet facial expression). Awards pet growth (daily cap). |
 | `src/games/quicktakes.js` | 3-question rapid-fire round. Updates `wyr.preferences`. Awards pet growth per session (daily cap). |
+| `src/friends.js` | Friends feature. Unbounded `gd.friends[]` roster (each a locally-entered snapshot of someone else's traits, same shape as `partnerProfile` — not a live synced account). `computeFriendVibeScore()` (deterministic 40-100 list score), `pickFriendshipTitle()` (refreshable, shuffle-bag over multiple candidates per key), `getFriendPairingInsight()` (platonic-toned attachment+conflict pairing), `getFriendGrowthBlurb()` (static-trait-only, no gameplay signals), `pickIcebreaker()`/`pickJoke()`/`pickSendMessage()` (each independently refreshable), `computeFriendPatternInsight()` (once 3+ friends logged), `getFriendOfTheDay()` (deterministic daily pick). CRUD: `addFriend()`/`updateFriend()`/`removeFriend()`/`visitFriend()` (streak + visit-based pet growth, daily-capped). Friendship companion pets (`gd.pet.friends[id]`) reuse `pet.js`'s Chimera renderer with zero new visual code. Standalone add/edit quiz reuses `PSYCH_QUESTIONS` without touching `profile-builder.js`'s onboarding machinery. Manipulates `#drawer-dynamic-content` directly (same technique as `drawers.js`'s `cycleInsight`/`jumpInsight`) rather than going through `openDrawer()`. |
 
 **Dev Panel:** Click the gear icon (top-right) → password `Calgary1!` → unlocks for the browser session (sessionStorage, resets on tab close). Tools: navigation shortcuts, profile modifiers, mode override (solo/partner), day-advance simulation, pet growth award, unlock all milestones, profile export/import, live state inspector.
 
@@ -85,10 +86,11 @@ window.AppState = {
   sparks:     { checkedItems: [], lastPlayed },
   streak:     { current, lastOpenDate, longest, lastResetDate },
   milestones: [],        // string ids
-  pet:        { user: PetData, partner: PetData | null, couple: CouplePetData | null },
+  pet:        { user: PetData, partner: PetData | null, couple: CouplePetData | null, friends: { [friendId]: CouplePetData } },
   mood:       { today, lastChecked, streak, history: [{date, mood}] },
   quicktakes: { sessionCount, lastPlayed },
-  petGrowthLog: { [gameId]: 'YYYY-MM-DD' }    // daily cap per game
+  petGrowthLog: { [gameId]: 'YYYY-MM-DD' },   // daily cap per game (also reused for friend visits, keyed `friend_<id>`)
+  friends:    [{ id, name, addedAt, profile: {...same shape as partnerProfile...}, streak: {current, lastVisit, longest} }]
 }
 ```
 
@@ -125,6 +127,24 @@ window.AppState = {
 
 ---
 
+## Friends
+
+Unbounded list of locally-entered friend profiles (`gd.friends[]`, same shape as `partnerProfile`) — each is your own private read on someone, added via a standalone quiz (same `PSYCH_QUESTIONS`, editable later), never synced or shared with them. Not a live networked account; a snapshot, exactly like how the partner profile already works.
+
+**Per-friendship companion pet:** `gd.pet.friends[friendId]` reuses `pet.js`'s Chimera renderer (the same one built for the couple pet) with zero new visual code — a friendship pet's silhouette blends the user's archetype with that friend's, exactly like the couple pet does. Unlike the couple pet (which ticks +1/day automatically), a friendship pet only grows when you actually open that friend's profile (`visitFriend()`), capped once per local day via the existing `petGrowthLog` (keyed `friend_<id>`, same mechanism every other growth source uses) — there's no shared gameplay with a friend the way there is with a partner, so growth reflects attention paid, not a timer. Opening a friend's profile also updates a per-friendship visit streak (`friend.streak`), independent of the main app streak.
+
+**Content is deliberately NOT reused from the romantic partner tables.** `FRIEND_ATTACHMENT_PAIRINGS` and `FRIEND_CONFLICT_PAIRINGS` (`content-bank.js`) are separate tables written in a platonic-friendship voice — lines like "this pair grows by giving each other room" read as a couple, so friend-mode content needed its own copy, not a tone override of the existing tables. `COMBO_INSIGHTS` and `GROWTH_AREAS` are reused as-is since they're written about the person themselves, not a relationship.
+
+**Refreshable friendship title:** `FRIENDSHIP_TITLES` gives multiple candidates per (sorted) attachment-pair key (not one), so tapping refresh cycles through options via the same shuffle-bag technique `pet.js`'s `pickAffirmation()` uses — never immediately repeats, in-memory only. Icebreaker, joke, and send-this-message each get their own independent refresh — refreshing one never rerolls the others, and none of them reroll just from re-opening the same profile (memoized per friend+kind until an explicit refresh).
+
+**Vibe score:** a deterministic 40–100 number per pair (profile-hash based, no date/randomness) shown on list rows for scannability — a fun number, not a serious metric.
+
+**Cross-friendship pattern insight:** once 3+ friends are logged, `computeFriendPatternInsight()` tallies attachment styles across the roster and surfaces one line if any style makes up ≥50% of the list (e.g. "3 of your 4 friends are avoidant — ...").
+
+**Friend of the Day:** a deterministic daily pick (hash of today's local date, same pattern as `computeLuckyNumber`) surfaced on the dashboard Friends section itself — a nudge tied to that friend's love language, meant to actually drive the visit that grows their pet, not just decorative.
+
+---
+
 ## Key Patterns
 
 **Adding a new game:**
@@ -158,7 +178,7 @@ window.AppState = {
 
 ## Milestone IDs
 
-`trivia_first`, `trivia_perfect` (≥10 total, 100%), `trivia_master` (≥15, ≥80%), `wyr_5`, `wyr_10`, `wyr_25`, `dailyq_first`, `dailyq_7`, `duo_reader` (≥10 guesses, ≥70% right), `checkin_first`, `checkin_4`, `bingo_3`, `bingo_row`, `streak_3`, `streak_7`, `mood_first`, `mood_consistent` (5-day mood streak), `quicktakes_first`, `quicktakes_pattern` (5 sessions), `pet_baby` (4d), `pet_adult` (20d), `pet_legendary` (40d), `pet_couple_shiny` (couple pet independently ≥40d, partner mode only). Legacy (labels kept, checks removed with the memory game): `memory_first`, `memory_sharp`.
+`trivia_first`, `trivia_perfect` (≥10 total, 100%), `trivia_master` (≥15, ≥80%), `wyr_5`, `wyr_10`, `wyr_25`, `dailyq_first`, `dailyq_7`, `duo_reader` (≥10 guesses, ≥70% right), `checkin_first`, `checkin_4`, `bingo_3`, `bingo_row`, `streak_3`, `streak_7`, `mood_first`, `mood_consistent` (5-day mood streak), `quicktakes_first`, `quicktakes_pattern` (5 sessions), `pet_baby` (4d), `pet_adult` (20d), `pet_legendary` (40d), `pet_couple_shiny` (couple pet independently ≥40d, partner mode only), `friend_first` (1st friend added), `friend_circle` (≥5 friends), `friend_bond` (any friendship pet reaches stage 5), `friend_streak_7` (any friendship visit streak ≥7). Legacy (labels kept, checks removed with the memory game): `memory_first`, `memory_sharp`.
 
 New milestone IDs must be added in **three** places or the label silently regresses to the raw id: `MILESTONE_CHECKS` (state.js), `MILESTONE_LABELS` (state.js), and `getMilestoneLabel()` (insights.js) — a separate hardcoded map. This has bitten the codebase before (see Known Bugs).
 
@@ -253,6 +273,18 @@ _Add confirmed bugs here with file:line. Mark [FIXED] when resolved._
 ---
 
 ## Changelog
+
+### 2026-07-15 — Friends Feature: Unbounded Roster, Friendship Pets, Platonic Content
+
+New `src/friends.js` — an unbounded list of locally-entered friend profiles (`gd.friends[]`, same shape as `partnerProfile`, added/edited via a standalone quiz reusing `PSYCH_QUESTIONS`). No `SCHEMA_VERSION` bump — additive, defensively backfilled in `migrateGameData()` like every prior addition.
+
+- **Friendship companion pets** (`gd.pet.friends[id]`) reuse `pet.js`'s Chimera renderer (built for the couple pet) with zero new visual code — required exporting `derivePetVisuals`/`deriveCoupleVisuals`/`buildPetSvg`/`getStage`/`ascensionTier`/`ascensionFinish`/`makeCouplePetData`, previously module-private. Growth is **visit-based** (`bumpFriendPetGrowth()`, daily-capped via the existing `petGrowthLog` pattern keyed `friend_<id>`) rather than a daily auto-tick like the couple pet, since there's no shared gameplay with a friend. Added `miniAvatarSvg()` — a cheap glyph (color + eyes, no limbs/patterns/items) for scannable list rows.
+- **New platonic-toned content** in `content-bank.js`: `FRIEND_ATTACHMENT_PAIRINGS` and `FRIEND_CONFLICT_PAIRINGS` are deliberately new tables, not a tone override of the romantic `ATTACHMENT_PAIRINGS`/`CONFLICT_PAIRINGS` — reusing lines like "this pair grows by giving each other room" would have read as a couple. `FRIENDSHIP_TITLES` gives multiple candidates per key (not one) specifically so the title can be refreshed via the same shuffle-bag technique `pet.js` uses for affirmations. Plus `FRIEND_ICEBREAKERS`, `FRIEND_JOKES` (one general pool, deliberately not personality-keyed so it never reads as diagnosing someone), `FRIEND_MESSAGES`, `FRIEND_OF_DAY_TIPS`.
+- **Cross-friendship pattern insight** (`computeFriendPatternInsight()`) once 3+ friends are logged, and a deterministic **Friend of the Day** nudge (`getFriendOfTheDay()`, same date-hash pattern as `computeLuckyNumber`) surfaced directly on the dashboard to actually drive the visits that grow friendship pets, not just decorate the page.
+- **Per-friendship visit streak** (`friend.streak`), independent of the main app streak.
+- 4 new milestones (`friend_first`, `friend_circle`, `friend_bond`, `friend_streak_7`) added in the usual three places.
+- New dashboard "Friends" section (avatar row + Friend of the Day + "See all") between Growth Compass and Deep Insights. The friends-list and friend-profile views manipulate `#drawer-dynamic-content` directly (same technique `drawers.js`'s `cycleInsight`/`jumpInsight` already use) rather than extending `openDrawer()`'s switch, so `drawers.js` itself needed no changes.
+- Regression: a Node-based harness (mocked `window`/`document`, real `state.js`/`pet.js`/`content-bank.js`/`friends.js` modules) covering pairing-table completeness across the full attachment/conflict matrix, vibe-score determinism, shuffle-bag refresh behavior, pattern-insight tallying, and the full add/visit/edit/remove CRUD flow including the daily growth/streak cap — 109 checks, 0 failures.
 
 ### 2026-07-15 — Pet Evolution Overhaul: Species Archetypes, Stackable Patterns, Ascension, Emotional Depth
 
