@@ -21,6 +21,7 @@ import {
 } from './content-bank.js';
 import { engine } from './engine.js';
 import { accountSalt, pickVariant, kickerFor, maybeRareLine } from './composer.js';
+import { todayLocal } from './state.js';
 
 export function getTimePeriod(hour) {
   if (hour >= 5 && hour <= 11) return 'morning';
@@ -248,6 +249,10 @@ function getMilestoneLabel(id) {
     quicktakes_first: 'Quick Taker', quicktakes_pattern: 'Pattern Finder',
     pet_baby: 'Baby Steps', pet_adult: 'Growing Up', pet_legendary: 'Legendary Bond',
     pet_couple_shiny: 'Shiny Bond',
+    redflag_board: 'Certified Self-Aware', pettycourt_first: 'First Case Closed',
+    pettycourt_docket: 'Full Docket', calledit_first: 'First Prediction',
+    calledit_prophet: 'Local Prophet', capsule_first: 'Sealed and Delivered',
+    capsule_open: 'Message From the Past',
     friend_first: 'Made a Friend', friend_circle: 'Friend Circle',
     friend_bond: 'Friendship Legend', friend_streak_7: 'Ride or Die'
   })[id] || id;
@@ -597,6 +602,12 @@ export const insights = {
         const lastReflection = gd.reflection?.entries?.[gd.reflection.entries.length - 1];
         if (lastReflection?.answer) {
           body += ` Recently you reflected: "${lastReflection.answer}" — worth checking whether that still holds.`;
+        }
+        // Time Capsule echo — an unlockable capsule is exactly this drawer's
+        // theme (past-self talking to present-self), so nudge toward it.
+        const readyCap = (gd.capsule?.entries || []).find(e => !e.opened && e.unlockDate && e.unlockDate <= todayLocal());
+        if (readyCap) {
+          body += ` Also: a Time Capsule you sealed on ${readyCap.sealedAt} is ready to open.`;
         }
         if (gameHints[1]) body += ` ${gameHints[1]}`;
         result = { picked, body, pool };

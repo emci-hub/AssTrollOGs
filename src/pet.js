@@ -1222,7 +1222,11 @@ const BOND_GAMES = [
   { id: 'checkin', check: gd => (gd.checkin?.entries?.length || 0) > 0, label: 'Weekly Check-In' },
   { id: 'bingo', check: gd => (gd.bingo?.checked || 0) > 0, label: 'Personality Sparks / Hot Takes' },
   { id: 'mood', check: gd => (gd.mood?.history?.length || 0) > 0, label: 'Mood Check' },
-  { id: 'quicktakes', check: gd => (gd.quicktakes?.sessionCount || 0) > 0, label: 'QuickTakes' }
+  { id: 'quicktakes', check: gd => (gd.quicktakes?.sessionCount || 0) > 0, label: 'QuickTakes' },
+  { id: 'redflags', check: gd => (gd.redflag?.checkedCells?.length || 0) > 0 || (gd.redflag?.boardsCompleted || 0) > 0, label: 'Red Flag Bingo' },
+  { id: 'pettycourt', check: gd => (gd.pettycourt?.cases || 0) > 0, label: 'Petty Court' },
+  { id: 'calledit', check: gd => (gd.calledit?.made || 0) > 0 || !!gd.calledit?.active, label: 'Called It' },
+  { id: 'capsule', check: gd => (gd.capsule?.entries?.length || 0) > 0, label: 'Time Capsule' }
 ];
 
 function computeBondLevel(gameData) {
