@@ -330,6 +330,14 @@ _Add confirmed bugs here with file:line. Mark [FIXED] when resolved._
 
 ## Changelog
 
+### 2026-07-16 — Fix Duo Generator "Why" Repeating on Reroll
+
+Follow-up bug fix: users reported "Try Another" not changing the message. Root cause — `REASON_BUILDERS` only read the personality AXIS, never the concept itself, so every concept sharing an axis produced byte-identical why-text (7 of 27 concepts share `energy` alone; `general`'s 3 concepts returned one hardcoded string regardless of anything). Rerolling within a shared axis showed a new pairing LABEL but the exact same explanation underneath, reading as "nothing changed."
+
+Every `REASON_BUILDERS[axis]` function now takes the `concept` object and names its actual words (Sun/Moon, Fire/Ice, ...) in the sentence, so same-axis rerolls stay trait-grounded but always read as a distinct message. Also added `axis: 'mbtiJP'` directional half-assignment (Judger gets the "locked-in-plan" half, Perceiver the "improvise" half) so the why-text for Blueprint & Wanderer / Map & Compass never contradicts which half is actually displayed — previously those two used the hash tiebreak for display but an independent, potentially-mismatched J/P read for the reason text.
+
+Verified live: 8 consecutive "Try Another" taps on an ENFP/INTJ pair produced 8 distinct why-texts including across all 7 energy-axis concepts back to back. Harness grew to 48 checks (up from 45), including a same-axis distinctness check and an mbtiJP display/text consistency check.
+
 ### 2026-07-16 — Duo Generator: Trait-Grounded "Why", 27-Concept Bank
 
 Follow-up to the Duo Generator rebuild: users wanted to know WHY a pairing fit them, not just the pairing itself.
