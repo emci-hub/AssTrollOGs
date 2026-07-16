@@ -12,30 +12,127 @@
  * increase visibly as the user plays more games.
  */
 // ── Duo name pair concepts ────────────────────────────────────────────────────
-// Iconic two-halves-of-one-whole pairings for the Duo Generator. `energy: true`
-// marks concepts with a bright/quiet semantic so MBTI E/I can inform which
-// partner gets which half; everything else is a neutral pairing assigned by
-// a stable per-couple hash tiebreak in generateDuoName().
+// Iconic two-halves-of-one-whole pairings for the Duo Generator. Each concept
+// is tagged with the personality AXIS it's meant to illustrate — not just
+// flavor text, the axis picks which real trait comparison generateDuoName()
+// uses to explain WHY that concept fits this specific couple (see
+// REASON_BUILDERS below). `axis: 'energy'` concepts also use MBTI E/I to
+// decide which partner gets which half (extrovert gets the bright one);
+// everything else is a neutral pairing assigned by a stable per-couple hash
+// tiebreak, so the SAME concept always assigns the same way on reroll.
 const PAIR_CONCEPTS = [
-  { a: 'Sun', b: 'Moon', energy: true },
-  { a: 'Fire', b: 'Ice', energy: true },
-  { a: 'Thunder', b: 'Lightning', energy: true },
-  { a: 'Day', b: 'Night', energy: true },
-  { a: 'Spark', b: 'Calm', energy: true },
-  { a: 'Storm', b: 'Stillness', energy: true },
-  { a: 'Dawn', b: 'Dusk', energy: true },
-  { a: 'Salt', b: 'Pepper' },
-  { a: 'Peanut Butter', b: 'Jelly' },
-  { a: 'Bread', b: 'Butter' },
-  { a: 'Milk', b: 'Cookies' },
-  { a: 'Coffee', b: 'Cream' },
-  { a: 'Ketchup', b: 'Mustard' },
-  { a: 'Yin', b: 'Yang' },
-  { a: 'North', b: 'South' },
-  { a: 'Needle', b: 'Thread' },
-  { a: 'Rhythm', b: 'Blues' },
-  { a: 'Odds', b: 'Ends' },
+  // energy — MBTI E/I (outward spark vs. quiet depth)
+  { a: 'Sun', b: 'Moon', axis: 'energy' },
+  { a: 'Fire', b: 'Ice', axis: 'energy' },
+  { a: 'Thunder', b: 'Lightning', axis: 'energy' },
+  { a: 'Day', b: 'Night', axis: 'energy' },
+  { a: 'Spark', b: 'Calm', axis: 'energy' },
+  { a: 'Storm', b: 'Stillness', axis: 'energy' },
+  { a: 'Dawn', b: 'Dusk', axis: 'energy' },
+  // attachment — closeness/security dynamics
+  { a: 'Yin', b: 'Yang', axis: 'attachment' },
+  { a: 'Anchor', b: 'Sail', axis: 'attachment' },
+  { a: 'Root', b: 'Wing', axis: 'attachment' },
+  { a: 'Harbor', b: 'Horizon', axis: 'attachment' },
+  // conflict — how friction gets handled
+  { a: 'Salt', b: 'Pepper', axis: 'conflict' },
+  { a: 'Thunder', b: 'Rain', axis: 'conflict' },
+  { a: 'Give', b: 'Take', axis: 'conflict' },
+  // loveLanguage — how care actually gets felt
+  { a: 'Peanut Butter', b: 'Jelly', axis: 'loveLanguage' },
+  { a: 'Bread', b: 'Butter', axis: 'loveLanguage' },
+  { a: 'Milk', b: 'Cookies', axis: 'loveLanguage' },
+  { a: 'Coffee', b: 'Cream', axis: 'loveLanguage' },
+  { a: 'Honey', b: 'Tea', axis: 'loveLanguage' },
+  // expression — how the point actually gets across
+  { a: 'Needle', b: 'Thread', axis: 'expression' },
+  { a: 'Ketchup', b: 'Mustard', axis: 'expression' },
+  { a: 'Rhythm', b: 'Blues', axis: 'expression' },
+  // mbtiJP — MBTI J/P (locked-in plan vs. room to improvise)
+  { a: 'Blueprint', b: 'Wanderer', axis: 'mbtiJP' },
+  { a: 'Map', b: 'Compass', axis: 'mbtiJP' },
+  // general — no single trait explains it, they just work
+  { a: 'Odds', b: 'Ends', axis: 'general' },
+  { a: 'Left Sock', b: 'Right Sock', axis: 'general' },
+  { a: 'North', b: 'South', axis: 'general' },
 ];
+
+// Short, plain-language labels for the "why" sentences below — separate,
+// intentionally lighter-weight set from content-bank.js's labels since this
+// is a fun one-liner, not a full insight.
+const ATTACH_WHY_LABEL = {
+  secure: 'steady and comfortable with closeness', anxious: 'deeply attuned and quick to notice shifts',
+  avoidant: 'independent and recharges solo', fearful: 'careful — wants closeness but paces it'
+};
+const CONFLICT_WHY_LABEL = {
+  collaborative: 'talks it through until it’s actually resolved', compromising: 'looks for a fast, fair middle ground',
+  accommodating: 'smooths it over to keep the peace', avoiding: 'needs a beat before engaging'
+};
+const LOVE_WHY_LABEL = {
+  words: 'kind words', time: 'undivided time', service: 'helpful actions', touch: 'physical closeness', gifts: 'thoughtful little things'
+};
+const EXPR_WHY_LABEL = {
+  direct: 'says it straight, no guessing required', indirect: 'reads the room and drops hints',
+  reflective: 'thinks it through before speaking', analytical: 'breaks it down logically'
+};
+
+// One reason-builder per axis — takes the actual trait VALUES for both
+// people and explains why this concept fits, instead of generic filler.
+// Falls back to a light, still-true line when a trait is missing (solo
+// profiles calling this with an empty partner object, etc.).
+const REASON_BUILDERS = {
+  energy(u, p, uFirst, pFirst) {
+    const uJ = u?.mbti?.[0], pJ = p?.mbti?.[0];
+    if (!uJ || !pJ) return 'Two energies that balance without needing to match.';
+    if (uJ !== pJ) {
+      const ext = uJ === 'E' ? uFirst : pFirst;
+      const intro = uJ === 'E' ? pFirst : uFirst;
+      return `${ext} brings the outward spark, ${intro} brings the steady depth — that push and pull is exactly this energy.`;
+    }
+    return uJ === 'E'
+      ? 'You both feed off a room the same way — this isn’t opposites, it’s one frequency turned up in two people.'
+      : 'You both recharge in the quiet the same way — this isn’t opposites, it’s one frequency turned up in two people.';
+  },
+  attachment(u, p, uFirst, pFirst) {
+    const uA = u?.attachmentStyle, pA = p?.attachmentStyle;
+    if (!uA || !pA) return 'Built on how you each show up for closeness.';
+    if (uA === pA) return `You're both ${ATTACH_WHY_LABEL[uA]} — matching instincts around closeness, doubled.`;
+    return `${uFirst} is ${ATTACH_WHY_LABEL[uA]}; ${pFirst} is ${ATTACH_WHY_LABEL[pA]} — different instincts that end up covering each other.`;
+  },
+  conflict(u, p, uFirst, pFirst) {
+    const uC = u?.conflictStyle, pC = p?.conflictStyle;
+    if (!uC || !pC) return 'Built from how you each handle friction.';
+    if (uC === pC) return `You both ${CONFLICT_WHY_LABEL[uC]} — same instinct under pressure, just the two of you.`;
+    return `${uFirst} ${CONFLICT_WHY_LABEL[uC]}; ${pFirst} ${CONFLICT_WHY_LABEL[pC]} — different approaches, same goal.`;
+  },
+  loveLanguage(u, p, uFirst, pFirst) {
+    const uL = u?.loveLanguage, pL = p?.loveLanguage;
+    if (!uL || !pL) return 'Two different ways of showing up for each other.';
+    if (uL === pL) return `You both feel most loved through ${LOVE_WHY_LABEL[uL]} — no translation needed there.`;
+    return `${uFirst} feels loved through ${LOVE_WHY_LABEL[uL]}; ${pFirst} through ${LOVE_WHY_LABEL[pL]} — different recipes, same result.`;
+  },
+  expression(u, p, uFirst, pFirst) {
+    const uE = u?.expressionStyle, pE = p?.expressionStyle;
+    if (!uE || !pE) return 'Two different ways of getting the point across.';
+    if (uE === pE) return `You both communicate the same way: ${EXPR_WHY_LABEL[uE]}.`;
+    return `${uFirst} ${EXPR_WHY_LABEL[uE]}; ${pFirst} ${EXPR_WHY_LABEL[pE]}.`;
+  },
+  mbtiJP(u, p, uFirst, pFirst) {
+    const uJP = u?.mbti?.[3], pJP = p?.mbti?.[3];
+    if (!uJP || !pJP) return 'One plans it, one lets it happen — either way, it gets there.';
+    if (uJP === pJP) {
+      return uJP === 'J'
+        ? 'You both like a plan and actually stick to it.'
+        : 'You both keep things flexible and improvise well together.';
+    }
+    const planner = uJP === 'J' ? uFirst : pFirst;
+    const free = uJP === 'J' ? pFirst : uFirst;
+    return `${planner} likes the plan locked in; ${free} likes room to improvise — structure and spontaneity, working it out together.`;
+  },
+  general() {
+    return 'Some pairings don’t need a reason. This is one of the good ones.';
+  }
+};
 
 export const engine = {
   computeDeterministicSeed(uName, loc, timestamp) {
@@ -111,27 +208,33 @@ export const engine = {
   /**
    * Duo name — a thematic pair concept (Sun & Moon, Salt & Pepper, ...)
    * instead of mashing letters from both names into a fake portmanteau.
-   * `energy: true` concepts have a bright/quiet semantic (one half reads as
-   * outward, one as calm) and get assigned by MBTI E/I when both profiles
-   * have one; everything else falls back to a stable per-couple hash
-   * tiebreak so the assignment doesn't flip on every reroll of the SAME
-   * concept. Returns a display object, not a mashed string.
+   * Each concept is tagged with a personality AXIS (energy/attachment/
+   * conflict/loveLanguage/expression/mbtiJP/general) that both picks the
+   * half-assignment rule and drives a "why" sentence built from the two
+   * people's ACTUAL trait values (see REASON_BUILDERS) — not filler text.
+   * `axis: 'energy'` concepts assign by MBTI E/I when both profiles have one
+   * (extrovert gets the bright/outward half); everything else falls back to
+   * a stable per-couple hash tiebreak so the assignment doesn't flip on
+   * every reroll of the SAME concept. Returns a display object, not a
+   * mashed string.
    */
   generateDuoName(uName, pName, rollIndex, userProfile, partnerProfile) {
     const a = (uName || '').trim() || 'You';
     const b = (pName || '').trim() || 'Partner';
     const uFirst = a.split(' ')[0];
     const pFirst = b.split(' ')[0];
+    const u = userProfile || {};
+    const p = partnerProfile || {};
 
     const idx = Math.abs(rollIndex || 0) % PAIR_CONCEPTS.length;
     const concept = PAIR_CONCEPTS[idx];
 
-    const uMbti = userProfile?.mbti;
-    const pMbti = partnerProfile?.mbti;
+    const uMbti = u.mbti;
+    const pMbti = p.mbti;
     let userHalf = concept.a;
     let partnerHalf = concept.b;
 
-    if (concept.energy && uMbti && pMbti && uMbti[0] !== pMbti[0]) {
+    if (concept.axis === 'energy' && uMbti && pMbti && uMbti[0] !== pMbti[0]) {
       // Different energy types on an energy-flavored concept: extrovert
       // gets the bright/outward half, introvert gets the calm/quiet half.
       const userIsExtrovert = uMbti[0] === 'E';
@@ -146,11 +249,15 @@ export const engine = {
       if (Math.abs(hash) % 2 === 1) { userHalf = concept.b; partnerHalf = concept.a; }
     }
 
+    const reasonFn = REASON_BUILDERS[concept.axis] || REASON_BUILDERS.general;
+    const why = reasonFn(u, p, uFirst, pFirst);
+
     return {
       label: `${concept.a} & ${concept.b}`,
       userHalf,
       partnerHalf,
-      line: `${uFirst} is the ${userHalf} to ${pFirst}'s ${partnerHalf}.`
+      line: `${uFirst} is the ${userHalf} to ${pFirst}'s ${partnerHalf}.`,
+      why
     };
   },
 

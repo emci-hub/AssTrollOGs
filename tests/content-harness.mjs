@@ -285,9 +285,26 @@ console.log('11. Duo name pair concepts');
   check('duo name is a real pair concept, not a letter mashup', /&/.test(d1.label) && d1.userHalf !== d1.partnerHalf);
   check('duo name is deterministic for the same inputs', d1.label === d2.label && d1.line === d2.line);
   check('extrovert gets the bright half on an energy concept when found', d1.label !== 'Sun & Moon' || d1.userHalf === 'Sun');
+  check('duo name includes a non-empty "why" reason', typeof d1.why === 'string' && d1.why.length > 10);
   let distinctConcepts = new Set();
-  for (let i = 0; i < 18; i++) distinctConcepts.add(engine.generateDuoName('Alex', 'Sam', i).label);
-  check('rerolling cycles through multiple distinct concepts', distinctConcepts.size >= 10);
+  for (let i = 0; i < 27; i++) distinctConcepts.add(engine.generateDuoName('Alex', 'Sam', i).label);
+  check('rerolling cycles through many distinct concepts (27-concept bank)', distinctConcepts.size >= 20);
+
+  // The "why" must actually reflect real trait differences, not be generic
+  // filler — same profiles except one differing trait should read differently.
+  const baseUser = { mbti: 'INFP', attachmentStyle: 'anxious', conflictStyle: 'avoiding', loveLanguage: 'words', expressionStyle: 'reflective' };
+  const basePartner = { mbti: 'ESTJ', attachmentStyle: 'avoidant', conflictStyle: 'collaborative', loveLanguage: 'time', expressionStyle: 'direct' };
+  const attachConcept = engine.generateDuoName('Alex', 'Sam', PAIR_INDEX_BY_LABEL('Yin & Yang'), baseUser, basePartner);
+  check('attachment-axis why references each person\'s actual attachment style',
+    attachConcept.why.includes('deeply attuned') && attachConcept.why.includes('recharges solo'));
+  const loveConcept = engine.generateDuoName('Alex', 'Sam', PAIR_INDEX_BY_LABEL('Peanut Butter & Jelly'), baseUser, basePartner);
+  check('loveLanguage-axis why references each person\'s actual love language',
+    loveConcept.why.includes('kind words') && loveConcept.why.includes('undivided time'));
+
+  function PAIR_INDEX_BY_LABEL(label) {
+    for (let i = 0; i < 27; i++) if (engine.generateDuoName('Alex', 'Sam', i).label === label) return i;
+    return 0;
+  }
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);
