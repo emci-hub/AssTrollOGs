@@ -14,14 +14,38 @@ import { cloudSave } from './supabase.js';
 import { buildStoragePayload, getActiveSaveCode } from './state.js';
 import { HUMOR_LEVELS, humorLevel, setHumorLevel } from './composer.js';
 
+// ── Chronicles: dark path ────────────────────────────────────────────────────
+// At the 'unhinged' humor level, ~30% of runs resolve as a comedic disaster
+// instead of the usual clean win — the same "sometimes it just doesn't work
+// out" energy the pet's WARNINGS bank already has, applied to the sandbox.
+const CHRONICLE_DARK_SOLO_RESULTS = {
+  collaborative: "You debated both sides so thoroughly that the moment passed. Committee of one, filibustered by one.",
+  compromising:  "You cut a deal with reality. Reality took the good half and left you the paperwork.",
+  accommodating: "Everyone around you ended up fine. You did not. Classic, but the other classic.",
+  avoiding:      "The strategic pause is ongoing. It has been ongoing for a concerning amount of time."
+};
+
+const CHRONICLE_DARK_RESULTS = [
+  "Total non-win — {u}'s plan and {p}'s plan quietly canceled each other out. It's fine. It's not fine. It's fine.",
+  "Somehow you both did your exact job perfectly and the whole thing still fell apart. Nobody can explain it.",
+  "{u} and {p} each assumed the other had it handled. Nobody had it handled.",
+  "A flawless effort from both of you, undone by one variable neither of you considered: everything else.",
+  "It didn't work, but you two looked great doing it, which the report will absolutely not mention.",
+  "{p} improvised. {u} did not appreciate the improvisation. The task remains unsolved and so does that.",
+];
+
+function fillChronicleDark(line, uName, pName) {
+  return line.replace(/\{u\}/g, uName).replace(/\{p\}/g, pName);
+}
+
 let _insightOffsets = { groove: 0, journey: 0, decoder: 0, vibe: 0 };
 
-function renderInsightDrawer(type, solo) {
+function renderInsightDrawer(type, solo, forceTough) {
   const profiles = { user: window.AppState.userProfile, partner: window.AppState.partnerProfile };
   const gameData = window.AppState.gameData;
   const now = new Date();
   const offset = _insightOffsets[type] || 0;
-  const insight = insights.generateDeepInsight(type, profiles, gameData, now, offset);
+  const insight = insights.generateDeepInsight(type, profiles, gameData, now, offset, { forceTough });
 
   const SUBTITLES = {
     groove: solo ? 'How you communicate' : 'How you two communicate',
@@ -41,11 +65,14 @@ function renderInsightDrawer(type, solo) {
     <div class="card" style="margin-bottom:14px; border-color:rgba(129,140,248,0.25);">
       <p class="card-body" style="line-height:1.6;">${insight.body}</p>
     </div>
-    ${hasMore ? `
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-      <span style="font-size:0.65rem; color:var(--text-muted);">${(offset % pool.length) + 1} of ${pool.length} reads</span>
-      <button class="btn-icon" onclick="cycleInsight('${type}')">↻ Next Read</button>
+    <div style="display:flex; justify-content:${hasMore ? 'space-between' : 'flex-end'}; align-items:center; margin-bottom:10px; gap:8px;">
+      ${hasMore ? `<span style="font-size:0.65rem; color:var(--text-muted);">${(offset % pool.length) + 1} of ${pool.length} reads</span>` : ''}
+      <div style="display:flex; gap:6px;">
+        <button class="btn-icon" onclick="straightTalkInsight('${type}')" title="Force a blunt, critical read">🎯 Straight Talk</button>
+        ${hasMore ? `<button class="btn-icon" onclick="cycleInsight('${type}')">↻ Next Read</button>` : ''}
+      </div>
     </div>
+    ${hasMore ? `
     <div style="display:flex; flex-direction:column; gap:8px;">
       ${pool.filter((_, i) => i !== (offset % pool.length)).slice(0, 2).map((p, i) => `
         <div class="card interactive-card" style="opacity:0.7;" onclick="jumpInsight('${type}', ${pool.indexOf(p)})">
@@ -100,19 +127,14 @@ export function openDrawer(type) {
           <button class="btn btn-outline" style="margin-top:14px;" onclick="rerollVibeName()">Try Another</button>
         `;
       } else {
-        const mergedName = engine.generateDuoName(uName, pName, 0);
-        const duoTaglines = [
-          "The internet would ship this.", "A duo for the ages.", "Celebrity couple energy.",
-          "Iconic. No notes.", "This name hits different.", "The collab everyone needed."
-        ];
-        const tagline = duoTaglines[(uName.length + pName.length) % duoTaglines.length];
+        const duo = engine.generateDuoName(uName, pName, 0, window.AppState.userProfile, window.AppState.partnerProfile);
         payloadHtml = `
           <div class="subtitle">The Sandbox</div>
-          <h2 style="margin-bottom:12px;">Your Ship Name</h2>
-          <p class="card-body" style="margin-bottom:16px;">Your names, blended into one unforgettable duo name.</p>
+          <h2 style="margin-bottom:12px;">Your Duo Concept</h2>
+          <p class="card-body" style="margin-bottom:16px;">The pairing that matches your dynamic — not a name mashup, an actual pair.</p>
           <div class="sandbox-interactive-container" style="flex-direction:column; gap:8px;">
-            <div class="ship-name-tag" id="vibe-name-display">${mergedName}</div>
-            <div id="vibe-name-tagline" style="font-size:0.75rem; color:var(--text-muted); text-align:center;">${tagline}</div>
+            <div class="ship-name-tag" id="vibe-name-display">${duo.label}</div>
+            <div id="vibe-name-tagline" style="font-size:0.75rem; color:var(--text-muted); text-align:center;">${duo.line}</div>
           </div>
           <button class="btn btn-outline" style="margin-top:14px;" onclick="rerollVibeName()">Try Another</button>
         `;
@@ -299,19 +321,27 @@ export function executeScenarioSimulation(uName, pName, task, userRole, partnerR
   const userFlavor = CHRONICLE_CONFLICT_FLAVOR[userStyle] || CHRONICLE_CONFLICT_FLAVOR.collaborative;
   const partnerFlavor = CHRONICLE_CONFLICT_FLAVOR[partnerStyle] || CHRONICLE_CONFLICT_FLAVOR.compromising;
 
+  // ~30% of runs go dark, only when the user has opted into Unhinged humor.
+  const goesDark = humorLevel() === 'unhinged' && Math.random() < 0.3;
+  const resultColor = goesDark ? 'var(--danger-color)' : 'var(--success-color)';
+
   const steps = [];
   steps.push({ delay: 0, text: `<span style="color:var(--text-muted);">Scenario: <em>${task}...</em></span>` });
   if (partnerRole) {
     steps.push({ delay: 600, text: `<strong style="color:var(--accent-primary);">${uName}</strong> jumps in — ${userRole}, ${userFlavor}...` });
     steps.push({ delay: 1200, text: `<strong style="color:var(--success-color);">${pName}</strong> steps up — ${partnerRole}, ${partnerFlavor}...` });
-    const result = userStyle === partnerStyle
-      ? (CHRONICLE_SAME_STYLE_RESULTS[userStyle] || CHRONICLE_SAME_STYLE_RESULTS.collaborative)
-      : `Total win — ${uName}'s ${userFlavor} covered exactly what ${pName}'s ${partnerFlavor} would have missed. That's not luck, that's the pairing.`;
-    steps.push({ delay: 2000, text: `<br><strong style="color:var(--success-color); font-size:0.9rem;">${result}</strong>` });
+    const result = goesDark
+      ? fillChronicleDark(CHRONICLE_DARK_RESULTS[Math.floor(Math.random() * CHRONICLE_DARK_RESULTS.length)], uName, pName)
+      : (userStyle === partnerStyle
+          ? (CHRONICLE_SAME_STYLE_RESULTS[userStyle] || CHRONICLE_SAME_STYLE_RESULTS.collaborative)
+          : `Total win — ${uName}'s ${userFlavor} covered exactly what ${pName}'s ${partnerFlavor} would have missed. That's not luck, that's the pairing.`);
+    steps.push({ delay: 2000, text: `<br><strong style="color:${resultColor}; font-size:0.9rem;">${result}</strong>` });
   } else {
     steps.push({ delay: 600, text: `<strong style="color:var(--accent-primary);">${uName}</strong> takes on the challenge — ${userRole}, ${userFlavor}...` });
-    const result = CHRONICLE_SOLO_RESULTS[userStyle] || CHRONICLE_SOLO_RESULTS.collaborative;
-    steps.push({ delay: 1400, text: `<br><strong style="color:var(--success-color); font-size:0.9rem;">${result}</strong>` });
+    const result = goesDark
+      ? (CHRONICLE_DARK_SOLO_RESULTS[userStyle] || CHRONICLE_DARK_SOLO_RESULTS.collaborative)
+      : (CHRONICLE_SOLO_RESULTS[userStyle] || CHRONICLE_SOLO_RESULTS.collaborative);
+    steps.push({ delay: 1400, text: `<br><strong style="color:${resultColor}; font-size:0.9rem;">${result}</strong>` });
   }
   steps.push({ delay: steps[steps.length - 1].delay + 600, text: '<br><button class="btn btn-outline" style="margin-top:8px; font-size:0.75rem;" onclick="newChronicleScenario()">Try Another Scenario</button>' });
 
@@ -362,6 +392,20 @@ window.jumpInsight = function(type, idx) {
   }, 150);
 };
 
+// "Straight Talk" — forces the tough-love line on this drawer's current
+// read instead of leaving it to the ~25% roll.
+window.straightTalkInsight = function(type) {
+  const solo = window.AppState.soloMode || !window.AppState.partnerProfile;
+  const drawerContent = document.getElementById('drawer-dynamic-content');
+  if (!drawerContent) return;
+  drawerContent.style.opacity = '0';
+  drawerContent.style.transition = 'opacity 0.15s';
+  setTimeout(() => {
+    drawerContent.innerHTML = renderInsightDrawer(type, solo, true);
+    drawerContent.style.opacity = '1';
+  }, 150);
+};
+
 window.selectSelfCheckMood = function(btn, mood, action) {
   const options = document.getElementById('selfcheck-options');
   if (options) {
@@ -408,13 +452,9 @@ window.rerollVibeName = function() {
     ];
     if (taglineEl) taglineEl.textContent = soloTaglines[_vibeNameRollIndex % soloTaglines.length];
   } else {
-    const newName = engine.generateDuoName(uName, pName, _vibeNameRollIndex);
-    display.textContent = newName;
-    const duoTaglines = [
-      "The internet would ship this.", "A duo for the ages.", "Celebrity couple energy.",
-      "Iconic. No notes.", "This name hits different.", "The collab everyone needed."
-    ];
-    if (taglineEl) taglineEl.textContent = duoTaglines[_vibeNameRollIndex % duoTaglines.length];
+    const duo = engine.generateDuoName(uName, pName, _vibeNameRollIndex, window.AppState.userProfile, window.AppState.partnerProfile);
+    display.textContent = duo.label;
+    if (taglineEl) taglineEl.textContent = duo.line;
   }
 
   display.style.transform = 'scale(1.06)';

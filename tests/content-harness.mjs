@@ -229,5 +229,66 @@ console.log('8. Repeat-rate simulation');
   check(`30 simulated days => ≥20 unique glance bodies (got ${bodies.size})`, bodies.size >= 20);
 }
 
+// ── 9. Probability-roll fix: no more all-or-nothing streaks ─────────────────
+console.log('9. rollChance streak fix');
+{
+  const gd = window.AppState.gameData;
+  gd.settings.humorLevel = 'playful';
+  gd.mood.today = null;
+  window.AppState.vibeSeed = '10000001'; window.AppState.saveCode = 'VIBE-AAAA-1111';
+  let hits = 0;
+  for (let o = 0; o < 60; o++) if (composer.kickerFor('general', o, 'streak-test') !== null) hits++;
+  check(`kicker hit-rate over 60 consecutive taps lands near 30% (got ${hits}/60, not 0 or 60)`, hits > 5 && hits < 55);
+
+  // Same check across many DIFFERENT accounts (previously ~20% saw jokes on
+  // every glance and ~70% saw none, in a short session).
+  let allHit = 0, noneHit = 0;
+  for (let acct = 0; acct < 50; acct++) {
+    window.AppState.vibeSeed = String(10000000 + acct * 137);
+    let h = 0;
+    for (let o = 0; o < 10; o++) if (composer.kickerFor('general', o, 'acct-test') !== null) h++;
+    if (h === 10) allHit++;
+    if (h === 0) noneHit++;
+  }
+  check(`no account sees a joke on all 10 of its first 10 taps (got ${allHit}/50 accounts)`, allHit === 0);
+  check(`no account sees zero jokes across 10 taps (got ${noneHit}/50 accounts)`, noneHit === 0);
+  window.AppState.vibeSeed = '10000001'; window.AppState.saveCode = 'VIBE-AAAA-1111';
+}
+
+// ── 10. Tough-love lines: rate + force + mood suppression ────────────────────
+console.log('10. Tough-love lines');
+{
+  const gd = window.AppState.gameData;
+  gd.mood.today = null;
+  let toughCount = 0;
+  for (let o = 0; o < 200; o++) {
+    const g = insights.generateDayAtAGlance({ user: PROFILE, partner: null }, gd, DATE, o);
+    if (bank && jokes.TOUGH_LOVE_LINES.some(l => g.body.includes(l))) toughCount++;
+  }
+  check(`tough-love line appears roughly 10-45% of the time unforced (got ${toughCount}/200)`, toughCount > 20 && toughCount < 90);
+
+  const forced = insights.generateDayAtAGlance({ user: PROFILE, partner: null }, gd, DATE, 5, { forceTough: true });
+  check('forceTough guarantees a tough-love line', jokes.TOUGH_LOVE_LINES.some(l => forced.body.includes(l)));
+
+  gd.mood.today = 'low';
+  const forcedOnLowMood = insights.generateDayAtAGlance({ user: PROFILE, partner: null }, gd, DATE, 5, { forceTough: true });
+  check('forceTough is still suppressed on a low mood day', !jokes.TOUGH_LOVE_LINES.some(l => forcedOnLowMood.body.includes(l)));
+  gd.mood.today = null;
+}
+
+// ── 11. Duo name: real pair concepts, deterministic, trait-informed ─────────
+console.log('11. Duo name pair concepts');
+{
+  const { engine } = await import('../src/engine.js');
+  const d1 = engine.generateDuoName('Alex Rivera', 'Sam Lee', 3, { mbti: 'ENFP' }, { mbti: 'INTJ' });
+  const d2 = engine.generateDuoName('Alex Rivera', 'Sam Lee', 3, { mbti: 'ENFP' }, { mbti: 'INTJ' });
+  check('duo name is a real pair concept, not a letter mashup', /&/.test(d1.label) && d1.userHalf !== d1.partnerHalf);
+  check('duo name is deterministic for the same inputs', d1.label === d2.label && d1.line === d2.line);
+  check('extrovert gets the bright half on an energy concept when found', d1.label !== 'Sun & Moon' || d1.userHalf === 'Sun');
+  let distinctConcepts = new Set();
+  for (let i = 0; i < 18; i++) distinctConcepts.add(engine.generateDuoName('Alex', 'Sam', i).label);
+  check('rerolling cycles through multiple distinct concepts', distinctConcepts.size >= 10);
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);

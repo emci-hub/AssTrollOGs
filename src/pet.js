@@ -11,7 +11,7 @@
  */
 
 import { saveGameData, todayLocal, isToday, daysBetween, canAwardPetGrowthToday, recordPetGrowthToday } from './state.js';
-import { accountSalt, pickVariant, kickerFor, maybeRareLine } from './composer.js';
+import { accountSalt, pickVariant, kickerFor, maybeRareLine, rollChance } from './composer.js';
 
 // ─── Name generation ──────────────────────────────────────────────────────────
 
@@ -1255,9 +1255,12 @@ function computeQuirkOfDay(profile) {
   const seed = petFlavorSeed(profile);
   const dateHash = hashString(todayLocal());
   const combined = seed + dateHash;
-  // Roughly one day in three has a quirk — keeps it a nice surprise rather
-  // than constant noise.
-  if (combined % 3 !== 0) return null;
+  // Roughly one day in three has a quirk. rollChance avalanches the sum
+  // first — consecutive local dates differ from hashString(todayLocal())
+  // by only a tiny amount (same weakness as the joke-kicker bug this
+  // fixes elsewhere), so a raw `% 3` check would make quirks run in
+  // multi-day streaks (always-on or always-off) instead of ~1-in-3 days.
+  if (!rollChance(33, combined, 'quirk')) return null;
   const idx = combined % QUIRKS_OF_DAY.length;
   return QUIRKS_OF_DAY[idx];
 }

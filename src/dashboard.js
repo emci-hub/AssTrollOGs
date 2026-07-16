@@ -248,7 +248,7 @@ function hydrateSandboxSection(solo, uName) {
     sandboxEl.innerHTML = `
       <div class="card interactive-card" onclick="openDrawer('duo')">
         <div class="card-title">The Duo Generator</div>
-        <div class="card-body">Algorithmically blending your names into a fun, celebrity-style ship name.</div>
+        <div class="card-body">Finds the iconic pairing that matches your dynamic — Sun & Moon, Salt & Pepper, and more.</div>
       </div>
       <div class="card interactive-card" onclick="openDrawer('bingo')">
         <div class="card-title">Couple's Hot Takes</div>
@@ -449,12 +449,18 @@ function fadeUpdateHtml(el, newHtml) {
   setTimeout(() => { el.innerHTML = newHtml; el.style.opacity = '1'; }, 200);
 }
 
-export function refreshDayAtAGlance() {
+export function refreshDayAtAGlance(opts) {
   _fortuneOffset++;
   const profiles = { user: window.AppState.userProfile, partner: window.AppState.partnerProfile };
-  const glance = insights.generateDayAtAGlance(profiles, window.AppState.gameData, new Date(), _fortuneOffset);
+  const glance = insights.generateDayAtAGlance(profiles, window.AppState.gameData, new Date(), _fortuneOffset, opts);
   fadeUpdate(document.getElementById('daily-headline'), glance.headline);
   fadeUpdate(document.getElementById('daily-text'), glance.body);
+}
+
+// "Straight Talk" — forces the tough-love line instead of leaving it to the
+// ~25% roll, giving explicit control over tone instead of just hoping.
+export function forceToughGlance() {
+  refreshDayAtAGlance({ forceTough: true });
 }
 
 export function refreshSpotlight() {
@@ -470,9 +476,13 @@ export function refreshSpotlight() {
   }
 }
 
-export function refreshBlueprint() {
+export function refreshBlueprint(opts) {
   _blueprintOffset++;
   const profiles = { user: window.AppState.userProfile, partner: window.AppState.partnerProfile };
-  const blueprint = insights.generateBlueprint(profiles, window.AppState.gameData, _blueprintOffset);
+  const blueprint = insights.generateBlueprint(profiles, window.AppState.gameData, _blueprintOffset, opts);
   fadeUpdate(document.getElementById('synergy-card-blueprint'), blueprint);
+}
+
+export function forceToughBlueprint() {
+  refreshBlueprint({ forceTough: true });
 }
