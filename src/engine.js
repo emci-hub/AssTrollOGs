@@ -77,60 +77,63 @@ const EXPR_WHY_LABEL = {
 };
 
 // One reason-builder per axis — takes the actual trait VALUES for both
-// people and explains why this concept fits, instead of generic filler.
-// Falls back to a light, still-true line when a trait is missing (solo
-// profiles calling this with an empty partner object, etc.).
+// people AND the concept itself, so the sentence names the concept's own
+// words (Sun/Moon, Fire/Ice, ...). Without referencing the concept, every
+// concept sharing an axis (7 concepts share 'energy' alone) produced the
+// exact same sentence, so rerolling within one axis looked like "nothing
+// changed" even though the pairing label above it did. userHalf/partnerHalf
+// are the SAME values already assigned to the display, so directional axes
+// (energy, mbtiJP) never contradict what's shown. Falls back to a light,
+// still-true line when a trait is missing (solo callers, incomplete data).
 const REASON_BUILDERS = {
-  energy(u, p, uFirst, pFirst) {
+  energy(concept, u, p, uFirst, pFirst, userHalf) {
     const uJ = u?.mbti?.[0], pJ = p?.mbti?.[0];
-    if (!uJ || !pJ) return 'Two energies that balance without needing to match.';
+    if (!uJ || !pJ) return `Two energies that balance without needing to match — that's the ${concept.a} & ${concept.b} of it.`;
     if (uJ !== pJ) {
-      const ext = uJ === 'E' ? uFirst : pFirst;
-      const intro = uJ === 'E' ? pFirst : uFirst;
-      return `${ext} brings the outward spark, ${intro} brings the steady depth — that push and pull is exactly this energy.`;
+      const brightFirst = userHalf === concept.a ? uFirst : pFirst;
+      const calmFirst = userHalf === concept.a ? pFirst : uFirst;
+      return `${brightFirst} is pure ${concept.a} energy — outward, first through the door. ${calmFirst} is pure ${concept.b} energy — steady, quieter, still lighting things up. That push and pull is the whole pairing.`;
     }
-    return uJ === 'E'
-      ? 'You both feed off a room the same way — this isn’t opposites, it’s one frequency turned up in two people.'
-      : 'You both recharge in the quiet the same way — this isn’t opposites, it’s one frequency turned up in two people.';
+    const sharedLabel = uJ === 'E' ? 'feed off a room the same way' : 'recharge in the quiet the same way';
+    return `You both ${sharedLabel} — this ${concept.a} & ${concept.b} pairing isn't about opposites, it's one frequency turned up in two people.`;
   },
-  attachment(u, p, uFirst, pFirst) {
+  attachment(concept, u, p, uFirst, pFirst) {
     const uA = u?.attachmentStyle, pA = p?.attachmentStyle;
-    if (!uA || !pA) return 'Built on how you each show up for closeness.';
-    if (uA === pA) return `You're both ${ATTACH_WHY_LABEL[uA]} — matching instincts around closeness, doubled.`;
-    return `${uFirst} is ${ATTACH_WHY_LABEL[uA]}; ${pFirst} is ${ATTACH_WHY_LABEL[pA]} — different instincts that end up covering each other.`;
+    if (!uA || !pA) return `A ${concept.a} & ${concept.b} kind of dynamic — built on how you each show up for closeness.`;
+    if (uA === pA) return `You're both ${ATTACH_WHY_LABEL[uA]} — like ${concept.a} & ${concept.b}, matching instincts around closeness, doubled.`;
+    return `${uFirst} is ${ATTACH_WHY_LABEL[uA]}; ${pFirst} is ${ATTACH_WHY_LABEL[pA]} — that's your ${concept.a} & ${concept.b}: different instincts that end up covering each other.`;
   },
-  conflict(u, p, uFirst, pFirst) {
+  conflict(concept, u, p, uFirst, pFirst) {
     const uC = u?.conflictStyle, pC = p?.conflictStyle;
-    if (!uC || !pC) return 'Built from how you each handle friction.';
-    if (uC === pC) return `You both ${CONFLICT_WHY_LABEL[uC]} — same instinct under pressure, just the two of you.`;
-    return `${uFirst} ${CONFLICT_WHY_LABEL[uC]}; ${pFirst} ${CONFLICT_WHY_LABEL[pC]} — different approaches, same goal.`;
+    if (!uC || !pC) return `${concept.a} & ${concept.b} — built from how you each handle friction.`;
+    if (uC === pC) return `You both ${CONFLICT_WHY_LABEL[uC]} — same instinct under pressure, just the two of you. That's ${concept.a} & ${concept.b}, doubled down.`;
+    return `${uFirst} ${CONFLICT_WHY_LABEL[uC]}; ${pFirst} ${CONFLICT_WHY_LABEL[pC]} — your ${concept.a} & ${concept.b}: different approaches, same goal.`;
   },
-  loveLanguage(u, p, uFirst, pFirst) {
+  loveLanguage(concept, u, p, uFirst, pFirst) {
     const uL = u?.loveLanguage, pL = p?.loveLanguage;
-    if (!uL || !pL) return 'Two different ways of showing up for each other.';
-    if (uL === pL) return `You both feel most loved through ${LOVE_WHY_LABEL[uL]} — no translation needed there.`;
-    return `${uFirst} feels loved through ${LOVE_WHY_LABEL[uL]}; ${pFirst} through ${LOVE_WHY_LABEL[pL]} — different recipes, same result.`;
+    if (!uL || !pL) return `${concept.a} & ${concept.b} — two different ways of showing up for each other.`;
+    if (uL === pL) return `You both feel most loved through ${LOVE_WHY_LABEL[uL]} — no translation needed, just ${concept.a} & ${concept.b} in perfect sync.`;
+    return `${uFirst} feels loved through ${LOVE_WHY_LABEL[uL]}; ${pFirst} through ${LOVE_WHY_LABEL[pL]} — your ${concept.a} & ${concept.b}: different recipes, same result.`;
   },
-  expression(u, p, uFirst, pFirst) {
+  expression(concept, u, p, uFirst, pFirst) {
     const uE = u?.expressionStyle, pE = p?.expressionStyle;
-    if (!uE || !pE) return 'Two different ways of getting the point across.';
-    if (uE === pE) return `You both communicate the same way: ${EXPR_WHY_LABEL[uE]}.`;
-    return `${uFirst} ${EXPR_WHY_LABEL[uE]}; ${pFirst} ${EXPR_WHY_LABEL[pE]}.`;
+    if (!uE || !pE) return `${concept.a} & ${concept.b} — two different ways of getting the point across.`;
+    if (uE === pE) return `You both communicate the same way — ${EXPR_WHY_LABEL[uE]}. This ${concept.a} & ${concept.b} pairing isn't about contrast, it's about being unmistakably in sync.`;
+    return `${uFirst} ${EXPR_WHY_LABEL[uE]}; ${pFirst} ${EXPR_WHY_LABEL[pE]} — that's your ${concept.a} & ${concept.b}.`;
   },
-  mbtiJP(u, p, uFirst, pFirst) {
+  mbtiJP(concept, u, p, uFirst, pFirst, userHalf) {
     const uJP = u?.mbti?.[3], pJP = p?.mbti?.[3];
-    if (!uJP || !pJP) return 'One plans it, one lets it happen — either way, it gets there.';
+    if (!uJP || !pJP) return `${concept.a} & ${concept.b} — one plans it, one lets it happen, either way it gets there.`;
     if (uJP === pJP) {
-      return uJP === 'J'
-        ? 'You both like a plan and actually stick to it.'
-        : 'You both keep things flexible and improvise well together.';
+      const shared = uJP === 'J' ? 'like a plan and actually stick to it' : 'keep things flexible and improvise well together';
+      return `You both ${shared} — ${concept.a} & ${concept.b}, same instinct, doubled.`;
     }
-    const planner = uJP === 'J' ? uFirst : pFirst;
-    const free = uJP === 'J' ? pFirst : uFirst;
-    return `${planner} likes the plan locked in; ${free} likes room to improvise — structure and spontaneity, working it out together.`;
+    const plannerFirst = userHalf === concept.a ? uFirst : pFirst;
+    const freeFirst = userHalf === concept.a ? pFirst : uFirst;
+    return `${plannerFirst} is the ${concept.a} — likes the plan locked in. ${freeFirst} is the ${concept.b} — likes room to improvise. Structure and spontaneity, working it out together.`;
   },
-  general() {
-    return 'Some pairings don’t need a reason. This is one of the good ones.';
+  general(concept) {
+    return `${concept.a} & ${concept.b}. Some pairings don’t need a bigger reason than that.`;
   }
 };
 
@@ -212,11 +215,12 @@ export const engine = {
    * conflict/loveLanguage/expression/mbtiJP/general) that both picks the
    * half-assignment rule and drives a "why" sentence built from the two
    * people's ACTUAL trait values (see REASON_BUILDERS) — not filler text.
-   * `axis: 'energy'` concepts assign by MBTI E/I when both profiles have one
-   * (extrovert gets the bright/outward half); everything else falls back to
-   * a stable per-couple hash tiebreak so the assignment doesn't flip on
-   * every reroll of the SAME concept. Returns a display object, not a
-   * mashed string.
+   * `axis: 'energy'` concepts assign by MBTI E/I (extrovert gets the bright/
+   * outward half) and `axis: 'mbtiJP'` concepts assign by MBTI J/P (Judger
+   * gets the locked-in-plan half) when both profiles have that letter and
+   * differ; everything else falls back to a stable per-couple hash tiebreak
+   * so the assignment doesn't flip on every reroll of the SAME concept.
+   * Returns a display object, not a mashed string.
    */
   generateDuoName(uName, pName, rollIndex, userProfile, partnerProfile) {
     const a = (uName || '').trim() || 'You';
@@ -240,17 +244,29 @@ export const engine = {
       const userIsExtrovert = uMbti[0] === 'E';
       userHalf = userIsExtrovert ? concept.a : concept.b;
       partnerHalf = userIsExtrovert ? concept.b : concept.a;
+    } else if (concept.axis === 'mbtiJP' && uMbti?.[3] && pMbti?.[3] && uMbti[3] !== pMbti[3]) {
+      // Different J/P on a plan-vs-improvise concept: the Judger (plans,
+      // decides) gets the "locked-in" half, the Perceiver gets the free one.
+      const userIsJudger = uMbti[3] === 'J';
+      userHalf = userIsJudger ? concept.a : concept.b;
+      partnerHalf = userIsJudger ? concept.b : concept.a;
     } else {
-      // Neutral concept, or both share an energy type — stable per-couple
-      // tiebreak (same names + same concept always assigns the same way).
+      // Neutral concept, or both share the relevant trait — stable
+      // per-couple tiebreak (same names + same concept always assigns the
+      // same way, so it doesn't flip on every reroll of the SAME concept).
       let hash = 5381;
       const key = `${a}|${b}|${concept.a}`.toLowerCase();
       for (let i = 0; i < key.length; i++) hash = ((hash << 5) + hash) + key.charCodeAt(i);
       if (Math.abs(hash) % 2 === 1) { userHalf = concept.b; partnerHalf = concept.a; }
     }
 
+    // The reason always names the concept itself (not just the axis), so
+    // rerolling within one axis (e.g. 7 different 'energy' concepts) still
+    // reads as a different message each time instead of repeating verbatim.
+    // userHalf is passed through so directional axes never contradict what's
+    // actually displayed above.
     const reasonFn = REASON_BUILDERS[concept.axis] || REASON_BUILDERS.general;
-    const why = reasonFn(u, p, uFirst, pFirst);
+    const why = reasonFn(concept, u, p, uFirst, pFirst, userHalf, partnerHalf);
 
     return {
       label: `${concept.a} & ${concept.b}`,

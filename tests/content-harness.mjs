@@ -301,6 +301,25 @@ console.log('11. Duo name pair concepts');
   check('loveLanguage-axis why references each person\'s actual love language',
     loveConcept.why.includes('kind words') && loveConcept.why.includes('undivided time'));
 
+  // Regression: "Try Another" felt like it did nothing because the why-text
+  // only depended on the AXIS, not the specific concept — 7 concepts share
+  // 'energy' alone, so consecutive rerolls within that group showed the
+  // exact same sentence. Every same-axis concept must now read differently.
+  const energyLabels = ['Sun & Moon', 'Fire & Ice', 'Thunder & Lightning', 'Day & Night', 'Spark & Calm', 'Storm & Stillness', 'Dawn & Dusk'];
+  const energyWhys = new Set(energyLabels.map(l => engine.generateDuoName('Alex', 'Sam', PAIR_INDEX_BY_LABEL(l), baseUser, basePartner).why));
+  check('all 7 energy-axis concepts produce distinct why-text for the same couple', energyWhys.size === energyLabels.length);
+
+  const generalLabels = ['Odds & Ends', 'Left Sock & Right Sock', 'North & South'];
+  const generalWhys = new Set(generalLabels.map(l => engine.generateDuoName('Alex', 'Sam', PAIR_INDEX_BY_LABEL(l), baseUser, basePartner).why));
+  check('all 3 general-axis concepts produce distinct why-text', generalWhys.size === generalLabels.length);
+
+  // mbtiJP half-assignment must match what the "why" text claims.
+  const jpUser = { mbti: 'ISTJ' }, jpPartner = { mbti: 'ESFP' };
+  const jpConcept = engine.generateDuoName('Alex', 'Sam', PAIR_INDEX_BY_LABEL('Blueprint & Wanderer'), jpUser, jpPartner);
+  check('mbtiJP why-text names the same person as the Judger that the display assigns to "Blueprint"',
+    (jpConcept.userHalf === 'Blueprint' && jpConcept.why.startsWith('Alex is the Blueprint')) ||
+    (jpConcept.userHalf === 'Wanderer' && jpConcept.why.startsWith('Sam is the Blueprint')));
+
   function PAIR_INDEX_BY_LABEL(label) {
     for (let i = 0; i < 27; i++) if (engine.generateDuoName('Alex', 'Sam', i).label === label) return i;
     return 0;
