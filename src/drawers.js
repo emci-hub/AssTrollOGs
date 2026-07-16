@@ -136,6 +136,7 @@ export function openDrawer(type) {
             <div class="ship-name-tag" id="vibe-name-display">${duo.label}</div>
             <div id="vibe-name-tagline" style="font-size:0.75rem; color:var(--text-muted); text-align:center;">${duo.line}</div>
           </div>
+          <div id="vibe-name-why" class="card" style="margin-top:12px; background:var(--bg-dark); font-size:0.75rem; color:var(--text-secondary); line-height:1.5; text-align:center;">${duo.why}</div>
           <button class="btn btn-outline" style="margin-top:14px;" onclick="rerollVibeName()">Try Another</button>
         `;
       }
@@ -455,6 +456,8 @@ window.rerollVibeName = function() {
     const duo = engine.generateDuoName(uName, pName, _vibeNameRollIndex, window.AppState.userProfile, window.AppState.partnerProfile);
     display.textContent = duo.label;
     if (taglineEl) taglineEl.textContent = duo.line;
+    const whyEl = document.getElementById('vibe-name-why');
+    if (whyEl) whyEl.textContent = duo.why;
   }
 
   display.style.transform = 'scale(1.06)';
