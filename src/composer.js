@@ -61,6 +61,30 @@ export function combineSeeds(...parts) {
   return Math.abs(acc);
 }
 
+/**
+ * Integer avalanche finalizer (Murmur3-style). combineSeeds() is a plain SUM
+ * of hashes/numbers — great for cycling through a pool by +1 per tap (that's
+ * intentional, guarantees no immediate repeat), but terrible for a coin-flip:
+ * adding a small incrementing counter (a refresh tap, a day-index delta)
+ * barely moves the sum, so `sum % 100 < chance` gives the SAME answer for
+ * many consecutive taps/days in a row — a joke either shows on every single
+ * refresh or never once in a session, instead of ~30% independently each
+ * time. Piping the sum through this finalizer scatters a 1-unit input change
+ * across all output bits, so probability rolls behave like independent
+ * rolls instead of a slow-moving streak.
+ */
+function mixInt(n) {
+  n = Math.imul(n ^ (n >>> 16), 0x45d9f3b);
+  n = Math.imul(n ^ (n >>> 16), 0x45d9f3b);
+  n = n ^ (n >>> 16);
+  return n >>> 0;
+}
+
+/** True with probability `pctChance` (0-100), independently per distinct seed. */
+export function rollChance(pctChance, ...seedParts) {
+  return mixInt(combineSeeds(...seedParts)) % 100 < pctChance;
+}
+
 /** Deterministic pick from a plain array. Returns null for empty pools. */
 export function pickFrom(pool, ...seedParts) {
   if (!Array.isArray(pool) || pool.length === 0) return null;
@@ -120,10 +144,10 @@ export function darkHumorOK() {
 export function kickerFor(kind, ...seedParts) {
   const level = humorLevel();
   if (level === 'chill') return null;
-  const seed = combineSeeds(kind, ...seedParts);
   const chance = level === 'unhinged' ? 45 : 30;
-  if (seed % 100 >= chance) return null;
-  const useDark = darkHumorOK() && (seed % 7) < 3;
+  if (!rollChance(chance, kind, ...seedParts)) return null;
+  const seed = combineSeeds(kind, ...seedParts);
+  const useDark = darkHumorOK() && rollChance(43, kind, ...seedParts, 'dark-roll');
   const pool = kind === 'pet'
     ? (useDark ? PET_KICKERS_DARK : PET_KICKERS_PLAYFUL)
     : (useDark ? KICKERS_DARK : KICKERS_PLAYFUL);
@@ -137,7 +161,30 @@ export function kickerFor(kind, ...seedParts) {
  */
 export function maybeRareLine(...seedParts) {
   if (humorLevel() === 'chill') return null;
+  if (!rollChance(2, accountSalt(), todayLocal(), ...seedParts)) return null;
   const seed = combineSeeds(accountSalt(), todayLocal(), ...seedParts);
-  if (seed % 50 !== 0) return null;
   return pickFrom(RARE_LINES, seed, 'rare');
+}
+
+// ── Tough-love lines ─────────────────────────────────────────────────────────
+// A blunter, critical counterweight to the app's default warm/affirming
+// voice — NOT a joke (shows at every humor level, including 'chill'), just
+// the other half of an honest read. Suppressed on low/tense mood days, same
+// as dark humor, so it doesn't pile on someone having a hard day.
+
+export function toughLineOK() {
+  const mood = window.AppState?.gameData?.mood?.today;
+  return mood !== 'low' && mood !== 'tense';
+}
+
+/**
+ * Maybe returns a tough-love line (~25% of the time, independent of the
+ * joke system). Pass `force: true` (the "Straight Talk" button) to guarantee
+ * one regardless of the roll — still suppressed on low/tense mood days,
+ * since forcing critique on a bad day isn't what that button is for.
+ */
+export function maybeToughLine(pool, force, ...seedParts) {
+  if (!toughLineOK()) return null;
+  if (!force && !rollChance(25, 'tough', ...seedParts)) return null;
+  return pickFrom(pool, ...seedParts, 'tough-pick');
 }

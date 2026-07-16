@@ -11,6 +11,32 @@
  * All metrics are capped at their respective ceilings (100, 97, 100) and
  * increase visibly as the user plays more games.
  */
+// ── Duo name pair concepts ────────────────────────────────────────────────────
+// Iconic two-halves-of-one-whole pairings for the Duo Generator. `energy: true`
+// marks concepts with a bright/quiet semantic so MBTI E/I can inform which
+// partner gets which half; everything else is a neutral pairing assigned by
+// a stable per-couple hash tiebreak in generateDuoName().
+const PAIR_CONCEPTS = [
+  { a: 'Sun', b: 'Moon', energy: true },
+  { a: 'Fire', b: 'Ice', energy: true },
+  { a: 'Thunder', b: 'Lightning', energy: true },
+  { a: 'Day', b: 'Night', energy: true },
+  { a: 'Spark', b: 'Calm', energy: true },
+  { a: 'Storm', b: 'Stillness', energy: true },
+  { a: 'Dawn', b: 'Dusk', energy: true },
+  { a: 'Salt', b: 'Pepper' },
+  { a: 'Peanut Butter', b: 'Jelly' },
+  { a: 'Bread', b: 'Butter' },
+  { a: 'Milk', b: 'Cookies' },
+  { a: 'Coffee', b: 'Cream' },
+  { a: 'Ketchup', b: 'Mustard' },
+  { a: 'Yin', b: 'Yang' },
+  { a: 'North', b: 'South' },
+  { a: 'Needle', b: 'Thread' },
+  { a: 'Rhythm', b: 'Blues' },
+  { a: 'Odds', b: 'Ends' },
+];
+
 export const engine = {
   computeDeterministicSeed(uName, loc, timestamp) {
     const seedPayload = `${uName.trim().toLowerCase()}-${loc.trim().toLowerCase()}-${timestamp}`;
@@ -82,50 +108,50 @@ export const engine = {
     };
   },
 
-  generateDuoName(uName, pName, rollIndex) {
-    const a = uName.trim();
-    const b = pName.trim();
-    if (!a || !b) return 'DREAMTEAM';
+  /**
+   * Duo name — a thematic pair concept (Sun & Moon, Salt & Pepper, ...)
+   * instead of mashing letters from both names into a fake portmanteau.
+   * `energy: true` concepts have a bright/quiet semantic (one half reads as
+   * outward, one as calm) and get assigned by MBTI E/I when both profiles
+   * have one; everything else falls back to a stable per-couple hash
+   * tiebreak so the assignment doesn't flip on every reroll of the SAME
+   * concept. Returns a display object, not a mashed string.
+   */
+  generateDuoName(uName, pName, rollIndex, userProfile, partnerProfile) {
+    const a = (uName || '').trim() || 'You';
+    const b = (pName || '').trim() || 'Partner';
+    const uFirst = a.split(' ')[0];
+    const pFirst = b.split(' ')[0];
 
-    const firstNames = [a.split(' ')[0], b.split(' ')[0]];
-    const u = firstNames[0];
-    const p = firstNames[1];
+    const idx = Math.abs(rollIndex || 0) % PAIR_CONCEPTS.length;
+    const concept = PAIR_CONCEPTS[idx];
 
-    const candidates = [];
+    const uMbti = userProfile?.mbti;
+    const pMbti = partnerProfile?.mbti;
+    let userHalf = concept.a;
+    let partnerHalf = concept.b;
 
-    // Strategy 1: First half of A + second half of B
-    candidates.push(u.slice(0, Math.ceil(u.length / 2)) + p.slice(Math.floor(p.length / 2)));
-
-    // Strategy 2: First half of B + second half of A
-    candidates.push(p.slice(0, Math.ceil(p.length / 2)) + u.slice(Math.floor(u.length / 2)));
-
-    // Strategy 3: First 3 letters of A + last 3 letters of B (if long enough)
-    if (u.length >= 3 && p.length >= 3) {
-      candidates.push(u.slice(0, 3) + p.slice(-3));
+    if (concept.energy && uMbti && pMbti && uMbti[0] !== pMbti[0]) {
+      // Different energy types on an energy-flavored concept: extrovert
+      // gets the bright/outward half, introvert gets the calm/quiet half.
+      const userIsExtrovert = uMbti[0] === 'E';
+      userHalf = userIsExtrovert ? concept.a : concept.b;
+      partnerHalf = userIsExtrovert ? concept.b : concept.a;
+    } else {
+      // Neutral concept, or both share an energy type — stable per-couple
+      // tiebreak (same names + same concept always assigns the same way).
+      let hash = 5381;
+      const key = `${a}|${b}|${concept.a}`.toLowerCase();
+      for (let i = 0; i < key.length; i++) hash = ((hash << 5) + hash) + key.charCodeAt(i);
+      if (Math.abs(hash) % 2 === 1) { userHalf = concept.b; partnerHalf = concept.a; }
     }
 
-    // Strategy 4: First name + last 2 of partner's last name (or whole short name)
-    const bLast = b.includes(' ') ? b.split(' ').pop() : b;
-    candidates.push(u.slice(0, Math.ceil(u.length / 2)) + bLast.slice(-Math.min(3, bLast.length)));
-
-    // Strategy 5: Reversed first halves
-    candidates.push(p.slice(0, Math.ceil(p.length / 2)) + u.slice(0, Math.ceil(u.length / 2)));
-
-    // Strategy 6: Alternating letters
-    let alt = '';
-    for (let i = 0; i < Math.max(u.length, p.length); i++) {
-      if (i < u.length) alt += u[i];
-      if (i < p.length) alt += p[i];
-    }
-    candidates.push(alt.slice(0, 7));
-
-    const vowels = /[aeiou]/i;
-    const valid = candidates.filter(c => c.length >= 3 && vowels.test(c));
-    const roll = (rollIndex || 0) % Math.max(valid.length, 1);
-    const sorted = valid.sort((x, y) => y.length - x.length);
-    const best = sorted[roll] || candidates[0];
-
-    return best.toUpperCase();
+    return {
+      label: `${concept.a} & ${concept.b}`,
+      userHalf,
+      partnerHalf,
+      line: `${uFirst} is the ${userHalf} to ${pFirst}'s ${partnerHalf}.`
+    };
   },
 
   generateSoloVibeName(uName, userProfile, rollIndex) {

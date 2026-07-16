@@ -20,7 +20,8 @@ import {
   COMBO_INSIGHTS, ATTACHMENT_PAIRINGS, CONFLICT_PAIRINGS, CONFLICT_SOLO
 } from './content-bank.js';
 import { engine } from './engine.js';
-import { accountSalt, pickVariant, kickerFor, maybeRareLine } from './composer.js';
+import { accountSalt, pickVariant, kickerFor, maybeRareLine, maybeToughLine } from './composer.js';
+import { TOUGH_LOVE_LINES } from './jokes.js';
 import { todayLocal } from './state.js';
 
 export function getTimePeriod(hour) {
@@ -292,7 +293,7 @@ export const insights = {
   getDayTheme,
   getMbtiPairing,
 
-  generateDayAtAGlance(profiles, gameData, date, fortuneOffset) {
+  generateDayAtAGlance(profiles, gameData, date, fortuneOffset, opts) {
     const hour = date.getHours();
     const period = getTimePeriod(hour);
     const dayIndex = date.getDay();
@@ -449,6 +450,13 @@ export const insights = {
       if (tip) composed += ` Try this: ${tip}`;
     }
 
+    // Tough-love counterweight: a blunter, critical line — independent of
+    // the joke system, shows at every humor level. "Straight Talk" (opts
+    // .forceTough) guarantees one on demand instead of leaving it to the
+    // ~25% roll.
+    const tough = maybeToughLine(TOUGH_LOVE_LINES, opts?.forceTough, seed, baseKey, fortuneOffset || 0, 'glance');
+    if (tough) composed += ` ${tough}`;
+
     // Humor seasoning: some reads carry a joke kicker (level-gated, see
     // composer.js), and ~1-in-50 days a rare collectible line shows up.
     const kicker = kickerFor('general', seed, baseKey, fortuneOffset || 0, 'glance');
@@ -540,7 +548,7 @@ export const insights = {
     return { userDos, userDonts, partnerDos, partnerDonts };
   },
 
-  generateBlueprint(profiles, gameData, blueprintOffset) {
+  generateBlueprint(profiles, gameData, blueprintOffset, opts) {
     const user = profiles.user || {};
     const solo = !profiles.partner;
     const gd = gameData || {};
@@ -564,13 +572,16 @@ export const insights = {
       if (mbtiFlavor) blueprint += ` ${mbtiFlavor}`;
     }
 
+    const tough = maybeToughLine(TOUGH_LOVE_LINES, opts?.forceTough, seed, offset, 'blueprint');
+    if (tough) blueprint += ` ${tough}`;
+
     const kicker = kickerFor('general', seed, offset, 'blueprint');
     if (kicker) blueprint += ` ${kicker}`;
 
     return fillTemplate(blueprint, templateCtx(profiles, gd));
   },
 
-  generateDeepInsight(type, profiles, gameData, date, insightOffset) {
+  generateDeepInsight(type, profiles, gameData, date, insightOffset, opts) {
     const user = profiles.user || {};
     const solo = !profiles.partner;
     const period = getTimePeriod(date.getHours());
@@ -676,6 +687,12 @@ export const insights = {
       }
       default: return { title: '', headline: '', body: '', pool: [] };
     }
+
+    // Tough-love counterweight, same as the glance/blueprint — a blunter
+    // critical line alongside the drawer's normally-affirming read. Tagged
+    // per drawer type so groove/journey/decoder/vibe don't echo each other.
+    const tough = maybeToughLine(TOUGH_LOVE_LINES, opts?.forceTough, seed, offset, type, 'deep');
+    if (tough) result.body += ` ${tough}`;
 
     const ctx = templateCtx(profiles, gd);
     return {

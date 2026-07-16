@@ -15,7 +15,7 @@
 import './state.js';
 import { switchView, renderActiveStep, selectChoice, advanceStepDirect, startSoloMode, selectCardValue, registerFieldInput, validateStepAdvance, toggleMbtiView, selectDirectGridMbti, selectMbtiToggle, goBackStep,
          toggleSaveCodeEntry, formatSaveCodeInput, submitSaveCode } from './profile-builder.js';
-import { hydrateDashboardViews, refreshDayAtAGlance, refreshSpotlight, refreshBlueprint, refreshSaveCodeDisplay, copySaveCode } from './dashboard.js';
+import { hydrateDashboardViews, refreshDayAtAGlance, refreshSpotlight, refreshBlueprint, refreshSaveCodeDisplay, copySaveCode, forceToughGlance, forceToughBlueprint } from './dashboard.js';
 import { openDrawer, closeDrawer, executeScenarioSimulation } from './drawers.js';
 import { toggleDeveloperPanel, devJumpStep, devForceDashboard, syncDevInputs, clearProfileCache,
          devLogin, devLogout, devForceSolo, devForcePartner,
@@ -182,6 +182,8 @@ window.executeScenarioSimulation = executeScenarioSimulation;
 window.refreshDayAtAGlance = refreshDayAtAGlance;
 window.refreshSpotlight = refreshSpotlight;
 window.refreshBlueprint = refreshBlueprint;
+window.forceToughGlance = forceToughGlance;
+window.forceToughBlueprint = forceToughBlueprint;
 window.refreshPetAffirmation = refreshPetAffirmation;
 window.answerPetQuestion = answerPetQuestion;
 window.refreshSaveCodeDisplay = refreshSaveCodeDisplay;

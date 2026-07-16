@@ -171,7 +171,8 @@
                 <div class="card-body" id="daily-text" style="margin-bottom: 12px;">
                     Today offers a fresh canvas to align your strengths. Remember that clear communication isn't about avoiding differences, but discovering how beautifully your individual styles balance each other out.
                 </div>
-                <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
+                <div style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
+                    <button class="btn-icon" onclick="forceToughGlance()" title="Force a blunt, critical read instead of the usual affirming one">🎯 Straight Talk</button>
                     <button class="btn-icon" onclick="refreshDayAtAGlance()">↻ New Insight</button>
                 </div>
 
@@ -208,7 +209,10 @@
                 <div style="border-top: 1px solid var(--border-color); padding-top: 10px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
                         <div style="font-size: 0.7rem; font-weight: 700; color: var(--success-color); text-transform: uppercase;" id="blueprint-label">🧬 Your Blueprint</div>
-                        <button class="btn-icon" onclick="refreshBlueprint()">↻ New Read</button>
+                        <div style="display:flex; gap:6px;">
+                            <button class="btn-icon" onclick="forceToughBlueprint()" title="Force a blunt, critical read">🎯</button>
+                            <button class="btn-icon" onclick="refreshBlueprint()">↻ New Read</button>
+                        </div>
                     </div>
                     <div class="card-body" id="synergy-card-blueprint" style="font-size: 0.75rem; line-height: 1.5; color: var(--text-secondary); background: var(--bg-dark); padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
                         Your profile is loading — this space fills with a read built from your actual traits.
@@ -250,7 +254,7 @@
             <div id="sandbox-section">
                 <div class="card interactive-card" onclick="openDrawer('duo')">
                     <div class="card-title">💫 The Duo Generator</div>
-                    <div class="card-body">Algorithmically blending your names into a fun, celebrity-style ship name.</div>
+                    <div class="card-body">Finds the iconic pairing that matches your dynamic — Sun & Moon, Salt & Pepper, and more.</div>
                 </div>
                 <div class="card interactive-card" onclick="openDrawer('bingo')">
                     <div class="card-title">🎲 Personality Sparks</div>

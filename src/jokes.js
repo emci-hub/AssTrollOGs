@@ -85,6 +85,31 @@ export const PET_KICKERS_DARK = [
   "{pet} does not fear the end. {pet} fears you skipping a day. Different thing.",
 ];
 
+// ── Tough-love lines ──────────────────────────────────────────────────────────
+// A blunter, critical counterweight to the app's default warm voice — real
+// pushback, not a joke. Shows at every humor level (composer.maybeToughLine),
+// suppressed on low/tense mood days. General pool, not trait-keyed, same
+// scoping as the general kicker banks above.
+
+export const TOUGH_LOVE_LINES = [
+  "Real talk: you already know the answer here. You're just shopping for a different one.",
+  "You've told this same story about yourself for a while now. Check if it's still true.",
+  "Comfortable isn't the same as right. Don't confuse the two today.",
+  "You're allowed to be honest about the thing you keep being diplomatic about.",
+  "If a friend described your week back to you, would you be impressed or concerned?",
+  "You keep calling it 'complicated.' Sometimes that's just avoidance wearing a nicer outfit.",
+  "The thing you're tolerating isn't neutral. It's costing you something. Name the cost.",
+  "You don't need more information. You need to actually decide.",
+  "Nobody's going to rescue this plan for you. That part's still yours.",
+  "You're not as stuck as you're acting. Stuck is a choice with good PR.",
+  "Stop rehearsing the apology and just have the conversation.",
+  "The excuse was good the first three times. This is not the first three times.",
+  "You keep waiting to feel ready. Ready isn't coming — start anyway.",
+  "That boundary you keep almost setting? Set it. The world won't end.",
+  "You're being patient with everyone except the person who actually needs it: you.",
+  "This isn't a mystery. You're just not liking the obvious answer.",
+];
+
 // ── Rare collectible lines (~1-in-50 days, composer.maybeRareLine) ───────────
 
 export const RARE_LINES = [
