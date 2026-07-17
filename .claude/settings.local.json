@@ -45,7 +45,9 @@
       "Bash(npm root *)",
       "Bash(NODE_PATH=$\\(npm root -g\\) node verify_messages.js)",
       "Bash(pkill -f \"vite --port 5184\")",
-      "Bash(git clean *)"
+      "Bash(git clean *)",
+      "Bash(supabase --version)",
+      "Bash(npx supabase *)"
     ]
   }
 }
