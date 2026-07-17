@@ -150,6 +150,12 @@
 
         <!-- 2. Scrollable Dashboard Viewport -->
         <div id="daily-screen" class="screen hidden">
+            <!-- Plain link to a separate static info page (public/empal.html)
+                 — not part of the app, just a pointer. Deliberately a real
+                 <a href>, not a JS-driven card, so it can't affect anything
+                 else in here and stays easy to ignore. -->
+            <a href="/empal.html" class="empal-top-link">🎮 Palworld server →</a>
+
             <!-- Top Spotlight Card: Day at a Glance -->
             <header>
                 <div class="subtitle">Daily Overview</div>
@@ -348,15 +354,6 @@
             </div>
 
             <button class="btn btn-outline" onclick="clearProfileCache()" style="margin-bottom: 20px;">Reset Profile Cache</button>
-
-            <!-- Em-Pal: unrelated side project, kept visually separate on purpose -->
-            <div style="border-top:1px dashed var(--border-color); margin: 8px 0 18px; padding-top:18px;">
-                <div class="section-title">🎮 Elsewhere</div>
-                <div class="card interactive-card" onclick="openDrawer('empal')">
-                    <div class="card-title">Em-Pal — Palworld Server</div>
-                    <div class="card-body">Patch notes and connect info for the Palworld server on the side.</div>
-                </div>
-            </div>
         </div>
 
         <!-- Slide-Up Overlay Drawer -->
