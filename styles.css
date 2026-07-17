@@ -696,6 +696,26 @@ h1 {
   margin-bottom: 4px;
 }
 
+/* ─── Em-Pal top link ─────────────────────────────────────────────────────── */
+/* A plain <a href> to the separate public/empal.html static page — not a
+   card/button, and not JS-driven, so it can't affect anything in the app.
+   Deliberately quiet so anyone uninterested in the Palworld side project
+   can ignore it completely. */
+
+.empal-top-link {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-align: right;
+  text-decoration: none;
+  margin-bottom: 14px;
+  transition: color 0.15s;
+}
+
+.empal-top-link:hover {
+  color: var(--accent-primary);
+}
+
 /* ─── Save Code ───────────────────────────────────────────────────────────── */
 
 .save-code-card {
