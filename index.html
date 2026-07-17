@@ -60,6 +60,18 @@
                     </div>
                 </div>
 
+                <!-- Em-Pal Server -- edits the shared config public/empal.html
+                     reads. Unrelated to the personality app; parked here since
+                     this panel is already the one password-gated space. Kept
+                     first since it's the section used most. -->
+                <div class="dev-title">Em-Pal Server</div>
+                <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
+                    <input type="text" id="dev-empal-address" class="input-field" placeholder="Server address, e.g. 1.2.3.4:8211" style="padding:6px; font-size:0.75rem;">
+                    <input type="text" id="dev-empal-password" class="input-field" placeholder="Server password" style="padding:6px; font-size:0.75rem;">
+                    <button class="dev-btn-small" style="width:100%;" onclick="devSaveEmPalConfig()">Save to Em-Pal Page</button>
+                    <div id="dev-empal-status" style="font-size:0.65rem; font-family:monospace; color:var(--text-muted); min-height:1.2em;"></div>
+                </div>
+
                 <!-- Navigation -->
                 <div class="dev-title">Navigation</div>
                 <div class="dev-grid-btn">
@@ -131,17 +143,6 @@
                     </div>
                     <div id="dev-savecode-status" style="font-size:0.65rem; font-family:monospace; color:var(--text-muted); min-height:1.2em;"></div>
                 </div>
-
-                <!-- Em-Pal Server -- edits the shared config public/empal.html
-                     reads. Unrelated to the personality app; parked here since
-                     this panel is already the one password-gated space. -->
-                <div class="dev-title">Em-Pal Server</div>
-                <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:4px;">
-                    <input type="text" id="dev-empal-address" class="input-field" placeholder="Server address, e.g. 1.2.3.4:8211" style="padding:6px; font-size:0.75rem;">
-                    <input type="text" id="dev-empal-password" class="input-field" placeholder="Server password" style="padding:6px; font-size:0.75rem;">
-                    <button class="dev-btn-small" style="width:100%;" onclick="devSaveEmPalConfig()">Save to Em-Pal Page</button>
-                    <div id="dev-empal-status" style="font-size:0.65rem; font-family:monospace; color:var(--text-muted); min-height:1.2em;"></div>
-                </div>
             </div>
         </div>
 
@@ -150,6 +151,16 @@
             <span>Getting Started</span>
             <span class="vibe-id-tag">VIBE ID: <strong>INIT</strong></span>
         </div>
+
+        <!-- Plain link to a separate static info page (public/empal.html) —
+             not part of the app, just a pointer. Deliberately a real
+             <a href>, not JS-driven, so it can't affect anything else and
+             stays easy to ignore. Lives outside both screens (and outside
+             #dynamic-header, whose innerHTML gets fully replaced by JS on
+             every screen change) so it survives every render and is always
+             visible during onboarding and on the dashboard. A second copy
+             lives in the drawer chrome below for when a drawer is open. -->
+        <a href="/empal.html" class="empal-top-link empal-header-link">🎮 Palworld server →</a>
 
         <!-- 1. Profile Onboarding Viewport -->
         <div id="profile-screen" class="screen">
@@ -161,11 +172,6 @@
 
         <!-- 2. Scrollable Dashboard Viewport -->
         <div id="daily-screen" class="screen hidden">
-            <!-- Plain link to a separate static info page (public/empal.html)
-                 — not part of the app, just a pointer. Deliberately a real
-                 <a href>, not a JS-driven card, so it can't affect anything
-                 else in here and stays easy to ignore. -->
-            <a href="/empal.html" class="empal-top-link">🎮 Palworld server →</a>
 
             <!-- Top Spotlight Card: Day at a Glance -->
             <header>
@@ -371,6 +377,11 @@
         <div id="drawer-backdrop" class="drawer-backdrop" onclick="closeDrawer()"></div>
         <div id="detail-drawer" class="detail-drawer">
             <div class="drawer-handle"></div>
+            <!-- Same quiet static link as the header copy above — this is the
+                 one bit of drawer markup shared by every drawer type
+                 (openDrawer() only ever swaps #drawer-dynamic-content), so a
+                 single copy here covers every game/insight/settings drawer. -->
+            <a href="/empal.html" class="empal-top-link">🎮 Palworld server →</a>
             <div class="drawer-content" id="drawer-dynamic-content"></div>
             <button class="btn btn-outline" onclick="closeDrawer()">Close</button>
         </div>

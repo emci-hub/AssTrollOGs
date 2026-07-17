@@ -687,20 +687,25 @@ h1 {
   border-radius: 6px;
   padding: 10px;
   font-family: monospace;
-  font-size: 0.6rem;
+  font-size: 0.68rem;
   color: var(--text-secondary);
   line-height: 1.6;
   max-height: 180px;
   overflow-y: auto;
+  overflow-x: auto;
   white-space: pre;
   margin-bottom: 4px;
 }
 
-/* ─── Em-Pal top link ─────────────────────────────────────────────────────── */
+/* ─── Em-Pal link ──────────────────────────────────────────────────────────── */
 /* A plain <a href> to the separate public/empal.html static page — not a
    card/button, and not JS-driven, so it can't affect anything in the app.
    Deliberately quiet so anyone uninterested in the Palworld side project
-   can ignore it completely. */
+   can ignore it completely. Two copies in the DOM (index.html): one sits
+   between the sticky header and the screens (visible during onboarding and
+   on the dashboard), one sits in the drawer's shared handle chrome (visible
+   whenever any drawer/game is open) — together that covers every screen in
+   the app. */
 
 .empal-top-link {
   display: block;
@@ -714,6 +719,14 @@ h1 {
 
 .empal-top-link:hover {
   color: var(--accent-primary);
+}
+
+/* The header-adjacent copy sits outside .screen, which normally supplies
+   the 20px side padding, so it needs its own to line up with everything
+   else. */
+.empal-header-link {
+  padding: 0 20px;
+  box-sizing: border-box;
 }
 
 /* ─── Save Code ───────────────────────────────────────────────────────────── */
