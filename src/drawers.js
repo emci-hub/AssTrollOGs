@@ -13,6 +13,7 @@ import { renderGrowthDrawer } from './growth.js';
 import { cloudSave } from './supabase.js';
 import { buildStoragePayload, getActiveSaveCode } from './state.js';
 import { HUMOR_LEVELS, humorLevel, setHumorLevel } from './composer.js';
+import { renderEmPalDrawer } from './empal.js';
 
 // ── Chronicles: dark path ────────────────────────────────────────────────────
 // At the 'unhinged' humor level, ~30% of runs resolve as a comedic disaster
@@ -263,6 +264,10 @@ export function openDrawer(type) {
     }
     case 'pet': {
       payloadHtml = renderPetDrawer();
+      break;
+    }
+    case 'empal': {
+      payloadHtml = renderEmPalDrawer();
       break;
     }
     default: {
