@@ -131,6 +131,17 @@
                     </div>
                     <div id="dev-savecode-status" style="font-size:0.65rem; font-family:monospace; color:var(--text-muted); min-height:1.2em;"></div>
                 </div>
+
+                <!-- Em-Pal Server -- edits the shared config public/empal.html
+                     reads. Unrelated to the personality app; parked here since
+                     this panel is already the one password-gated space. -->
+                <div class="dev-title">Em-Pal Server</div>
+                <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:4px;">
+                    <input type="text" id="dev-empal-address" class="input-field" placeholder="Server address, e.g. 1.2.3.4:8211" style="padding:6px; font-size:0.75rem;">
+                    <input type="text" id="dev-empal-password" class="input-field" placeholder="Server password" style="padding:6px; font-size:0.75rem;">
+                    <button class="dev-btn-small" style="width:100%;" onclick="devSaveEmPalConfig()">Save to Em-Pal Page</button>
+                    <div id="dev-empal-status" style="font-size:0.65rem; font-family:monospace; color:var(--text-muted); min-height:1.2em;"></div>
+                </div>
             </div>
         </div>
 

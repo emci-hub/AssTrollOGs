@@ -9,7 +9,7 @@ import { switchView, renderActiveStep } from './profile-builder.js';
 import { hydrateDashboardViews } from './dashboard.js';
 import { defaultGameData, saveGameData, updateStreak, migrateGameData, MILESTONE_LABELS, todayLocal } from './state.js';
 import { initPet, awardPetGrowth } from './pet.js';
-import { cloudSave } from './supabase.js';
+import { cloudSave, getEmPalConfig, saveEmPalConfig } from './supabase.js';
 
 const DEV_PASSWORD = 'Calgary1!';
 let _devUnlocked = sessionStorage.getItem('dev_unlocked') === '1';
@@ -36,6 +36,7 @@ function _renderPanelView() {
     loginEl.style.display = 'none';
     toolsEl.style.display = 'block';
     devRefreshInspector();
+    _loadEmPalFields();
   } else {
     loginEl.style.display = 'flex';
     toolsEl.style.display = 'none';
@@ -368,6 +369,46 @@ export function devForceCloudSync() {
     if (el) { el.textContent = `Synced${code ? ` under ${code}` : ''}.`; el.style.color = 'var(--success-color)'; }
   } catch (e) {
     if (el) { el.textContent = `Error: ${e.message}`; el.style.color = '#f87171'; }
+  }
+}
+
+// ─── Em-Pal Server ────────────────────────────────────────────────────────────
+// Unrelated to the personality app — edits the shared config that the
+// separate public/empal.html static page reads. Parked in this panel since
+// it's already the app's one password-gated space, not because it's
+// personality-app data.
+
+async function _loadEmPalFields() {
+  const addrEl = document.getElementById('dev-empal-address');
+  const pwEl = document.getElementById('dev-empal-password');
+  const statusEl = document.getElementById('dev-empal-status');
+  if (!addrEl || !pwEl) return;
+  const config = await getEmPalConfig();
+  if (config) {
+    addrEl.value = config.server_address || '';
+    pwEl.value = config.password || '';
+  } else if (statusEl) {
+    statusEl.textContent = 'Could not load current values (check connection).';
+    statusEl.style.color = '#f87171';
+  }
+}
+
+export async function devSaveEmPalConfig() {
+  const addrEl = document.getElementById('dev-empal-address');
+  const pwEl = document.getElementById('dev-empal-password');
+  const statusEl = document.getElementById('dev-empal-status');
+  if (!addrEl || !pwEl) return;
+  const address = addrEl.value.trim();
+  const password = pwEl.value.trim();
+  if (!address || !password) {
+    if (statusEl) { statusEl.textContent = 'Both fields are required.'; statusEl.style.color = '#f87171'; }
+    return;
+  }
+  if (statusEl) { statusEl.textContent = 'Saving...'; statusEl.style.color = 'var(--text-muted)'; }
+  const { error } = await saveEmPalConfig(address, password);
+  if (statusEl) {
+    if (error) { statusEl.textContent = `Error: ${error}`; statusEl.style.color = '#f87171'; }
+    else { statusEl.textContent = 'Saved — live on the Em-Pal page now.'; statusEl.style.color = 'var(--success-color)'; }
   }
 }
 

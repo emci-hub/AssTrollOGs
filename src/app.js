@@ -21,7 +21,7 @@ import { toggleDeveloperPanel, devJumpStep, devForceDashboard, syncDevInputs, cl
          devLogin, devLogout, devForceSolo, devForcePartner,
          devSimulateDayAdvance, devAwardPetGrowthManual, devUnlockAllMilestones,
          devExportProfile, devImportProfile, devRefreshInspector,
-         devShowSaveCode, devForceCloudSync } from './dev-tools.js';
+         devShowSaveCode, devForceCloudSync, devSaveEmPalConfig } from './dev-tools.js';
 import { gameRegistry } from './games/index.js';
 import { initPet, renderPetSection, refreshPetAffirmation, answerPetQuestion } from './pet.js';
 import { updateStreak, migrateGameData, todayLocal, persistGameData } from './state.js';
@@ -198,6 +198,7 @@ window.formatSaveCodeInput = formatSaveCodeInput;
 window.submitSaveCode = submitSaveCode;
 window.devShowSaveCode = devShowSaveCode;
 window.devForceCloudSync = devForceCloudSync;
+window.devSaveEmPalConfig = devSaveEmPalConfig;
 window.migrateGameData = migrateGameData;
 window.updateStreak = updateStreak;
 

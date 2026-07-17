@@ -105,3 +105,34 @@ export async function cloudLoadByCode(code) {
     return null;
   }
 }
+
+// ─── Em-Pal server config ───────────────────────────────────────────────────
+// Unrelated to the personality data above — a single shared row backing the
+// dev panel's "Em-Pal Server" fields and the separate public/empal.html
+// static page's read-only display. See supabase/migrations/…create_em_pal_config.sql.
+
+export async function getEmPalConfig() {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.from('em_pal_config').select('server_address,password').eq('id', 1).maybeSingle();
+    if (error) { console.warn('[supabase] getEmPalConfig failed:', error.code || '', error.message); return null; }
+    return data;
+  } catch (e) {
+    console.warn('[supabase] getEmPalConfig failed (network):', e?.message || e);
+    return null;
+  }
+}
+
+export async function saveEmPalConfig(serverAddress, password) {
+  if (!supabase) return { error: 'Cloud sync disabled — check .env' };
+  try {
+    const { error } = await supabase.from('em_pal_config')
+      .update({ server_address: serverAddress, password, updated_at: new Date().toISOString() })
+      .eq('id', 1);
+    if (error) console.warn('[supabase] saveEmPalConfig failed:', error.code || '', error.message);
+    return { error: error?.message || null };
+  } catch (e) {
+    console.warn('[supabase] saveEmPalConfig failed (network):', e?.message || e);
+    return { error: e?.message || 'network error' };
+  }
+}

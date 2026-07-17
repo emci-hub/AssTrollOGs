@@ -160,19 +160,13 @@
     <h2>Connect</h2>
 
     <div class="row">
-      <span class="value" id="ip">136.118.89.15</span>
-      <button onclick="copyField('ip', this)">Copy</button>
+      <span class="value" id="address">loading…</span>
+      <button onclick="copyField('address', this)">Copy</button>
     </div>
-    <div class="row-label">Server IP</div>
+    <div class="row-label">Server Address (IP:Port)</div>
 
     <div class="row">
-      <span class="value" id="port">8211</span>
-      <button onclick="copyField('port', this)">Copy</button>
-    </div>
-    <div class="row-label">Port</div>
-
-    <div class="row">
-      <span class="value" id="password" data-real="ato">••••••</span>
+      <span class="value" id="password" data-real="">••••••</span>
       <button id="password-btn" onclick="revealPassword()">Reveal</button>
     </div>
     <div class="row-label">Password</div>
@@ -181,25 +175,49 @@
   <a class="back" href="/">← Back to AssTrollOGs</a>
 </div>
 
-<script>
-  // Plain inline JS, self-contained — nothing here touches or imports the
-  // AssTrollOGs app in any way.
-  function revealPassword() {
-    var el = document.getElementById('password');
-    var btn = document.getElementById('password-btn');
+<script type="module">
+  // Reads the current server info from the shared Supabase table the app's
+  // dev panel writes to (src/dev-tools.js "Em-Pal Server" fields) — this
+  // page never writes anything, just displays. Falls back to the last-known
+  // values below if the fetch ever fails, so the page never breaks.
+  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+  const FALLBACK = { address: '136.118.89.15:8211', password: 'ato' };
+  const SUPABASE_URL = 'https://plsugxnukitbuxbtfgow.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_NTUuo10SQYyyKVT3g52hTg_g3uDmKyS';
+
+  async function loadConfig() {
+    let config = FALLBACK;
+    try {
+      const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+      const { data, error } = await supabase.from('em_pal_config').select('server_address,password').eq('id', 1).single();
+      if (!error && data && data.server_address) {
+        config = { address: data.server_address, password: data.password };
+      }
+    } catch (e) {
+      // Network/CDN hiccup — silently keep the fallback values.
+    }
+    document.getElementById('address').textContent = config.address;
+    document.getElementById('password').setAttribute('data-real', config.password);
+  }
+  loadConfig();
+
+  window.revealPassword = function () {
+    const el = document.getElementById('password');
+    const btn = document.getElementById('password-btn');
     el.textContent = el.getAttribute('data-real');
     btn.textContent = 'Copy';
     btn.setAttribute('onclick', "copyField('password', this)");
-  }
+  };
 
-  function copyField(id, btn) {
-    var el = document.getElementById(id);
+  window.copyField = function (id, btn) {
+    const el = document.getElementById(id);
     navigator.clipboard.writeText(el.textContent).then(function () {
-      var original = btn.textContent;
+      const original = btn.textContent;
       btn.textContent = 'Copied!';
       setTimeout(function () { btn.textContent = original; }, 1500);
     });
-  }
+  };
 </script>
 </body>
 </html>
