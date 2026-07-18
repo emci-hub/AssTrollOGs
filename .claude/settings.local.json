@@ -47,7 +47,11 @@
       "Bash(pkill -f \"vite --port 5184\")",
       "Bash(git clean *)",
       "Bash(supabase --version)",
-      "Bash(npx supabase *)"
+      "Bash(npx supabase *)",
+      "Bash(npx vite *)",
+      "Bash(curl -sS http://localhost:5183/empal.html -o /dev/null -w \"empal.html: %{http_code}\\\\n\")",
+      "Bash(curl -sS http://localhost:5183/empal-newbie-guide.html -o /dev/null -w \"guide: %{http_code}\\\\n\")",
+      "Bash(pkill -f \"vite --port 5183\")"
     ]
   }
 }

@@ -86,6 +86,22 @@
     text-decoration: none;
   }
   .back:hover { color: var(--accent); }
+  .guide-link {
+    display: block;
+    text-align: center;
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    padding: 12px 16px;
+    border-radius: 10px;
+    text-decoration: none;
+    margin-bottom: 14px;
+    transition: background 0.15s;
+  }
+  .guide-link:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 </style>
 </head>
 <body>
@@ -155,6 +171,8 @@
       <text x="340" y="1080" text-anchor="middle" style="font-family: sans-serif; font-size:11px;letter-spacing:2px;fill:#5A5A5E">© EM-PAL SERVER</text>
     </svg>
   </div>
+
+  <a class="guide-link" href="/empal-newbie-guide.html">📖 New here? Read the Newbie Guide →</a>
 
   <div class="card">
     <h2>Connect</h2>

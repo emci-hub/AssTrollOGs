@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Em-Pal — Newbie Guide</title>
+<meta name="robots" content="noindex">
+<!--
+  Plain static info page, same pattern as empal.html — NOT part of the
+  AssTrollOGs app/build, no JS modules, no app state. Linked from the
+  "New here?" button on empal.html.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  body {
+    margin: 0;
+    background: #171514;
+    min-height: 100vh;
+    padding: 32px 16px;
+    box-sizing: border-box;
+  }
+  .back {
+    display: block;
+    text-align: center;
+    max-width: 680px;
+    margin: 16px auto 0;
+    font-family: 'Work Sans', system-ui, sans-serif;
+    font-size: 0.8rem;
+    color: #9A958D;
+    text-decoration: none;
+  }
+  .back:hover { color: #E0895A; }
+</style>
+</head>
+<body>
+
+<!--
+  Em-Pal Newbie Guide — drop-in website component
+  =================================================
+  Matches the Em-Pal patch notes visual style (dark card, orange accent,
+  corner brackets). Self-contained: styles are scoped under .empal-guide,
+  so it won't collide with your site's existing CSS. No JS, no dependencies.
+  Google Fonts import is optional — safe to remove the <link> tag if unwanted.
+
+  Content note: leveling path is based on Palworld 1.0's actual progression
+  (level cap 80, 9 tower bosses, base-slot unlocks at base level 10/15) with
+  Em-Pal's server settings layered on top. Worth a quick recheck in-game if
+  Pocketpair patches tower levels or base-slot thresholds again.
+-->
+<section class="empal-guide">
+  <style>
+    .empal-guide {
+      --bg: #171514;
+      --card: #211f1e;
+      --card-border: #2c2a28;
+      --orange: #E0895A;
+      --blue: #6FA8D8;
+      --yellow: #D9C15C;
+      --text: #EDEAE5;
+      --text-dim: #9A958D;
+      --text-dimmer: #6E6A63;
+
+      font-family: 'Work Sans', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      border-radius: 14px;
+      padding: clamp(28px, 5vw, 44px);
+      max-width: 680px;
+      margin: 0 auto;
+      position: relative;
+    }
+    .empal-guide * { box-sizing: border-box; }
+
+    /* corner brackets */
+    .empal-guide .bracket {
+      position: absolute;
+      width: 22px; height: 22px;
+      border: 2px solid var(--orange);
+    }
+    .empal-guide .bracket.tl { top: 14px; left: 14px; border-right: none; border-bottom: none; }
+    .empal-guide .bracket.tr { top: 14px; right: 14px; border-left: none; border-bottom: none; }
+
+    .empal-guide header {
+      text-align: center;
+      padding: 10px 0 28px;
+    }
+    .empal-guide h1 {
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      font-weight: 700;
+      font-size: clamp(28px, 5vw, 36px);
+      letter-spacing: 0.12em;
+      color: var(--orange);
+      margin: 0 0 8px;
+    }
+    .empal-guide .subhead {
+      font-size: 11.5px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      font-weight: 500;
+    }
+
+    /* stage cards */
+    .empal-guide .stage-card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-left: 3px solid var(--orange);
+      border-radius: 8px;
+      padding: 16px 18px 6px;
+      margin-bottom: 14px;
+    }
+    .empal-guide .stage-card.c-blue { border-left-color: var(--blue); }
+    .empal-guide .stage-card.c-yellow { border-left-color: var(--yellow); }
+
+    .empal-guide .stage-title {
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      font-weight: 600;
+      font-size: 15.5px;
+      color: var(--text);
+      margin: 0 0 12px;
+    }
+    .empal-guide .stage-title .lvl { color: var(--orange); font-weight: 700; }
+    .empal-guide .stage-card.c-blue .stage-title .lvl { color: var(--blue); }
+    .empal-guide .stage-card.c-yellow .stage-title .lvl { color: var(--yellow); }
+
+    .empal-guide .meta-row {
+      display: grid;
+      grid-template-columns: 76px 1fr;
+      gap: 12px;
+      padding-bottom: 10px;
+      margin-bottom: 10px;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .empal-guide .meta-row:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+    }
+    .empal-guide .meta-label {
+      font-size: 10.5px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dimmer);
+      font-weight: 600;
+      padding-top: 1px;
+    }
+    .empal-guide .meta-value {
+      font-size: 13px;
+      color: var(--text-dim);
+      line-height: 1.5;
+    }
+    .empal-guide .meta-value b { color: var(--text); font-weight: 600; }
+
+    /* divider */
+    .empal-guide .divider {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 30px 0 24px;
+      position: relative;
+    }
+    .empal-guide .divider::before {
+      content: "";
+      position: absolute;
+      left: 0; right: 0; top: 50%;
+      height: 1px;
+      background: var(--card-border);
+    }
+    .empal-guide .divider span {
+      position: relative;
+      width: 6px; height: 6px;
+      background: var(--bg);
+      transform: rotate(45deg);
+      border: 1px solid var(--orange);
+    }
+
+    .empal-guide h2 {
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--orange);
+      font-weight: 600;
+      margin: 0 0 16px;
+    }
+    .empal-guide h2 .h2-sub {
+      display: block;
+      text-transform: none;
+      letter-spacing: 0;
+      font-family: 'Work Sans', sans-serif;
+      font-size: 12px;
+      color: var(--text-dimmer);
+      font-weight: 400;
+      margin-top: 4px;
+    }
+
+    /* at a glance grid */
+    .empal-guide .glance-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      column-gap: 24px;
+      row-gap: 10px;
+      margin-bottom: 4px;
+    }
+    .empal-guide .glance-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 13px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .empal-guide .glance-row .label { color: var(--text-dim); }
+    .empal-guide .glance-row .value { color: var(--text); font-weight: 600; font-family: 'Space Grotesk', sans-serif; }
+    @media (max-width: 480px) {
+      .empal-guide .glance-grid { grid-template-columns: 1fr; }
+    }
+
+    /* do/dont list */
+    .empal-guide .change-item {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .empal-guide .change-item .dot {
+      width: 8px; height: 8px;
+      transform: rotate(45deg);
+      margin-top: 5px;
+      flex-shrink: 0;
+    }
+    .empal-guide .change-item.do .dot { background: var(--blue); }
+    .empal-guide .change-item.dont .dot { background: var(--orange); }
+    .empal-guide .change-item .change-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin: 0 0 3px;
+      color: var(--text);
+    }
+    .empal-guide .change-item.do .change-title { color: var(--blue); }
+    .empal-guide .change-item.dont .change-title { color: var(--orange); }
+    .empal-guide .change-item p {
+      margin: 0;
+      font-size: 12.5px;
+      color: var(--text-dim);
+      line-height: 1.5;
+    }
+
+    .empal-guide footer {
+      margin-top: 30px;
+      padding-top: 16px;
+      border-top: 1px solid var(--card-border);
+      font-size: 11.5px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-dimmer);
+      display: flex;
+      justify-content: space-between;
+    }
+  </style>
+
+  <span class="bracket tl"></span>
+  <span class="bracket tr"></span>
+
+  <header>
+    <h1>EM-PAL</h1>
+    <div class="subhead">Newbie Guide — Leveling Path</div>
+  </header>
+
+  <div class="stage-card">
+    <p class="stage-title"><span class="lvl">Lv 1–10</span> — First Steps</p>
+    <div class="meta-row"><span class="meta-label">Build</span><span class="meta-value"><b>Primitive Workbench</b> first (2 Wood) → <b>Stone Pickaxe & Axe</b> → <b>Campfire</b>. Drop your Palbox on flat ground near trees, stone, ore, and water — it can't be moved later.</span></div>
+    <div class="meta-row"><span class="meta-label">Catch</span><span class="meta-value">Grab 5+ Paldium Fragments (teal ore near rivers) for your first Pal Sphere. Catch <b>12 of each species</b> you meet — Lamball, Cattiva, Chikipi, Foxparks — for a big new-Pal XP bonus.</span></div>
+    <div class="meta-row"><span class="meta-label">Stats</span><span class="meta-value">Put early points into <b>Stamina and Weight</b>, not Attack or Work Speed — mobility matters more than combat this early.</span></div>
+    <div class="meta-row"><span class="meta-label">Aim for</span><span class="meta-value">Tower 1 — <b>Zoe & Grizzbolt</b> (Lv 10, Electric). Bring Ground-type Pals like Rushoar or Gumoss.</span></div>
+  </div>
+
+  <div class="stage-card c-blue">
+    <p class="stage-title"><span class="lvl">Lv 10–20</span> — Automate</p>
+    <div class="meta-row"><span class="meta-label">Build</span><span class="meta-value"><b>Feed Box + Pal Beds</b> so your workers stay fed and happy, then <b>Logging Site + Stone Pit</b> to automate wood/stone, a <b>Ranch</b> for auto-farmed items, and a <b>Crusher</b> for easy Paldium Fragments.</span></div>
+    <div class="meta-row"><span class="meta-label">Unlock</span><span class="meta-value">Base level 10 opens your <b>2nd base slot</b> — good spot for a dedicated mining/ore base.</span></div>
+    <div class="meta-row"><span class="meta-label">Aim for</span><span class="meta-value">Tower 2 — <b>Lily & Lyleen</b> (Lv 20, Grass). Bring Fire-type Pals.</span></div>
+  </div>
+
+  <div class="stage-card c-yellow">
+    <p class="stage-title"><span class="lvl">Lv 20–40</span> — Gear Up</p>
+    <div class="meta-row"><span class="meta-label">Build</span><span class="meta-value">Push weapons from <b>Bow → Crossbow → firearms</b>, upgrade armor, and start unlocking electric-tier base structures.</span></div>
+    <div class="meta-row"><span class="meta-label">Unlock</span><span class="meta-value">Base level 15 opens your <b>3rd base slot</b>. Alpha bosses start dropping Ancient Civilization Parts — spend them on the <b>Grappling Gun</b> first, then Pal Accelerator, then the Egg Incubator upgrade.</span></div>
+    <div class="meta-row"><span class="meta-label">Aim for</span><span class="meta-value">Tower 3 — <b>Axel & Orserk</b> (Lv 30), then Tower 4 — <b>Marcus & Faleris</b> (Lv 40).</span></div>
+  </div>
+
+  <div class="stage-card">
+    <p class="stage-title"><span class="lvl">Lv 40–60</span> — Push Further</p>
+    <div class="meta-row"><span class="meta-label">Build</span><span class="meta-value">Advanced base structures, better saddles/mounts, and start breeding for stronger passive skills on your main team.</span></div>
+    <div class="meta-row"><span class="meta-label">Catch</span><span class="meta-value">This is where field/Alpha bosses become realistically catchable once you're geared and grouped up — no more solo walk-ups.</span></div>
+    <div class="meta-row"><span class="meta-label">Aim for</span><span class="meta-value">Tower 5 — <b>Victor & Shadowbeak</b> (Lv 50), Tower 6 — <b>Saya & Selyne</b> (Lv 55), Tower 7 — <b>Bjorn & Bastigor</b> (Lv 60).</span></div>
+  </div>
+
+  <div class="stage-card c-blue">
+    <p class="stage-title"><span class="lvl">Lv 60–80</span> — Endgame</p>
+    <div class="meta-row"><span class="meta-label">Build</span><span class="meta-value">Best-in-slot gear (Hexolite/V1-tier armor) and max out your breeding lines for the final push.</span></div>
+    <div class="meta-row"><span class="meta-label">Unlock</span><span class="meta-value">The <b>Sky Islands</b> (Sunreach) open up — level-80 territory, don't wander in early.</span></div>
+    <div class="meta-row"><span class="meta-label">Aim for</span><span class="meta-value">Tower 8 — <b>Auri & Shaolong</b> (Lv 68), then the World Tree finale — <b>Zenara & Astralym</b> (Lv 80, no elemental weakness — pure gear check). Hunt legendaries like Jetragon, Frostallion, and Necromus along the way.</span></div>
+  </div>
+
+  <div class="divider"><span></span></div>
+
+  <h2>At A Glance<span class="h2-sub">Em-Pal server settings vs. default</span></h2>
+  <div class="glance-grid">
+    <div class="glance-row"><span class="label">Work speed</span><span class="value">5x</span></div>
+    <div class="glance-row"><span class="label">Hunger drain</span><span class="value">Eased</span></div>
+    <div class="glance-row"><span class="label">Catch rate</span><span class="value">Fast</span></div>
+    <div class="glance-row"><span class="label">Weight rate</span><span class="value">Eased</span></div>
+    <div class="glance-row"><span class="label">Workers / base</span><span class="value">8 max</span></div>
+    <div class="glance-row"><span class="label">Bases total</span><span class="value">50 max</span></div>
+    <div class="glance-row"><span class="label">Dropped items</span><span class="value">700 max</span></div>
+    <div class="glance-row"><span class="label">Player cap</span><span class="value">16</span></div>
+  </div>
+
+  <div class="divider"><span></span></div>
+
+  <h2>Do / Don't</h2>
+
+  <div class="change-item do">
+    <span class="dot"></span>
+    <div>
+      <p class="change-title">Throw spheres often</p>
+      <p>Capture rate is boosted — don't waste time chasing, just throw. Catching 12 of each species also banks big XP.</p>
+    </div>
+  </div>
+
+  <div class="change-item do">
+    <span class="dot"></span>
+    <div>
+      <p class="change-title">Group up for bosses</p>
+      <p>Field/Alpha bosses hit hard on purpose — no solo walk-up catches, gear up and bring friends.</p>
+    </div>
+  </div>
+
+  <div class="change-item dont">
+    <span class="dot"></span>
+    <div>
+      <p class="change-title">Overstaff bases</p>
+      <p>5x work speed means 1–2 Pals per station outproduces a crowded base.</p>
+    </div>
+  </div>
+
+  <div class="change-item dont">
+    <span class="dot"></span>
+    <div>
+      <p class="change-title">Hoard items or spam bases</p>
+      <p>Dropped items cap at 700 and bases cap at 50 — stay lean, place with purpose.</p>
+    </div>
+  </div>
+
+  <footer>
+    <span>Em-Pal Server · 16 slots</span>
+    <span>Questions → admin</span>
+  </footer>
+</section>
+
+<a class="back" href="/empal.html">← Back to Em-Pal</a>
+
+</body>
+</html>
